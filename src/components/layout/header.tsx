@@ -8,9 +8,10 @@ import { api } from '../../../convex/_generated/api'; // Adjust this path if nee
 
 interface HeaderProps {
   onMenuClick: () => void;
+  pageTitle: string; // The title is now passed as a prop
 }
 
-export default function Header({ onMenuClick }: HeaderProps) {
+export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   
   // Convex hooks for authentication and data fetching
@@ -37,7 +38,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     return name || email?.split('@')[0] || '';
   };
 
-  // --- Style definitions (unchanged) ---
+  // --- Style definitions ---
   const headerStyle: React.CSSProperties = {
     backgroundColor: 'white',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
@@ -54,6 +55,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
     alignItems: 'center',
     gap: '16px'
   };
+  // This style now correctly hides the button by default on larger screens.
+  // The media query will make it visible on smaller screens.
   const menuButtonStyle: React.CSSProperties = {
     padding: '8px',
     borderRadius: '4px',
@@ -61,11 +64,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     backgroundColor: 'transparent',
     color: '#666',
     cursor: 'pointer',
-    display: 'none'
-  };
-  const mobileMenuButtonStyle: React.CSSProperties = {
-    ...menuButtonStyle,
-    display: 'block'
+    display: 'none' // Hidden by default
   };
   const titleStyle: React.CSSProperties = {
     fontSize: '20px',
@@ -161,6 +160,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     textAlign: 'left',
     cursor: 'pointer'
   };
+  // This media query will show the button on screens 1024px or less
   const mediaQueries = `
     @media (max-width: 1024px) {
       .menu-button { display: block !important; }
@@ -255,7 +255,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <button
               className="menu-button"
               onClick={onMenuClick}
-              style={mobileMenuButtonStyle}
+              style={menuButtonStyle} // CHANGED: Using the base style now
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
@@ -263,7 +263,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <h1 style={titleStyle}>Dashboard</h1>
+            <h1 style={titleStyle}>{pageTitle}</h1>
           </div>
 
           {/* Right side */}

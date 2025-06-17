@@ -1,3 +1,5 @@
+
+
 // app/dashboard/page.tsx
 'use client';
 
@@ -16,6 +18,21 @@ export default function Dashboard() {
   
   // This hook is still needed for the main dashboard content and offline status
   const { user, isLoading, isOffline } = useAuth();
+
+  // Define a mapping from the active view ID to the page title
+  const getPageTitle = (viewId: string): string => {
+    const titleMap: { [key: string]: string } = {
+      'dashboard': 'Dashboard',
+      'feedback-delay': 'Service Delay',
+      'feedback-fault': 'Equipment Fault',
+      'feedback-experience': 'Poor Experience',
+      'feedback-other': 'Other',
+      'complaint': 'Complaint Logging',
+      'admin': 'Admin Panel',
+      'settings': 'Settings',
+    };
+    return titleMap[viewId] || 'Dashboard'; // Fallback to Dashboard
+  };
 
   const renderActiveView = () => {
     switch (activeView) {
@@ -73,7 +90,7 @@ export default function Dashboard() {
       />
       
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <Header onMenuClick={() => setSidebarOpen(true)} pageTitle={getPageTitle(activeView)} />
         
         {isOffline && (
           <div style={{ backgroundColor: '#fff3cd', borderBottom: '1px solid #ffecb5', padding: '8px 16px', fontSize: '14px', color: '#856404', textAlign: 'center' }}>
