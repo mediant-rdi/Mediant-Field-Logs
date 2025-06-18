@@ -13,8 +13,17 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     
-    //role: v.string(),
+    
+    isAdmin: v.optional(v.boolean()),
   })
     .index('by_email', ['email'])
-    .index('by_username', ['name'])
+    .index('by_username', ['name']),
+
+
+  machines: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+  })
+
+  .index("by_name", ["name"]),
 });

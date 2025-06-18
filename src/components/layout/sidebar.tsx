@@ -1,5 +1,3 @@
-
-
 // src/components/layout/sidebar.tsx
 'use client';
 
@@ -40,7 +38,18 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
       ]
     },
     { id: 'complaint', name: 'Complaint Logging', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> ) },
-    { id: 'admin', name: 'Admin Panel', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg> ) },
+    { 
+      id: 'admin', 
+      name: 'Admin Panel', 
+      icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg> ),
+      subItems: [
+        { id: 'admin-view-users', name: 'View Users' },
+        { id: 'admin-add-user', name: 'Add User' },
+        { id: 'admin-view-machines', name: 'View Machines' },
+        { id: 'admin-add-machine', name: 'Add Machine' },
+        { id: 'admin-add-report', name: 'Add Report' }
+      ]
+    },
     { id: 'settings', name: 'Settings', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> ) }
   ];
 
@@ -104,7 +113,7 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
                   {item.subItems && ( <span style={{...dropdownChevronStyle, transform: openDropdown === item.id ? 'rotate(180deg)' : 'rotate(0deg)'}}> <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg> </span> )}
                 </button>
                 {item.subItems && (
-                  <div style={{ ...subMenuContainerStyle, maxHeight: openDropdown === item.id ? `${item.subItems.length * 40}px` : '0px' }}>
+                  <div style={{ ...subMenuContainerStyle, maxHeight: openDropdown === item.id ? `${item.subItems.length * 50}px` : '0px' }}>
                     {item.subItems.map((subItem) => (
                       <button key={subItem.id} onClick={() => handleItemClick(subItem.id)} style={getSubMenuItemStyle(subItem.id)} onMouseEnter={(e) => { if (activeItem !== subItem.id) e.currentTarget.style.backgroundColor = '#f3f4f6'; }} onMouseLeave={(e) => { if (activeItem !== subItem.id) e.currentTarget.style.backgroundColor = 'transparent'; }} >
                         {subItem.name}
