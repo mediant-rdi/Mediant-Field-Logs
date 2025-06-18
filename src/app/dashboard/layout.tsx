@@ -1,140 +1,113 @@
-// app/dashboard/layout.tsx
 'use client';
 
-import { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation'; // <-- Import Next.js router
-import Header from '@/components/layout/header';
-import Sidebar from '@/components/layout/sidebar';
-import { useAuth } from '@/lib/auth'; // Keep for loading/offline state
+import { useState, useEffect, ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import Sidebar from '@/components/layout/sidebar'; 
+import Header from '@/components/layout/header';   
 
-export default function DashboardLayout({
-  children, // This prop will be your actual page content (e.g., user list, add form)
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeItem, setActiveItem] = useState('dashboard');
+  
+  // --- CHANGE 1: Add state for the page title ---
+  const [pageTitle, setPageTitle] = useState('Dashboard');
+
   const router = useRouter();
   const pathname = usePathname();
-  
-  // This hook is used here for the global loading and offline status
-  const { isLoading, isOffline } = useAuth();
 
-  // This function now uses the router to change pages
+  useEffect(() => {
+    // --- CHANGE 2: Set the page title inside the highlighting logic ---
+    if (pathname.startsWith('/dashboard/clients')) {
+        setActiveItem('clients-view');
+        setPageTitle('View Clients');
+    } else if (pathname.startsWith('/dashboard/products')) {
+        setActiveItem('products-view');
+        setPageTitle('View Products');
+    } else if (pathname.startsWith('/dashboard/reports/machine-dev')) {
+        setActiveItem('reports-machine-dev');
+        setPageTitle('Machine Development Reports');
+    } else if (pathname.startsWith('/dashboard/complaint/customer')) {
+      setActiveItem('complaint-customer');
+      setPageTitle('Customer Complaint');
+    } else if (pathname.startsWith('/dashboard/complaint/engineer')) {
+      setActiveItem('complaint-engineer');
+      setPageTitle('Engineer Complaint');
+    } else if (pathname === '/dashboard/feedback') { 
+        setActiveItem('feedback-form');
+        setPageTitle('Customer Feedback & Recommendation');
+    } else if (pathname.startsWith('/dashboard/users/add')) {
+        setActiveItem('admin-add-user');
+        setPageTitle('Add New User');
+    } else if (pathname.startsWith('/dashboard/users')) {
+        setActiveItem('admin-view-users');
+        setPageTitle('User Management');
+    } else if (pathname.startsWith('/dashboard/machines/add')) {
+        setActiveItem('admin-add-machine');
+        setPageTitle('Add New Machine');
+    } else if (pathname.startsWith('/dashboard/machines')) {
+        setActiveItem('admin-view-machines');
+        setPageTitle('Machine Management');
+    } else if (pathname === '/dashboard') {
+        setActiveItem('dashboard');
+        setPageTitle('Dashboard');
+    }
+  }, [pathname]);
+
   const handleItemClick = (itemId: string) => {
+    setActiveItem(itemId);
+    // Navigation logic remains the same
     switch (itemId) {
       case 'dashboard':
         router.push('/dashboard');
         break;
-      // --- Admin Panel Links ---
+      case 'clients-view':
+        router.push('/dashboard/clients');
+        break;
+      case 'products-view':
+        router.push('/dashboard/products');
+        break;
+      case 'reports-machine-dev':
+        router.push('/dashboard/reports/machine-dev');
+        break;
+      case 'feedback-form':
+        router.push('/dashboard/feedback');
+        break;
+      case 'complaint-customer':
+        router.push('/dashboard/complaint/customer');
+        break;
+      case 'complaint-engineer':
+        router.push('/dashboard/complaint/engineer');
+        break;
       case 'admin-view-users':
-        router.push('/dashboard/users'); // Navigates to the user list page
+        router.push('/dashboard/users');
         break;
       case 'admin-add-user':
-        router.push('/dashboard/users/add'); // Navigates to the add user page
+        router.push('/dashboard/users/add');
         break;
-      // --- NEW: Machine Links ---
       case 'admin-view-machines':
-        router.push('/dashboard/machines'); // Navigates to the machine list page
+        router.push('/dashboard/machines');
         break;
       case 'admin-add-machine':
-        router.push('/dashboard/machines/add'); // Navigates to the add machine page
+        router.push('/dashboard/machines/add');
         break;
-      // --- Other Links ---
-      case 'complaint':
-        // Assuming you will create a page at /dashboard/complaint
-        router.push('/dashboard/complaint'); 
-        break;
-      case 'feedback-delay':
-        // Assuming you will create a page at /dashboard/feedback/delay
-        router.push('/dashboard/feedback/delay');
-        break;
-      case 'feedback-fault':
-         // Assuming you will create a page at /dashboard/feedback/fault
-        router.push('/dashboard/feedback/fault');
-        break;
-      case 'feedback-experience':
-         // Assuming you will create a page at /dashboard/feedback/experience
-        router.push('/dashboard/feedback/experience');
-        break;
-      // Add other cases as you build out pages
       default:
-        console.log(`Route not defined for ID: ${itemId}`);
+        break;
     }
   };
 
-  // This function determines which sidebar item should be highlighted
-  // based on the current URL path.
-  const getActiveItem = (): string => {
-    // Order is important: check for more specific paths first
-    if (pathname === '/dashboard/users/add') return 'admin-add-user';
-    if (pathname.startsWith('/dashboard/users')) return 'admin-view-users';
-    
-    // --- NEW: Machine Highlighting ---
-    if (pathname === '/dashboard/machines/add') return 'admin-add-machine';
-    if (pathname.startsWith('/dashboard/machines')) return 'admin-view-machines';
-
-    if (pathname === '/dashboard/complaint') return 'complaint';
-    if (pathname === '/dashboard/feedback/delay') return 'feedback-delay';
-    if (pathname === '/dashboard/feedback/fault') return 'feedback-fault';
-    if (pathname === '/dashboard/feedback/experience') return 'feedback-experience';
-    if (pathname === '/dashboard') return 'dashboard';
-    return 'dashboard'; // Default to dashboard
-  };
-
-  // This function gets the title for the header based on the active item ID
-  const getPageTitle = (viewId: string): string => {
-    const titleMap: { [key: string]: string } = {
-      'dashboard': 'Dashboard',
-      'admin-view-users': 'User Management',
-      'admin-add-user': 'Add New User',
-      
-      // --- NEW: Machine Titles ---
-      'admin-view-machines': 'Machine Management',
-      'admin-add-machine': 'Add New Machine',
-
-      'feedback-delay': 'Service Delay',
-      'feedback-fault': 'Equipment Fault',
-      'feedback-experience': 'Poor Experience',
-      'feedback-other': 'Other',
-      'complaint': 'Complaint Logging',
-      'settings': 'Settings',
-    };
-    return titleMap[viewId] || 'Dashboard';
-  };
-
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'system-ui, sans-serif', flexDirection: 'column' }}>
-        <div>Loading Dashboard...</div>
-        {isOffline && ( <div style={{ marginTop: '10px', fontSize: '14px', color: '#666', textAlign: 'center' }}>📱 Offline mode</div> )}
-      </div>
-    );
-  }
-
-  const activeItem = getActiveItem();
-
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f5f5f5' }}>
-      <Sidebar 
-        isOpen={sidebarOpen} 
+    <div className="flex h-screen bg-gray-100">
+      <Sidebar
+        isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        onItemClick={handleItemClick} // <-- Use the new navigation handler
-        activeItem={activeItem}        // <-- Set active item based on URL
+        onItemClick={handleItemClick}
+        activeItem={activeItem}
       />
-      
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Header onMenuClick={() => setSidebarOpen(true)} pageTitle={getPageTitle(activeItem)} />
-        
-        {isOffline && (
-          <div style={{ backgroundColor: '#fff3cd', borderBottom: '1px solid #ffecb5', padding: '8px 16px', fontSize: '14px', color: '#856404', textAlign: 'center' }}>
-            📱 You are offline - Some features may be limited
-          </div>
-        )}
-        
-        <main style={{ flex: 1, overflowX: 'hidden', overflowY: 'auto', backgroundColor: '#f5f5f5', padding: '24px' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            {children} {/* <-- Your page content renders here */}
-          </div>
+      <div className="flex-1 flex flex-col">
+        {/* --- CHANGE 3: Pass the dynamic pageTitle state to the Header --- */}
+        <Header onMenuClick={() => setSidebarOpen(true)} pageTitle={pageTitle} />
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+          {children}
         </main>
       </div>
     </div>

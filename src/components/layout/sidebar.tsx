@@ -3,7 +3,6 @@
 
 import { useState } from "react";
 import Image from "next/image";
-// 1. Re-add the necessary Convex imports
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import logoImage from "../../images/logo.jpg"; 
@@ -13,31 +12,29 @@ interface SidebarProps {
   onClose: () => void;
   onItemClick: (itemId: string) => void;
   activeItem: string;
-  // 2. Remove user and isLoading from the props, as the sidebar will fetch its own
 }
 
 export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: SidebarProps) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
-  // 3. Re-add the data fetching hooks directly inside the sidebar
   const { isLoading, isAuthenticated } = useConvexAuth();
   const user = useQuery(api.users.current, isAuthenticated ? {} : "skip");
 
-  // The rest of the file is correct and doesn't need changes...
   const menuItems = [
     { id: 'dashboard', name: 'Dashboard', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" /></svg> ) },
+    { id: 'feedback-form', name: 'Customer Feedback & Recommendation', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" /></svg> ), },
     { 
-      id: 'feedback', 
-      name: 'Customer Feedback & Recommendation', 
-      icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" /></svg> ),
+      id: 'complaint', 
+      name: 'Complaint Logging', 
+      icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> ),
       subItems: [
-        { id: 'feedback-delay', name: 'Service Delay' },
-        { id: 'feedback-fault', name: 'Equipment Fault' },
-        { id: 'feedback-experience', name: 'Poor Experience' },
-        { id: 'feedback-other', name: 'Other' }
+        { id: 'complaint-customer', name: 'Customer Complaint' },
+        { id: 'complaint-engineer', name: 'Engineer Complaint' }
       ]
     },
-    { id: 'complaint', name: 'Complaint Logging', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> ) },
+    { id: 'clients-view', name: 'View Clients', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.125-1.273-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.125-1.273.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> ), },
+    { id: 'products-view', name: 'View Products', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg> ), },
+    { id: 'reports-machine-dev', name: 'Machine Development Reports', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> ), },
     { 
       id: 'admin', 
       name: 'Admin Panel', 
@@ -46,7 +43,7 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
         { id: 'admin-view-users', name: 'View Users' },
         { id: 'admin-add-user', name: 'Add User' },
         { id: 'admin-view-machines', name: 'View Machines' },
-        { id: 'admin-add-machine', name: 'Add Machine' },
+        { id: 'admin-add-machine', 'name': 'Add Machine' },
         { id: 'admin-add-report', name: 'Add Report' }
       ]
     },
@@ -66,22 +63,47 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
   const getDisplayName = (name?: string | null, email?: string | null) => name || email?.split('@')[0] || 'User';
 
   const renderUserProfile = () => {
-    // This function now uses the `isLoading` and `user` variables defined inside this component
     if (isLoading) { return ( <div style={userProfileStyle}> <div style={{ ...userAvatarStyle, backgroundColor: '#e5e5e5' }}> <div style={{ width: '20px', height: '20px', backgroundColor: '#ccc', borderRadius: '50%' }}></div> </div> <div style={userInfoStyle}> <div style={{ height: '14px', backgroundColor: '#e5e5e5', borderRadius: '4px', marginBottom: '4px' }}></div> <div style={{ height: '12px', backgroundColor: '#e5e5e5', borderRadius: '4px', width: '80%' }}></div> </div> </div> ); }
     if (!user) return null;
     return ( <div style={userProfileStyle}> <div style={userAvatarStyle}><span>{getUserInitials(user?.name, user?.email)}</span></div> <div style={userInfoStyle}> <p style={userNameStyle}>{getDisplayName(user?.name, user?.email)}</p> <p style={userEmailStyle}>{user?.email || 'No email provided'}</p> </div> </div> );
   };
   
   const overlayStyle: React.CSSProperties = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 40, display: isOpen ? 'block' : 'none' };
-  const sidebarStyle: React.CSSProperties = { position: 'fixed', top: 0, left: 0, bottom: 0, width: '256px', backgroundColor: 'white', boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)', transform: isOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.3s ease-in-out', zIndex: 50 };
+
+  // --- CHANGE 1: Turn the sidebar into a flex container ---
+  const sidebarStyle: React.CSSProperties = { 
+    position: 'fixed', top: 0, left: 0, bottom: 0, 
+    width: '256px', backgroundColor: 'white', 
+    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)', 
+    transform: isOpen ? 'translateX(0)' : 'translateX(-100%)', 
+    transition: 'transform 0.3s ease-in-out', zIndex: 50,
+    display: 'flex',          // Added
+    flexDirection: 'column',  // Added
+  };
+  
   const headerStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', padding: '0 24px', borderBottom: '1px solid #e5e5e5' };
   const logoStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '8px' };
   const closeButtonStyle: React.CSSProperties = { padding: '8px', border: 'none', backgroundColor: 'transparent', borderRadius: '4px', cursor: 'pointer', color: '#666', display: 'block' };
-  const navStyle: React.CSSProperties = { marginTop: '24px', padding: '0 12px' };
+  
+  // --- CHANGE 2: Make the nav area grow and scrollable ---
+  const navStyle: React.CSSProperties = { 
+    marginTop: '24px', 
+    padding: '0 12px',
+    flex: 1,                  // Added: allows this element to grow
+    overflowY: 'auto'         // Added: adds a scrollbar ONLY when needed
+  };
+
   const menuItemStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', width: '100%', padding: '12px', marginBottom: '4px', fontSize: '14px', fontWeight: '500', border: 'none', backgroundColor: 'transparent', borderRadius: '6px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s ease' };
   const getMenuItemStyle = (itemId: string): React.CSSProperties => ({...menuItemStyle, backgroundColor: activeItem.startsWith(itemId) ? '#eff6ff' : 'transparent', color: activeItem.startsWith(itemId) ? '#1d4ed8' : '#666' });
   const menuIconStyle: React.CSSProperties = { marginRight: '12px', flexShrink: 0 };
-  const bottomSectionStyle: React.CSSProperties = { position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px', borderTop: '1px solid #e5e5e5' };
+  
+  // --- CHANGE 3: Remove absolute positioning from the bottom section ---
+  const bottomSectionStyle: React.CSSProperties = { 
+    padding: '16px', 
+    borderTop: '1px solid #e5e5e5' 
+    // Removed position: 'absolute' and related properties
+  };
+
   const userProfileStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px' };
   const userAvatarStyle: React.CSSProperties = { width: '40px', height: '40px', backgroundColor: '#3b82f6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '14px', fontWeight: '500' };
   const userInfoStyle: React.CSSProperties = { flex: 1, minWidth: 0 };
