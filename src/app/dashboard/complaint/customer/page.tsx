@@ -5,11 +5,11 @@ import { useState, useRef } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import Image from 'next/image';
 
-// 1. Define a more complex state type to hold all possible fields
+// 1. Update the type to allow an empty string for the placeholder
 type FormData = {
   modelType: string;
   branchLocation: string;
-  problemType: 'equipment-fault' | 'poor-experience' | 'other';
+  problemType: '' | 'equipment-fault' | 'poor-experience' | 'other';
   
   // Checkboxes for 'equipment-fault'
   fault_oldAge: boolean;
@@ -34,11 +34,11 @@ type FormData = {
 export default function ComplaintForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 2. Initialize the comprehensive state object
+  // 2. Update the initial state to use an empty string for problemType
   const [formData, setFormData] = useState<FormData>({
     modelType: '',
     branchLocation: '',
-    problemType: 'equipment-fault', // Default selection
+    problemType: '', // Default to the placeholder
     fault_oldAge: false,
     fault_frequentBreakdowns: false,
     fault_undoneRepairs: false,
@@ -55,7 +55,7 @@ export default function ComplaintForm() {
   const [file, setFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  // 3. A universal handler that works for text inputs, textareas, selects, and checkboxes
+  // Universal handler remains the same and works perfectly
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     
@@ -86,7 +86,6 @@ export default function ComplaintForm() {
     e.preventDefault();
     const submissionData = new FormData();
     
-    // Append all data to the FormData object for submission
     Object.entries(formData).forEach(([key, value]) => {
       submissionData.append(key, String(value));
     });
@@ -123,14 +122,16 @@ export default function ComplaintForm() {
         {/* --- DYNAMIC SECTION START --- */}
         <div className="form-group">
           <label htmlFor="problemType">Problem Type</label>
+          {/* 3. Add a disabled placeholder option */}
           <select id="problemType" name="problemType" value={formData.problemType} onChange={handleChange} required>
+            <option value="" disabled>Choose complaint type...</option>
             <option value="equipment-fault">Equipment Fault</option>
             <option value="poor-experience">Poor Experience</option>
             <option value="other">Other</option>
           </select>
         </div>
 
-        {/* 4. Conditionally render the correct follow-up questions based on problemType */}
+        {/* 4. This conditional rendering logic now correctly handles the placeholder state */}
         {formData.problemType === 'equipment-fault' && (
           <div className="conditional-group">
             <label>Fault Details (select all that apply)</label>
@@ -191,6 +192,7 @@ export default function ComplaintForm() {
         <button type="submit" className="submit-button">Submit Report</button>
       </form>
 
+      {/* 5. The existing styles will work perfectly with these changes */}
       <style jsx>{`
         .form-container { max-width: 800px; margin: 0 auto; padding: 24px; background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
@@ -201,13 +203,12 @@ export default function ComplaintForm() {
         input[type="text"], textarea, select { padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 16px; width: 100%; box-sizing: border-box; }
         input[type="text"]:focus, textarea:focus, select:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2); }
         
-        /* 5. Styling for the new dynamic sections */
         .conditional-group {
           background-color: #f7fafc;
           border: 1px solid #e2e8f0;
           border-radius: 6px;
           padding: 16px;
-          margin-top: -10px; /* Pulls it closer to the dropdown above */
+          margin-top: -10px;
         }
         .conditional-group > label { font-weight: 500; margin-bottom: 12px; display: block; }
         

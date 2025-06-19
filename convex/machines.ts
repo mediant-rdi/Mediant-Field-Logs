@@ -31,6 +31,28 @@ export const getAll = query({
   },
 });
 
+// --- NEW: Search for machines by name for autocomplete ---
+export const searchByName = query({
+  args: {
+    searchText: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // If the search text is empty, don't return any results.
+    if (!args.searchText) {
+      return [];
+    }
+    // Use the search index to find matching machine names.
+    // .take(10) limits the results to a reasonable number for a dropdown.
+    return await ctx.db
+      .query("machines")
+      .withSearchIndex("by_name_search", (q) =>
+        q.search("name", args.searchText)
+      )
+      .take(10);
+  },
+});
+
+
 // --- UPDATE a machine ---
 export const update = mutation({
   args: {

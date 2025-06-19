@@ -1,3 +1,4 @@
+// src/app/dashboard/layout.tsx
 'use client';
 
 import { useState, useEffect, ReactNode } from 'react';
@@ -9,15 +10,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeItem, setActiveItem] = useState('dashboard');
   
-  // --- CHANGE 1: Add state for the page title ---
+  // RESTORED: State for the dynamic page title
   const [pageTitle, setPageTitle] = useState('Dashboard');
 
   const router = useRouter();
   const pathname = usePathname();
 
+  // RESTORED: The complete useEffect hook for highlighting items and setting titles
   useEffect(() => {
-    // --- CHANGE 2: Set the page title inside the highlighting logic ---
-    if (pathname.startsWith('/dashboard/clients')) {
+    // Logic to set the active item and page title based on the current URL
+    if (pathname.startsWith('/dashboard/clients/add')) {
+        setActiveItem('admin-add-client');
+        setPageTitle('Add Client / Location');
+    } else if (pathname.startsWith('/dashboard/clients')) {
         setActiveItem('clients-view');
         setPageTitle('View Clients');
     } else if (pathname.startsWith('/dashboard/products')) {
@@ -53,9 +58,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     }
   }, [pathname]);
 
+  // RESTORED: The complete click handler with all navigation cases
   const handleItemClick = (itemId: string) => {
     setActiveItem(itemId);
-    // Navigation logic remains the same
     switch (itemId) {
       case 'dashboard':
         router.push('/dashboard');
@@ -84,6 +89,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       case 'admin-add-user':
         router.push('/dashboard/users/add');
         break;
+      // --- ADDED: The navigation case for the new item ---
+      case 'admin-add-client':
+        router.push('/dashboard/clients/add');
+        break;
+      // ----------------------------------------------------
       case 'admin-view-machines':
         router.push('/dashboard/machines');
         break;
@@ -91,6 +101,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         router.push('/dashboard/machines/add');
         break;
       default:
+        // Optional: log if a route is not defined
+        console.warn(`Navigation for "${itemId}" is not defined.`);
         break;
     }
   };
@@ -104,7 +116,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         activeItem={activeItem}
       />
       <div className="flex-1 flex flex-col">
-        {/* --- CHANGE 3: Pass the dynamic pageTitle state to the Header --- */}
+        {/* UPDATED: Pass the dynamic pageTitle state to the Header */}
         <Header onMenuClick={() => setSidebarOpen(true)} pageTitle={pageTitle} />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           {children}

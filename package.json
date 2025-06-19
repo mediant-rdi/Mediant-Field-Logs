@@ -16,10 +16,12 @@
     "bcryptjs": "^3.0.2",
     "convex": "^1.24.8",
     "jsonwebtoken": "^9.0.2",
+    "nanoid": "^5.1.5",
     "next": "15.3.3",
     "next-pwa": "^5.6.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "resend": "^4.6.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
