@@ -1,29 +1,55 @@
 // app/dashboard/page.tsx
 'use client';
 
-import { useAuth } from '@/lib/auth'; 
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import { DashboardForm } from '@/components/forms/DashboardForm';
+
+// A simple loading skeleton component, styled to match your clients page.
+const TableSkeleton = () => (
+  <div style={{ opacity: 0.6 }}>
+    {[...Array(5)].map((_, i) => (
+      <div key={i} style={{ height: '3.5rem', backgroundColor: '#f0f0f0', borderRadius: '4px', marginBottom: '0.5rem' }}></div>
+    ))}
+  </div>
+);
 
 export default function DashboardPage() {
-  // This hook is now just for getting the user info for this specific page
-  const { user, isOffline } = useAuth();
+  // This single query fetches an object containing both the submissions and the user's admin status.
+  const dashboardData = useQuery(api.dashboard.getDashboardSubmissions);
+
+  // We safely extract the data from the query's result.
+  // The `??` provides a default value (empty array or false) while the data is loading (i.e., when `dashboardData` is undefined).
+  const submissions = dashboardData?.submissions ?? [];
+  const isAdmin = dashboardData?.isAdmin ?? false;
 
   return (
-    <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', padding: '32px', textAlign: 'center' }}>
-      <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#333', marginBottom: '16px' }}>
-        Welcome to your Dashboard{user ? `, ${user.email}` : ''}
-      </h1>
-      <p style={{ color: '#666', marginBottom: '16px' }}>
-        This is your main dashboard area. Select an item from the sidebar to begin.
-      </p>
-      {user && (
-        <div style={{ backgroundColor: '#f8f9fa', padding: '16px', borderRadius: '4px', marginTop: '20px', textAlign: 'left' }}>
-          <h3 style={{ fontSize: '16px', marginBottom: '8px', color: '#333' }}>User Information</h3>
-          <p style={{ margin: '4px 0', fontSize: '14px', color: '#666' }}><strong>Email:</strong> {user.email}</p>
-          <p style={{ margin: '4px 0', fontSize: '14px', color: '#666' }}><strong>Role:</strong> {user.role}</p>
-          <p style={{ margin: '4px 0', fontSize: '14px', color: '#666' }}><strong>User ID:</strong> {user.userid}</p>
-          <p style={{ margin: '4px 0', fontSize: '14px', color: '#666' }}><strong>Connection:</strong> {isOffline ? '🔴 Offline' : '🟢 Online'}</p>
+    <div className="space-y-8">
+      {/* Main container with white background and padding */}
+      <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)' }}>
+        
+        {/* Header section with title */}
+        <div style={{ marginBottom: '24px', borderBottom: '1px solid #e5e7eb', paddingBottom: '16px' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: '600', color: '#111827' }}>Dashboard</h1>
+          <p style={{ marginTop: '8px', color: '#6b7280', fontSize: '14px' }}>
+            {isAdmin ? "Viewing all submissions as an administrator." : "Viewing your submitted reports."}
+          </p>
         </div>
-      )}
+
+        {/* Submissions Table Section */}
+        <div>
+          <h2 style={{ fontSize: '18px', fontWeight: '500', color: '#374151', marginBottom: '16px' }}>
+            Service Delay Reports
+          </h2>
+          
+          {/* Conditional Rendering: Show a skeleton while `dashboardData` is undefined (loading) */}
+          {dashboardData === undefined ? (
+            <TableSkeleton />
+          ) : (
+            <DashboardForm submissions={submissions} isAdmin={isAdmin} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
