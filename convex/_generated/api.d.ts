@@ -20,6 +20,7 @@ import type * as dashboard from "../dashboard.js";
 import type * as feedback from "../feedback.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
+import type * as invitations from "../invitations.js";
 import type * as machines from "../machines.js";
 import type * as serviceReports from "../serviceReports.js";
 import type * as users from "../users.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   feedback: typeof feedback;
   files: typeof files;
   http: typeof http;
+  invitations: typeof invitations;
   machines: typeof machines;
   serviceReports: typeof serviceReports;
   users: typeof users;
