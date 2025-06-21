@@ -31,7 +31,7 @@ export const getAll = query({
   },
 });
 
-// --- NEW: Search for machines by name for autocomplete ---
+// --- Search for machines by name for autocomplete ---
 export const searchByName = query({
   args: {
     searchText: v.string(),

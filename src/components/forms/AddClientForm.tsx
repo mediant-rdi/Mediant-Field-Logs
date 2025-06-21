@@ -2,53 +2,58 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api"; // Adjust the path if needed
 
 export type AgreementType = 'LEASE' | 'COMPREHENSIVE' | 'CONTRACT';
 
-export interface Client {
-  _id: string;
-  name: string;
-  agreementType: AgreementType;
-}
-
+// Props updated: onClientCreate is now onComplete for better reusability
 interface AddClientFormProps {
-  onClientCreate: (newClient: Client) => void;
+  onComplete: () => void;
 }
 
-export default function AddClientForm({ onClientCreate }: AddClientFormProps) {
+export default function AddClientForm({ onComplete }: AddClientFormProps) {
   const [name, setName] = useState("");
   const [agreementType, setAgreementType] = useState<AgreementType | "">("");
   
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Get the mutation function from Convex
+  const createClient = useMutation(api.clients.createClient);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    // Basic validation
+    if (!name || !agreementType) {
+        setError("Both name and agreement type are required.");
+        return;
+    }
     setIsSubmitting(true);
     setError("");
 
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     try {
-      const newClient: Client = {
-        _id: `temp_${Date.now()}`,
+      // Call the Convex mutation with the form data
+      await createClient({
         name,
         agreementType: agreementType as AgreementType,
-      };
-      onClientCreate(newClient);
+      });
+
+      // On success, reset the form and call the onComplete callback
       setName("");
       setAgreementType("");
+      onComplete();
+
     } catch (err: any) {
-      setError("Failed to create client. Please try again.");
+      // Display a user-friendly error message
+      setError("Failed to create client. Please try again. " + (err.data || err.message));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    // Increased spacing for better layout
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Enhanced error message styling */}
       {error && (
         <div className="p-3 bg-red-100 border border-red-300 text-red-800 rounded-md">
           {error}
@@ -56,16 +61,14 @@ export default function AddClientForm({ onClientCreate }: AddClientFormProps) {
       )}
       
       <div>
-        {/* Added margin-bottom to label */}
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-          Client / Bank Name *
+          Client Name *
         </label>
         <input 
           id="name" 
           value={name} 
           onChange={(e) => setName(e.target.value)} 
           required 
-          // Standardized input styles
           className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
         />
       </div>
@@ -79,10 +82,8 @@ export default function AddClientForm({ onClientCreate }: AddClientFormProps) {
           value={agreementType}
           onChange={(e) => setAgreementType(e.target.value as AgreementType)}
           required
-          // Standardized select styles
           className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
         >
-          {/* Styled placeholder option */}
           <option value="" disabled className="text-gray-500">SELECT AGREEMENT TYPE</option>
           <option value="LEASE">LEASE</option>
           <option value="COMPREHENSIVE">COMPREHENSIVE</option>
@@ -93,7 +94,6 @@ export default function AddClientForm({ onClientCreate }: AddClientFormProps) {
       <button 
         type="submit" 
         disabled={isSubmitting} 
-        // Standardized button styles with transitions
         className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors duration-150"
       >
         {isSubmitting ? "Creating..." : "Create Client"}

@@ -33,7 +33,10 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
       ]
     },
     { id: 'clients-view', name: 'View Clients', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.125-1.273-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.125-1.273.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> ), },
-    { id: 'products-view', name: 'View Products', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg> ), },
+    
+    // --- CHANGE 1: The 'id' is now 'machines' to match the intended content. ---
+    { id: 'machines', name: 'View Products', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg> ), },
+
     { id: 'reports-machine-dev', name: 'Machine Development Reports', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> ), },
     { 
       id: 'admin', 
@@ -42,10 +45,11 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
       subItems: [
         { id: 'admin-view-users', name: 'View Users' },
         { id: 'admin-add-user', name: 'Add User' },
-        // --- ADDED: The new menu item ---
         { id: 'admin-add-client', name: 'Add Client / Location' },
-        // ----------------------------------
-        { id: 'admin-view-machines', name: 'View Machines' },
+        
+        // --- CHANGE 2: The redundant 'View Machines' link is now removed. ---
+        // { id: 'admin-view-machines', name: 'View Machines' },
+
         { id: 'admin-add-machine', 'name': 'Add Machine' },
         { id: 'admin-add-report', name: 'Add Report' }
       ]
@@ -54,7 +58,6 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
   ];
 
   // The rest of the component is identical to your reference and remains unchanged...
-  // ... (handleItemClick, handleDropdownToggle, styles, JSX, etc.)
   const handleItemClick = (itemId: string) => { onItemClick(itemId); onClose(); };
   const handleDropdownToggle = (itemId: string) => { setOpenDropdown(prev => (prev === itemId ? null : itemId)); };
   const getUserInitials = (name?: string | null, email?: string | null) => { if (name) return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2); if (email) return email.slice(0, 2).toUpperCase(); return 'U'; };

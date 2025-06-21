@@ -1,3 +1,4 @@
+// convex/schema.ts
 import { authTables } from '@convex-dev/auth/server';
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
@@ -7,6 +8,13 @@ const approvalStatus = v.union(
   v.literal('pending'),
   v.literal('approved'),
   v.literal('rejected')
+);
+
+// --- ADDED: Reusable type for Client Agreement as per AddClientForm.tsx ---
+const agreementType = v.union(
+  v.literal('LEASE'),
+  v.literal('COMPREHENSIVE'),
+  v.literal('CONTRACT')
 );
 
 export default defineSchema({
@@ -25,30 +33,21 @@ export default defineSchema({
     .index('by_email', ['email'])
     .index('by_username', ['name']),
 
-  // --- UPDATED: machines table with a search index ---
   machines: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
   })
   .index('by_name', ['name'])
-  // Add this search index for the autocomplete feature
   .searchIndex('by_name_search', {
     searchField: 'name',
   }),
 
-  // --- UPDATED: Table for the Service Delay & Complaint Form ---
   serviceReports: defineTable({
-    // --- ADDED ---
-    // The ID of the user who submitted the report. This is now mandatory.
     submittedBy: v.id("users"), 
-    
-    // Common fields
     modelTypes: v.string(),
     branchLocation: v.string(),
     complaintText: v.string(),
     solution: v.string(),
-    
-    // Dropdown selection
     problemType: v.union(
       v.literal('electrical'),
       v.literal('mechanical'),
@@ -56,68 +55,45 @@ export default defineSchema({
       v.literal('service-delay'),
       v.literal('other')
     ),
-    
-    // Checkboxes for 'service-delay'
     backofficeAccess: v.boolean(),
     spareDelay: v.boolean(),
     delayedReporting: v.boolean(),
     communicationBarrier: v.boolean(),
-
-    // Textbox for 'other'
     otherText: v.optional(v.string()),
-
-    // Optional image
     imageId: v.optional(v.id('_storage')),
-
-    // Approval Workflow Fields
     status: approvalStatus,
-    approvedBy: v.optional(v.id("users")), // ID of the admin who approved/rejected
+    approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
   })
   .index("by_status", ["status"])
-  .index("by_submittedBy", ["submittedBy"]), // Index to find reports by user
+  .index("by_submittedBy", ["submittedBy"]),
 
-  // --- UPDATED: Table for the Complaint Logging Form ---
   complaints: defineTable({
-    // Common fields
     modelType: v.string(),
     branchLocation: v.string(),
     complaintText: v.string(),
     solution: v.string(),
-
-    // Dropdown selection
     problemType: v.union(
       v.literal('equipment-fault'),
       v.literal('poor-experience'),
       v.literal('other')
     ),
-
-    // Checkboxes for 'equipment-fault'
     fault_oldAge: v.boolean(),
     fault_frequentBreakdowns: v.boolean(),
     fault_undoneRepairs: v.boolean(),
-    
-    // Checkboxes for 'poor-experience'
     experience_paperJamming: v.boolean(),
     experience_noise: v.boolean(),
     experience_freezing: v.boolean(),
     experience_dust: v.boolean(),
     experience_buttonsSticking: v.boolean(),
-
-    // Textbox for 'other'
     otherProblemDetails: v.optional(v.string()),
-
-    // Optional image
     imageId: v.optional(v.id('_storage')),
-
-    // Approval Workflow Fields
     status: approvalStatus,
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
   })
   .index("by_status", ["status"]),
   
-  // --- UNCHANGED: Table for the Customer Feedback Form ---
   feedback: defineTable({
     branchLocation: v.string(),
     modelType: v.string(),
@@ -125,4 +101,30 @@ export default defineSchema({
     imageId: v.optional(v.id('_storage')),
   })
   .index("by_branch_and_model", ["branchLocation", "modelType"]),
+
+  // --- ADDED: Client & Location Autocomplete System ---
+
+  clients: defineTable({
+    name: v.string(),
+    // Normalized name for fast, case-insensitive, punctuation-insensitive searching.
+    searchName: v.string(),
+    agreementType: agreementType,
+  })
+  // Index for prefix matching on the searchName (e.g., searching "chase" finds "chase bank").
+  .index("by_search_name", ["searchName"]),
+
+  clientLocations: defineTable({
+    clientId: v.id("clients"),
+    name: v.string(), // The name of the location itself, e.g., "Downtown Branch"
+    // Normalized location name for searching within a specific client.
+    searchName: v.string(),
+    // Combined name for display, e.g., "Chase Bank - Downtown Branch"
+    fullName: v.string(),
+    // Normalized full name for global location search.
+    searchFullName: v.string(),
+  })
+  // Index for finding all locations for a specific client.
+  .index("by_client_and_search", ["clientId", "searchName"])
+  // Index for searching all locations across all clients by their full name.
+  .index("by_full_search_name", ["searchFullName"]),
 });

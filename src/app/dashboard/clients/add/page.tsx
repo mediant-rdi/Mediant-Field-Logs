@@ -2,31 +2,32 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link'; // Added for the "Back" link
-import AddClientForm, { Client } from '@/components/forms/AddClientForm';
+import Link from 'next/link';
+// The 'Client' interface is no longer needed here as state is managed by Convex
+import AddClientForm from '@/components/forms/AddClientForm'; 
 import AddClientLocationForm from '@/components/forms/AddClientLocationForm';
 
 export default function AddClientPage() {
   const [activeTab, setActiveTab] = useState('client');
   const [successMessage, setSuccessMessage] = useState('');
-  const [clients, setClients] = useState<Client[]>([]);
+  
+  // The local `clients` state is no longer needed. 
+  // AddClientLocationForm fetches its own data reactively.
 
-  const handleClientCreate = (newClient: Client) => {
-    setClients(prevClients => [...prevClients, newClient]);
-    setSuccessMessage('Client created successfully!');
-    setActiveTab('location');
-    setTimeout(() => setSuccessMessage(''), 4000);
-  };
+  // A single, simplified handler for when either form succeeds.
+  const handleSuccess = (message: string) => {
+    setSuccessMessage(message);
 
-  const handleLocationCreate = () => {
-    setSuccessMessage('Location created successfully!');
+    // If a client was just created, automatically switch to the location tab
+    if (message.includes('Client')) {
+        setActiveTab('location');
+    }
+
     setTimeout(() => setSuccessMessage(''), 4000);
   };
 
   return (
-    // 1. Main page container for consistent padding and centering
     <div className="p-8 max-w-lg mx-auto">
-      {/* 2. Standardized page header */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Add Client / Location</h1>
         <Link href="/dashboard/clients" className="text-blue-500 hover:underline">
@@ -34,7 +35,6 @@ export default function AddClientPage() {
         </Link>
       </div>
 
-      {/* 3. Content card for a clean, contained look */}
       <div className="p-6 border rounded-lg bg-white shadow-md">
         <p className="mb-6 text-gray-600">
           First add a client, then add their specific locations or sites.
@@ -71,13 +71,18 @@ export default function AddClientPage() {
           </div>
         )}
 
-        {/* Render the active form component (removed redundant margin) */}
+        {/* Render the active form component with corrected props */}
         <div>
           {activeTab === 'client' && (
-            <AddClientForm onClientCreate={handleClientCreate} />
+            <AddClientForm 
+              onComplete={() => handleSuccess('Client created successfully!')} 
+            />
           )}
           {activeTab === 'location' && (
-            <AddClientLocationForm clients={clients} onComplete={handleLocationCreate} />
+            // No longer needs the `clients` prop
+            <AddClientLocationForm 
+              onComplete={() => handleSuccess('Location created successfully!')} 
+            />
           )}
         </div>
       </div>

@@ -3,7 +3,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-// --- CHANGE 1: Import useMutation ---
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
@@ -29,29 +28,22 @@ const Modal = ({ children, onClose }: { children: React.ReactNode; onClose: () =
 
 export default function MachinesPage() {
   const machines = useQuery(api.machines.getAll);
-  
-  // --- CHANGE 2: Instantiate the remove mutation from Convex ---
   const removeMachine = useMutation(api.machines.remove);
 
   const [editingMachine, setEditingMachine] = useState<Doc<"machines"> | null>(null);
-  
-  // --- CHANGE 3: Add state to track which machine is being deleted ---
   const [deletingId, setDeletingId] = useState<Id<"machines"> | null>(null);
 
-  // --- CHANGE 4: Create a handler function for the delete action ---
   const handleDelete = async (machineId: Id<"machines">) => {
-    // Always confirm a destructive action!
     const confirmed = window.confirm("Are you sure you want to delete this machine? This action cannot be undone.");
     if (confirmed) {
-      setDeletingId(machineId); // Set loading state for this specific row
+      setDeletingId(machineId);
       try {
         await removeMachine({ id: machineId });
-        // The UI will automatically update because useQuery is reactive.
       } catch (error) {
         console.error("Failed to delete machine:", error);
         alert("An error occurred while deleting the machine.");
       } finally {
-        setDeletingId(null); // Reset loading state
+        setDeletingId(null);
       }
     }
   };
@@ -68,7 +60,7 @@ export default function MachinesPage() {
   return (
     <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: '600' }}>Machine Management</h1>
+        <h1 style={{ fontSize: '22px', fontWeight: '600' }}>Product Management</h1>
         <Link href="/dashboard/machines/add" style={{ backgroundColor: '#2563eb', color: 'white', padding: '8px 16px', borderRadius: '6px', textDecoration: 'none', fontSize: '14px' }}>
           + Add Machine
         </Link>
@@ -96,11 +88,10 @@ export default function MachinesPage() {
                 >
                   Edit
                 </button>
-                {/* --- CHANGE 5: Add the Delete button and its logic --- */}
                 <button
                   style={{ fontSize: '14px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', opacity: deletingId === machine._id ? 0.5 : 1 }}
                   onClick={() => handleDelete(machine._id)}
-                  disabled={deletingId === machine._id} // Disable while this specific machine is being deleted
+                  disabled={deletingId === machine._id}
                 >
                   {deletingId === machine._id ? "Deleting..." : "Delete"}
                 </button>
@@ -109,6 +100,7 @@ export default function MachinesPage() {
           ))}
         </tbody>
       </table>
+      
       {machines.length === 0 && <p style={{ textAlign: 'center', padding: '20px' }}>No machines found. Click "Add Machine" to get started.</p>}
 
       {editingMachine && (

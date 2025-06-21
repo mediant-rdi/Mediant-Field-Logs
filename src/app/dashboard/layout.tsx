@@ -9,25 +9,18 @@ import Header from '@/components/layout/header';
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeItem, setActiveItem] = useState('dashboard');
-  
-  // RESTORED: State for the dynamic page title
   const [pageTitle, setPageTitle] = useState('Dashboard');
-
   const router = useRouter();
   const pathname = usePathname();
 
-  // RESTORED: The complete useEffect hook for highlighting items and setting titles
   useEffect(() => {
-    // Logic to set the active item and page title based on the current URL
+    // This hook syncs the active sidebar item and page title with the current URL
     if (pathname.startsWith('/dashboard/clients/add')) {
         setActiveItem('admin-add-client');
         setPageTitle('Add Client / Location');
     } else if (pathname.startsWith('/dashboard/clients')) {
         setActiveItem('clients-view');
         setPageTitle('View Clients');
-    } else if (pathname.startsWith('/dashboard/products')) {
-        setActiveItem('products-view');
-        setPageTitle('View Products');
     } else if (pathname.startsWith('/dashboard/reports/machine-dev')) {
         setActiveItem('reports-machine-dev');
         setPageTitle('Machine Development Reports');
@@ -49,16 +42,26 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     } else if (pathname.startsWith('/dashboard/machines/add')) {
         setActiveItem('admin-add-machine');
         setPageTitle('Add New Machine');
+    
+    // --- CHANGE 1: This block now correctly handles the machine list page. ---
+    // It sets the active item to 'machines' (our new ID for the "View Products" link).
     } else if (pathname.startsWith('/dashboard/machines')) {
-        setActiveItem('admin-view-machines');
-        setPageTitle('Machine Management');
+        setActiveItem('machines');
+        setPageTitle('Product Management'); // Changed title to be more general
+
+    // --- CHANGE 2: The old '/dashboard/products' route logic is removed. ---
+    /*
+    } else if (pathname.startsWith('/dashboard/products')) {
+        setActiveItem('products-view');
+        setPageTitle('View Products');
+    */
+
     } else if (pathname === '/dashboard') {
         setActiveItem('dashboard');
         setPageTitle('Dashboard');
     }
   }, [pathname]);
 
-  // RESTORED: The complete click handler with all navigation cases
   const handleItemClick = (itemId: string) => {
     setActiveItem(itemId);
     switch (itemId) {
@@ -68,9 +71,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       case 'clients-view':
         router.push('/dashboard/clients');
         break;
-      case 'products-view':
-        router.push('/dashboard/products');
+
+      // --- CHANGE 3: The new routing case for 'machines' is added. ---
+      case 'machines':
+        router.push('/dashboard/machines');
         break;
+
       case 'reports-machine-dev':
         router.push('/dashboard/reports/machine-dev');
         break;
@@ -89,19 +95,24 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       case 'admin-add-user':
         router.push('/dashboard/users/add');
         break;
-      // --- ADDED: The navigation case for the new item ---
       case 'admin-add-client':
         router.push('/dashboard/clients/add');
-        break;
-      // ----------------------------------------------------
-      case 'admin-view-machines':
-        router.push('/dashboard/machines');
         break;
       case 'admin-add-machine':
         router.push('/dashboard/machines/add');
         break;
+
+      // --- CHANGE 4: The obsolete routing cases are removed. ---
+      /*
+      case 'products-view':
+        router.push('/dashboard/products');
+        break;
+      case 'admin-view-machines':
+        router.push('/dashboard/machines');
+        break;
+      */
+
       default:
-        // Optional: log if a route is not defined
         console.warn(`Navigation for "${itemId}" is not defined.`);
         break;
     }
@@ -116,7 +127,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         activeItem={activeItem}
       />
       <div className="flex-1 flex flex-col">
-        {/* UPDATED: Pass the dynamic pageTitle state to the Header */}
         <Header onMenuClick={() => setSidebarOpen(true)} pageTitle={pageTitle} />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           {children}

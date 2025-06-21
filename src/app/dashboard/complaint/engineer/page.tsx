@@ -1,13 +1,13 @@
+// app/dashboard/forms/service-delay/page.tsx
 'use client';
 
 import { useState, useRef } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import Image from 'next/image';
 import { useMutation, useQuery } from 'convex/react';
-import { api } from '../../../../../convex/_generated/api'; // Adjust path if needed
+import { api } from '../../../../../convex/_generated/api';
 import { Id, Doc } from '../../../../../convex/_generated/dataModel';
 
-// The form data type no longer includes engineerName or serviceDate
 type CombinedFormData = {
   modelTypes: string;
   branchLocation: string;
@@ -22,7 +22,6 @@ type CombinedFormData = {
 };
 
 const initialState: CombinedFormData = {
-  // engineerName and serviceDate are removed from the initial state
   modelTypes: '',
   branchLocation: '',
   problemType: '',
@@ -37,7 +36,8 @@ const initialState: CombinedFormData = {
 
 export default function ServiceDelayForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const modelTypesContainerRef = useRef<HTMLDivElement>(null); // Ref for the container
+  const modelTypesContainerRef = useRef<HTMLDivElement>(null);
+  const branchLocationContainerRef = useRef<HTMLDivElement>(null);
 
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const submitServiceReport = useMutation(api.serviceReports.submitServiceReport);
@@ -46,21 +46,31 @@ export default function ServiceDelayForm() {
   const [file, setFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  
+  const [showModelSuggestions, setShowModelSuggestions] = useState(false);
+  const [showBranchSuggestions, setShowBranchSuggestions] = useState(false);
 
-  // --- NEW: Use Convex's useQuery to get machine suggestions ---
+  // Query for machine suggestions (unchanged)
   const machineSuggestions = useQuery(
     api.machines.searchByName,
-    // The query will re-run whenever `formData.modelTypes` changes
     { searchText: formData.modelTypes }
-  ) ?? []; // Default to an empty array if the query is loading
+  ) ?? [];
+
+  // UPDATED: Query now calls the new `searchLocations` function
+  const branchSuggestions = useQuery(
+    api.clients.searchLocations,
+    { searchText: formData.branchLocation }
+  ) ?? [];
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
 
     if (name === 'modelTypes') {
-      setShowSuggestions(true); // Show suggestions when user types in the modelTypes field
+      setShowModelSuggestions(true);
+    }
+    if (name === 'branchLocation') {
+        setShowBranchSuggestions(true);
     }
 
     setFormData((prevData) => ({
@@ -90,51 +100,43 @@ export default function ServiceDelayForm() {
     handleRemoveFile();
   };
   
-  // --- NEW: Handle clicking on a suggestion ---
-  const handleSuggestionClick = (machineName: string) => {
+  const handleModelSuggestionClick = (machineName: string) => {
     setFormData((prevData) => ({ ...prevData, modelTypes: machineName }));
-    setShowSuggestions(false); // Hide the list after selection
+    setShowModelSuggestions(false);
   };
   
-  // --- NEW: Hide suggestions when clicking outside ---
-  // A simple way is to use the onBlur event on the container
-  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    // We use a timeout to allow click events on suggestions to register
+  const handleBranchSuggestionClick = (displayText: string) => {
+    setFormData((prevData) => ({ ...prevData, branchLocation: displayText }));
+    setShowBranchSuggestions(false);
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>, type: 'model' | 'branch') => {
     if (!e.currentTarget.contains(e.relatedTarget)) {
-        setTimeout(() => setShowSuggestions(false), 100);
+        setTimeout(() => {
+            if (type === 'model') setShowModelSuggestions(false);
+            if (type === 'branch') setShowBranchSuggestions(false);
+        }, 150);
     }
   };
 
-
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (formData.problemType === '') {
         alert('Please select a Problem Type from the dropdown.');
         return;
     }
-
     setIsSubmitting(true);
     
     try {
       let imageId: Id<"_storage"> | undefined = undefined;
       if (file) {
         const uploadUrl = await generateUploadUrl(); 
-        const result = await fetch(uploadUrl, {
-          method: "POST",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
+        const result = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": file.type }, body: file });
         const { storageId } = await result.json();
         imageId = storageId;
       }
 
-      await submitServiceReport({
-        ...formData,
-        problemType: formData.problemType,
-        imageId: imageId,
-      });
-      
+      await submitServiceReport({ ...formData, problemType: formData.problemType, imageId: imageId });
       alert('Report submitted successfully for approval!');
       resetForm();
 
@@ -153,32 +155,16 @@ export default function ServiceDelayForm() {
       
       <form onSubmit={handleSubmit} className="report-form">
         
-        {/* --- UPDATED: Model Types input with Autocomplete --- */}
-        <div 
-            className="form-group" 
-            ref={modelTypesContainerRef} 
-            onBlur={handleBlur} // Use onBlur on the container
-        >
+        <div className="form-group" ref={modelTypesContainerRef} onBlur={(e) => handleBlur(e, 'model')}>
           <label htmlFor="modelTypes">Model Types</label>
           <input 
-            type="text" 
-            id="modelTypes" 
-            name="modelTypes" 
-            value={formData.modelTypes} 
-            onChange={handleChange} 
-            required 
-            autoComplete="off" // Disable browser's native autocomplete
-            onFocus={() => setShowSuggestions(true)} // Show on focus
+            type="text" id="modelTypes" name="modelTypes" value={formData.modelTypes} onChange={handleChange} 
+            required autoComplete="off" onFocus={() => setShowModelSuggestions(true)}
           />
-          {showSuggestions && formData.modelTypes && machineSuggestions.length > 0 && (
+          {showModelSuggestions && formData.modelTypes && machineSuggestions.length > 0 && (
             <ul className="suggestions-list">
               {machineSuggestions.map((machine: Doc<"machines">) => (
-                <li
-                  key={machine._id}
-                  onClick={() => handleSuggestionClick(machine.name)}
-                  // Use onMouseDown to prevent blur event from firing first
-                  onMouseDown={(e) => e.preventDefault()}
-                >
+                <li key={machine._id} onClick={() => handleModelSuggestionClick(machine.name)} onMouseDown={(e) => e.preventDefault()}>
                   {machine.name}
                 </li>
               ))}
@@ -186,9 +172,22 @@ export default function ServiceDelayForm() {
           )}
         </div>
 
-        <div className="form-group">
+        <div className="form-group" ref={branchLocationContainerRef} onBlur={(e) => handleBlur(e, 'branch')}>
           <label htmlFor="branchLocation">Branch Location</label>
-          <input type="text" id="branchLocation" name="branchLocation" value={formData.branchLocation} onChange={handleChange} required />
+          <input 
+            type="text" id="branchLocation" name="branchLocation" value={formData.branchLocation} onChange={handleChange} 
+            required autoComplete="off" onFocus={() => setShowBranchSuggestions(true)}
+          />
+          {showBranchSuggestions && formData.branchLocation && branchSuggestions.length > 0 && (
+            <ul className="suggestions-list">
+              {branchSuggestions.map((suggestion) => (
+                <li key={suggestion._id} onClick={() => handleBranchSuggestionClick(suggestion.displayText)} onMouseDown={(e) => e.preventDefault()}>
+                  {suggestion.displayText}
+                  {/* The type tag is no longer needed or rendered */}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="form-group">
@@ -253,22 +252,20 @@ export default function ServiceDelayForm() {
         </button>
       </form>
 
-      {/* --- ADD NEW STYLES for the suggestions list --- */}
       <style jsx>{`
         .form-container { max-width: 800px; margin: 0 auto; padding: 24px; background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
         p { color: #4a5568; margin-bottom: 24px; }
         .report-form { display: flex; flex-direction: column; gap: 20px; }
-        .form-group { display: flex; flex-direction: column; position: relative; } /* Added position: relative */
+        .form-group { display: flex; flex-direction: column; position: relative; }
         .form-group > label { margin-bottom: 8px; font-weight: 500; }
         input[type="text"], textarea, select { padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 16px; width: 100%; box-sizing: border-box; }
         input[type="text"]:focus, textarea:focus, select:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2); }
         .submit-button:disabled { background-color: #a0aec0; cursor: not-allowed; }
         
-        /* --- Styles for the new suggestions dropdown --- */
         .suggestions-list {
           position: absolute;
-          top: 100%; /* Position it right below the input */
+          top: 100%;
           left: 0;
           right: 0;
           background-color: white;
@@ -290,8 +287,7 @@ export default function ServiceDelayForm() {
         .suggestions-list li:hover {
           background-color: #f7fafc;
         }
-        /* --- End of new styles --- */
-
+        
         .conditional-group { background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin-top: -10px; }
         .conditional-group > label { font-weight: 500; margin-bottom: 12px; display: block; }
         
