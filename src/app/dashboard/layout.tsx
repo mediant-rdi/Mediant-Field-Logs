@@ -3,6 +3,7 @@
 
 import { useState, useEffect, ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useConvexAuth } from "convex/react";
 import Sidebar from '@/components/layout/sidebar'; 
 import Header from '@/components/layout/header';   
 
@@ -10,8 +11,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeItem, setActiveItem] = useState('dashboard');
   const [pageTitle, setPageTitle] = useState('Dashboard');
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const router = useRouter();
   const pathname = usePathname();
+
+  // Authentication check
+  useEffect(() => {
+    // Only redirect if we're sure the user is not authenticated
+    // and we're not still loading the auth state
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, isLoading, router]);
 
   useEffect(() => {
     // This hook syncs the active sidebar item and page title with the current URL
@@ -118,6 +129,21 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     }
   };
 
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // Render the dashboard content if authenticated
   return (
     <div className="flex h-screen bg-gray-100">
       <Sidebar

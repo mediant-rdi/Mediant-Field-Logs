@@ -1,12 +1,12 @@
+// convex/serviceReports.ts
+
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
-// --- NEW --- Import the correct helper function
 import { getAuthUserId } from '@convex-dev/auth/server';
 
-// Mutation to submit a new service report
+// This mutation is correct and needs no changes.
 export const submitServiceReport = mutation({
   args: {
-    // These arguments are correct and unchanged.
     modelTypes: v.string(),
     branchLocation: v.string(),
     complaintText: v.string(),
@@ -26,17 +26,14 @@ export const submitServiceReport = mutation({
     imageId: v.optional(v.id('_storage')),
   },
   handler: async (ctx, args) => {
-    // --- CORRECTED --- Use getAuthUserId to get the user's document ID from your `users` table.
     const userId = await getAuthUserId(ctx);
 
-    // This is a critical security check.
     if (!userId) {
       throw new Error("You must be logged in to submit a report.");
     }
 
     const reportId = await ctx.db.insert('serviceReports', {
       ...args,
-      // --- CORRECTED --- Assign the userId, which is of type `Id<"users">`. The type error is now gone.
       submittedBy: userId,
       status: 'pending',
     });
@@ -45,28 +42,33 @@ export const submitServiceReport = mutation({
   },
 });
 
-// The update status mutation is correct because it already uses a similar pattern to find the user.
+
+// --- THIS FUNCTION IS NOW UPDATED FOR CONSISTENCY ---
 export const updateServiceReportStatus = mutation({
   args: {
     serviceReportId: v.id("serviceReports"),
     status: v.union(v.literal('approved'), v.literal('rejected')),
   },
   handler: async (ctx, { serviceReportId, status }) => {
-    const identity = await ctx.auth.getUserIdentity();
+    // 1. Use the standard helper to get the user's ID from your `users` table.
+    const userId = await getAuthUserId(ctx);
 
-    if (!identity) {
+    if (!userId) {
       throw new Error("You must be logged in to perform this action.");
     }
     
-    // This part correctly looks up the user to get their `_id`.
-    const user = await ctx.db.query("users").withIndex("by_email", q => q.eq("email", identity.email!)).first();
+    // 2. Fetch the user document directly by its ID. This is more efficient than querying by email.
+    const user = await ctx.db.get(userId);
+    
+    // 3. Perform the authorization check.
     if (!user || !user.isAdmin) {
       throw new Error("You are not authorized to perform this action.");
     }
 
+    // 4. Patch the document. `user._id` is the same as `userId`.
     await ctx.db.patch(serviceReportId, {
       status: status,
-      approvedBy: user._id, // This correctly uses the user's `_id`
+      approvedBy: user._id, 
       approvedAt: Date.now(),
     });
 
