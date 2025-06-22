@@ -37,11 +37,12 @@ export default defineSchema({
 
   machines: defineTable({ name: v.string(), description: v.optional(v.string()), }).index('by_name', ['name']).searchIndex('by_name_search', { searchField: 'name', }),
   
+  // NOTE: This table already has the required index for our new query.
   serviceReports: defineTable({ submittedBy: v.id("users"), modelTypes: v.string(), branchLocation: v.string(), complaintText: v.string(), solution: v.string(), problemType: v.union(v.literal('electrical'), v.literal('mechanical'), v.literal('software'), v.literal('service-delay'), v.literal('other')), backofficeAccess: v.boolean(), spareDelay: v.boolean(), delayedReporting: v.boolean(), communicationBarrier: v.boolean(), otherText: v.optional(v.string()), imageId: v.optional(v.id('_storage')), status: approvalStatus, approvedBy: v.optional(v.id("users")), approvedAt: v.optional(v.number()), }).index("by_status", ["status"]).index("by_submittedBy", ["submittedBy"]),
   
-  // UPDATED: 'complaints' table with `submittedBy` field and index
+  // NOTE: This table also has the required index.
   complaints: defineTable({ 
-    submittedBy: v.id("users"), // <-- ADDED THIS FIELD
+    submittedBy: v.id("users"),
     modelType: v.string(), 
     branchLocation: v.string(), 
     complaintText: v.string(), 
@@ -55,13 +56,13 @@ export default defineSchema({
     experience_freezing: v.boolean(), 
     experience_dust: v.boolean(), 
     experience_buttonsSticking: v.boolean(), 
-    otherProblemDetails: v.string(), // Changed to v.string() from optional for consistency with form logic
+    otherProblemDetails: v.string(),
     imageId: v.optional(v.id('_storage')), 
     status: approvalStatus, 
     approvedBy: v.optional(v.id("users")), 
     approvedAt: v.optional(v.number()), 
   }).index("by_status", ["status"])
-    .index("by_submittedBy", ["submittedBy"]), // <-- ADDED THIS INDEX
+    .index("by_submittedBy", ["submittedBy"]),
 
   feedback: defineTable({ branchLocation: v.string(), modelType: v.string(), feedbackDetails: v.string(), imageId: v.optional(v.id('_storage')), }).index("by_branch_and_model", ["branchLocation", "modelType"]),
   
