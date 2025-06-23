@@ -8,7 +8,7 @@ export default convexAuthNextjsMiddleware(async (request: NextRequest, { convexA
   // Define protected routes (all dashboard routes and their subroutes)
   const protectedPaths = [
     '/dashboard',
-    '/invite', // Protect invite routes as well
+    // We remove '/invite' from here to make invitation pages public
   ];
 
   // Check if the current path is protected
@@ -16,7 +16,7 @@ export default convexAuthNextjsMiddleware(async (request: NextRequest, { convexA
     request.nextUrl.pathname.startsWith(path)
   );
 
-  // If trying to access protected route without authentication
+  // If trying to access a protected route without authentication
   if (isProtectedPath && !isAuthenticated) {
     console.log(`Unauthorized access attempt to: ${request.nextUrl.pathname}`);
     
