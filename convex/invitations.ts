@@ -47,6 +47,31 @@ export const createUserInvitation = mutation({
   },
 });
 
+export const createFirstUserInvitation = internalMutation({
+  args: { name: v.string(), email: v.string() },
+  handler: async (ctx, args) => {
+    const existingUser = await ctx.db.query("users").withIndex("by_email", (q) => q.eq("email", args.email)).first();
+    if (existingUser) {
+      throw new Error("User with this email already exists");
+    }
+    const inviteToken = generateInviteToken();
+    const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const userId = await ctx.db.insert("users", {
+      name: args.name,
+      email: args.email,
+      isAdmin: true,
+      invitationToken: inviteToken,
+      invitationExpiresAt: expiresAt,
+      invitationSent: true,
+      accountActivated: false,
+    });
+    const inviteUrl = `${process.env.SITE_URL}/invite/${inviteToken}`;
+
+    console.log(inviteUrl); // Log the invitation URL for debugging
+    return { userId, inviteToken, inviteUrl };
+  },
+});
+
 // 2. VERIFY INVITATION
 export const verifyInvitation = query({
   args: { token: v.string() },
