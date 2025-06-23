@@ -5,28 +5,37 @@ import Link from 'next/link';
 import { useQuery } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 
-// A simple loading skeleton component, similar to the one on the users page.
+// A responsive loading skeleton component.
 const TableSkeleton = () => (
-  <div style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}>
-    {[...Array(5)].map((_, i) => (
-      <div key={i} style={{ height: '3rem', backgroundColor: '#f0f0f0', borderRadius: '4px', marginBottom: '0.5rem' }}></div>
-    ))}
+  <div className="animate-pulse">
+    {/* Mobile Skeleton (Card view) */}
+    <div className="space-y-3 md:hidden">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="h-24 rounded-lg bg-gray-200"></div>
+      ))}
+    </div>
+    {/* Desktop Skeleton (Table view) */}
+    <div className="hidden md:block">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="h-12 rounded bg-gray-200 mb-2"></div>
+      ))}
+    </div>
   </div>
 );
 
 /**
- * A component to display the client data table, including loading and empty states.
- * Now styled with inline styles to match the users page.
+ * A responsive component to display the client data.
+ * It shows a list of cards on mobile and a table on desktop.
  */
-function ClientsDataTable() {
+function ClientsDataTable({ isAdmin }: { isAdmin: boolean }) {
   const clients = useQuery(api.clients.listClients);
 
   // Loading state
   if (clients === undefined) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '160px', flexDirection: 'column' }}>
-        <p style={{ color: '#6b7280' }}>Loading Clients...</p>
-        <div style={{ width: '100%', marginTop: '16px' }}>
+      <div className="flex flex-col items-center justify-center h-40">
+        <p className="text-gray-500">Loading Clients...</p>
+        <div className="w-full mt-4">
           <TableSkeleton />
         </div>
       </div>
@@ -36,88 +45,115 @@ function ClientsDataTable() {
   // Empty state
   if (clients.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px 0' }}>
-        <h3 style={{ fontSize: '1.125rem', fontWeight: '500', color: '#111827' }}>No Clients Found</h3>
-        <p style={{ marginTop: '4px', fontSize: '0.875rem', color: '#6b7280' }}>
-          Get started by adding a new client.
+      <div className="text-center py-10 px-4">
+        <h3 className="text-lg font-medium text-gray-900">No Clients Found</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          {isAdmin ? "Get started by adding a new client." : "No clients have been added yet."}
         </p>
-        <div style={{ marginTop: '24px' }}>
-          <Link
-            href="/dashboard/clients/add"
-            style={{ 
-              backgroundColor: '#4f46e5', // indigo-600
-              color: 'white', 
-              padding: '8px 16px', 
-              borderRadius: '6px', 
-              textDecoration: 'none', 
-              fontSize: '14px',
-              fontWeight: '500'
-            }}
-          >
-            + Add New Client
-          </Link>
-        </div>
+        {isAdmin && (
+          <div className="mt-6">
+            <Link
+              href="/dashboard/clients/add"
+              className="bg-indigo-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+            >
+              + Add New Client
+            </Link>
+          </div>
+        )}
       </div>
     );
   }
 
-  // Data table
+  // Responsive Data Display
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-      <thead>
-        <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-          <th style={{ padding: '12px 8px' }}>Client Name</th>
-          <th style={{ padding: '12px 8px' }}>Agreement Type</th>
-          <th style={{ padding: '12px 8px' }}>Date Added</th>
-        </tr>
-      </thead>
-      <tbody>
+    <>
+      {/* Mobile View: Card List (hidden on screens md and up) */}
+      <div className="space-y-4 md:hidden">
         {clients.map((client) => (
-          <tr key={client._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-            <td style={{ padding: '12px 8px', fontWeight: '500', color: '#111827' }}>{client.name}</td>
-            <td style={{ padding: '12px 8px', color: '#374151' }}>{client.agreementType}</td>
-            <td style={{ padding: '12px 8px', color: '#374151' }}>
-              {new Date(client._creationTime).toLocaleDateString()}
-            </td>
-          </tr>
+          <div key={client._id} className="bg-gray-50 p-4 border rounded-lg shadow-sm">
+            <div className="font-semibold text-gray-900">{client.name}</div>
+            <div className="mt-2 text-sm text-gray-600">
+              <span className="font-medium">Agreement:</span> {client.agreementType}
+            </div>
+            <div className="mt-1 text-sm text-gray-500">
+              <span className="font-medium">Added:</span> {new Date(client._creationTime).toLocaleDateString()}
+            </div>
+          </div>
         ))}
-      </tbody>
-    </table>
+      </div>
+
+      {/* Desktop View: Table (hidden on screens smaller than md) */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="min-w-full text-left text-sm">
+          <thead className="border-b border-gray-200 text-gray-500">
+            <tr>
+              <th className="px-4 py-3 font-medium">Client Name</th>
+              <th className="px-4 py-3 font-medium">Agreement Type</th>
+              <th className="px-4 py-3 font-medium">Date Added</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {clients.map((client) => (
+              <tr key={client._id}>
+                <td className="px-4 py-3 font-medium text-gray-900">{client.name}</td>
+                <td className="px-4 py-3 text-gray-600">{client.agreementType}</td>
+                <td className="px-4 py-3 text-gray-600">
+                  {new Date(client._creationTime).toLocaleDateString()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
 export default function ViewClientsPage() {
+  const currentUser = useQuery(api.users.current);
+
+  // Full-page skeleton while user data is loading
+  if (currentUser === undefined) {
+    return (
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+          <div>
+            <div className="h-7 w-48 bg-gray-200 rounded"></div>
+            <div className="h-4 w-64 bg-gray-200 rounded mt-2"></div>
+          </div>
+        </div>
+        <TableSkeleton />
+      </div>
+    );
+  }
+
+  const isAdmin = currentUser?.isAdmin === true;
+
   return (
-    // Main container with white background and padding
-    <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px' }}>
-      {/* Header section with title and Add button */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+    // Main container with responsive padding
+    <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
+      {/* Header section with responsive layout */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: '600' }}>Client Management</h1>
-          <p style={{ marginTop: '8px', color: '#6b7280' }}>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Client Management</h1>
+          <p className="mt-1 text-sm text-gray-600">
             A list of all clients in the system.
           </p>
         </div>
-        <div>
-          <Link
-            href="/dashboard/clients/add"
-            style={{ 
-              backgroundColor: '#4f46e5', // indigo-600
-              color: 'white', 
-              padding: '8px 16px', 
-              borderRadius: '6px', 
-              textDecoration: 'none', 
-              fontSize: '14px' 
-            }}
-          >
-            + Add Client / Location
-          </Link>
-        </div>
+        {isAdmin && (
+          <div className="self-start sm:self-auto">
+            <Link
+              href="/dashboard/clients/add"
+              className="bg-indigo-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+            >
+              + Add Client / Location
+            </Link>
+          </div>
+        )}
       </div>
 
-      {/* The data table component is rendered inside a container */}
       <div>
-        <ClientsDataTable />
+        <ClientsDataTable isAdmin={isAdmin} />
       </div>
     </div>
   );

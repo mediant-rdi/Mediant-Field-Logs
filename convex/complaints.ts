@@ -2,10 +2,10 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { getAuthUserId } from '@convex-dev/auth/server';
+import { Id } from './_generated/dataModel';
 
-// This is the submission logic from the previous step.
+// This is the submission logic. No changes needed here.
 export const submitComplaint = mutation({
-  // ... (args from previous step, no changes needed here)
   args: {
     modelType: v.string(),
     branchLocation: v.string(),
@@ -37,7 +37,7 @@ export const submitComplaint = mutation({
   },
 });
 
-// --- NEW: Mutation to update complaint status ---
+// --- UPDATED: Mutation to update complaint status ---
 export const updateComplaintStatus = mutation({
   args: {
     complaintId: v.id("complaints"),
@@ -54,11 +54,24 @@ export const updateComplaintStatus = mutation({
       throw new Error("You are not authorized to perform this action.");
     }
 
-    await ctx.db.patch(complaintId, {
+    // Prepare the update payload
+    const updatePayload: {
+      status: "approved" | "rejected";
+      approvedBy: Id<"users">;
+      approvedAt: number;
+      viewedBySubmitter?: false; // This property is optional
+    } = {
       status: status,
       approvedBy: user._id, 
       approvedAt: Date.now(),
-    });
+    };
+
+    // If the submission is approved, mark it as unread for the submitter
+    if (status === 'approved') {
+      updatePayload.viewedBySubmitter = false;
+    }
+
+    await ctx.db.patch(complaintId, updatePayload);
 
     console.log(`Complaint ${complaintId} has been ${status}.`);
   },

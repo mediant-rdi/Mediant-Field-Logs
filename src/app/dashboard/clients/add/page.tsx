@@ -3,7 +3,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-// The 'Client' interface is no longer needed here as state is managed by Convex
 import AddClientForm from '@/components/forms/AddClientForm'; 
 import AddClientLocationForm from '@/components/forms/AddClientLocationForm';
 
@@ -11,32 +10,31 @@ export default function AddClientPage() {
   const [activeTab, setActiveTab] = useState('client');
   const [successMessage, setSuccessMessage] = useState('');
   
-  // The local `clients` state is no longer needed. 
-  // AddClientLocationForm fetches its own data reactively.
-
-  // A single, simplified handler for when either form succeeds.
   const handleSuccess = (message: string) => {
     setSuccessMessage(message);
-
-    // If a client was just created, automatically switch to the location tab
     if (message.includes('Client')) {
-        setActiveTab('location');
+      setActiveTab('location');
     }
-
     setTimeout(() => setSuccessMessage(''), 4000);
   };
 
   return (
-    <div className="p-8 max-w-lg mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Add Client / Location</h1>
-        <Link href="/dashboard/clients" className="text-blue-500 hover:underline">
+    // Use responsive padding: p-4 on small screens, p-8 on medium screens and up.
+    <div className="p-4 md:p-8 max-w-2xl mx-auto">
+      {/* Header stacks on very small screens, row on others */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Add Client / Location</h1>
+        <Link 
+          href="/dashboard/clients" 
+          className="text-sm text-blue-600 hover:underline self-start sm:self-center"
+        >
           ← Back to Clients
         </Link>
       </div>
 
-      <div className="p-6 border rounded-lg bg-white shadow-md">
-        <p className="mb-6 text-gray-600">
+      {/* Form container card with responsive padding */}
+      <div className="p-4 sm:p-6 border rounded-lg bg-white shadow-md">
+        <p className="mb-6 text-sm text-gray-600">
           First add a client, then add their specific locations or sites.
         </p>
 
@@ -66,12 +64,12 @@ export default function AddClientPage() {
 
         {/* Success Notification */}
         {successMessage && (
-          <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded-md">
+          <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded-md text-sm">
             {successMessage}
           </div>
         )}
 
-        {/* Render the active form component with corrected props */}
+        {/* Render the active form component */}
         <div>
           {activeTab === 'client' && (
             <AddClientForm 
@@ -79,7 +77,6 @@ export default function AddClientPage() {
             />
           )}
           {activeTab === 'location' && (
-            // No longer needs the `clients` prop
             <AddClientLocationForm 
               onComplete={() => handleSuccess('Location created successfully!')} 
             />

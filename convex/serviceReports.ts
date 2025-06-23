@@ -3,6 +3,7 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { getAuthUserId } from '@convex-dev/auth/server';
+import { Id } from './_generated/dataModel';
 
 // This mutation is correct and needs no changes.
 export const submitServiceReport = mutation({
@@ -43,34 +44,43 @@ export const submitServiceReport = mutation({
 });
 
 
-// --- THIS FUNCTION IS NOW UPDATED FOR CONSISTENCY ---
+// --- THIS FUNCTION IS NOW UPDATED FOR NOTIFICATIONS ---
 export const updateServiceReportStatus = mutation({
   args: {
     serviceReportId: v.id("serviceReports"),
     status: v.union(v.literal('approved'), v.literal('rejected')),
   },
   handler: async (ctx, { serviceReportId, status }) => {
-    // 1. Use the standard helper to get the user's ID from your `users` table.
     const userId = await getAuthUserId(ctx);
 
     if (!userId) {
       throw new Error("You must be logged in to perform this action.");
     }
     
-    // 2. Fetch the user document directly by its ID. This is more efficient than querying by email.
     const user = await ctx.db.get(userId);
     
-    // 3. Perform the authorization check.
     if (!user || !user.isAdmin) {
       throw new Error("You are not authorized to perform this action.");
     }
 
-    // 4. Patch the document. `user._id` is the same as `userId`.
-    await ctx.db.patch(serviceReportId, {
+    // Prepare the update payload
+    const updatePayload: {
+      status: "approved" | "rejected";
+      approvedBy: Id<"users">;
+      approvedAt: number;
+      viewedBySubmitter?: false; // This property is optional
+    } = {
       status: status,
       approvedBy: user._id, 
       approvedAt: Date.now(),
-    });
+    };
+
+    // If the submission is approved, mark it as unread for the submitter
+    if (status === 'approved') {
+      updatePayload.viewedBySubmitter = false;
+    }
+
+    await ctx.db.patch(serviceReportId, updatePayload);
 
     console.log(`Service Report ${serviceReportId} has been ${status}.`);
   },

@@ -22,7 +22,9 @@ import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
 import type * as machines from "../machines.js";
+import type * as notifications from "../notifications.js";
 import type * as serviceReports from "../serviceReports.js";
+import type * as shared from "../shared.js";
 import type * as users from "../users.js";
 
 /**
@@ -43,7 +45,9 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   invitations: typeof invitations;
   machines: typeof machines;
+  notifications: typeof notifications;
   serviceReports: typeof serviceReports;
+  shared: typeof shared;
   users: typeof users;
 }>;
 export declare const api: FilterApi<

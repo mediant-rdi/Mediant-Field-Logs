@@ -6,27 +6,40 @@ import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { useState } from "react";
 import Link from "next/link";
-import { EditUserForm } from "@/components/forms/EditUserForm"; // Adjust path if needed
+import { EditUserForm } from "@/components/forms/EditUserForm";
 
-// --- COPIED FROM MACHINES PAGE ---
-// A simple loading skeleton component
+// --- RESPONSIVE COMPONENTS ---
 const TableSkeleton = () => (
-  <div style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}>
-    {[...Array(5)].map((_, i) => (
-      <div key={i} style={{ height: '3rem', backgroundColor: '#f0f0f0', borderRadius: '4px', marginBottom: '0.5rem' }}></div>
-    ))}
+  <div className="animate-pulse">
+    {/* Mobile Card Skeleton */}
+    <div className="space-y-4 md:hidden">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="h-32 rounded-lg bg-gray-200"></div>
+      ))}
+    </div>
+    {/* Desktop Table Skeleton */}
+    <div className="hidden md:block">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="h-12 rounded bg-gray-200 mb-2"></div>
+      ))}
+    </div>
   </div>
 );
 
-// A simple modal component
 const Modal = ({ children, onClose }: { children: React.ReactNode; onClose: () => void }) => (
-  <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={onClose}>
-    <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', minWidth: '400px', maxWidth: '90vw' }} onClick={(e) => e.stopPropagation()}>
+  <div 
+    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+    onClick={onClose}
+  >
+    <div 
+      className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md" 
+      onClick={(e) => e.stopPropagation()}
+    >
       {children}
     </div>
   </div>
 );
-// --- END OF COPIED COMPONENTS ---
+// --- END OF RESPONSIVE COMPONENTS ---
 
 export default function UsersPage() {
   const {
@@ -37,8 +50,6 @@ export default function UsersPage() {
   
   const deleteUser = useMutation(api.users.deleteUser);
   const [editingUser, setEditingUser] = useState<Doc<"users"> | null>(null);
-  
-  // --- UPGRADED DELETE LOGIC ---
   const [deletingId, setDeletingId] = useState<Id<"users"> | null>(null);
 
   const handleDelete = async (userId: Id<"users">) => {
@@ -55,13 +66,12 @@ export default function UsersPage() {
     }
   };
   
-  // --- NEW LOADING STATE UI ---
   if (status === "LoadingFirstPage") {
     return (
-      <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h1 style={{ fontSize: '22px', fontWeight: '600' }}>User Management</h1>
-          <div style={{ backgroundColor: '#ccc', width: '120px', height: '36px', borderRadius: '6px' }}></div>
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+          <h1 className="text-xl sm:text-2xl font-semibold">User Management</h1>
+          <div className="h-9 w-28 bg-gray-300 rounded-md self-start sm:self-auto"></div>
         </div>
         <TableSkeleton />
       </div>
@@ -69,82 +79,96 @@ export default function UsersPage() {
   }
 
   return (
-    // --- UPDATED STYLING FOR MAIN CONTAINER ---
-    <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: '600' }}>User Management</h1>
+    <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+        <h1 className="text-xl sm:text-2xl font-semibold">User Management</h1>
         <Link
           href="/dashboard/users/add"
-          style={{ backgroundColor: '#2563eb', color: 'white', padding: '8px 16px', borderRadius: '6px', textDecoration: 'none', fontSize: '14px' }}
+          className="self-start sm:self-auto bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
         >
           + Add User
         </Link>
       </div>
 
-      {/* --- UPDATED TABLE STYLING --- */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-            <th style={{ padding: '12px 8px' }}>Name</th>
-            <th style={{ padding: '12px 8px' }}>Email</th>
-            <th style={{ padding: '12px 8px' }}>Admin Status</th>
-            <th style={{ padding: '12px 8px' }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users?.map((user) => (
-            <tr key={user._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-              <td style={{ padding: '12px 8px' }}>{user.name || 'N/A'}</td>
-              <td style={{ padding: '12px 8px' }}>{user.email || 'N/A'}</td>
-              <td style={{ padding: '12px 8px' }}>
-                {user.isAdmin ? (
-                  <span style={{ display: 'inline-flex', padding: '2px 8px', fontSize: '12px', fontWeight: '500', borderRadius: '9999px', backgroundColor: '#dcfce7', color: '#166534' }}>
-                    Admin
-                  </span>
-                ) : (
-                  <span style={{ display: 'inline-flex', padding: '2px 8px', fontSize: '12px', fontWeight: '500', borderRadius: '9999px', backgroundColor: '#f3f4f6', color: '#374151' }}>
-                    Member
-                  </span>
-                )}
-              </td>
-              <td style={{ padding: '12px 8px', display: 'flex', gap: '16px' }}>
-                <button
-                  onClick={() => setEditingUser(user)}
-                  style={{ fontSize: '14px', color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer' }}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(user._id)}
-                  style={{ fontSize: '14px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', opacity: deletingId === user._id ? 0.5 : 1 }}
-                  disabled={deletingId === user._id}
-                >
-                  {deletingId === user._id ? "Deleting..." : "Delete"}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* --- RESPONSIVE DATA DISPLAY --- */}
+      {/* Mobile Card View */}
+      <div className="space-y-4 md:hidden">
+        {users?.map((user) => (
+          <div key={user._id} className="bg-gray-50 p-4 border rounded-lg shadow-sm space-y-3">
+            <div>
+              <div className="font-semibold text-gray-900">{user.name || 'N/A'}</div>
+              <div className="text-sm text-gray-500">{user.email || 'N/A'}</div>
+            </div>
+            <div>
+              {user.isAdmin ? (
+                <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">Admin</span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-700">Member</span>
+              )}
+            </div>
+            <div className="flex gap-4 pt-2 border-t border-gray-200">
+              <button className="text-sm font-medium text-blue-600 hover:text-blue-800" onClick={() => setEditingUser(user)}>Edit</button>
+              <button className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50" onClick={() => handleDelete(user._id)} disabled={deletingId === user._id}>
+                {deletingId === user._id ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
 
-      {users && users.length === 0 && <p style={{ textAlign: 'center', padding: '20px' }}>No users found. Click "Add User" to get started.</p>}
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="min-w-full text-left text-sm">
+          <thead className="border-b border-gray-200 text-gray-500">
+            <tr>
+              <th className="px-3 py-3 font-medium">Name</th>
+              <th className="px-3 py-3 font-medium">Email</th>
+              <th className="px-3 py-3 font-medium">Admin Status</th>
+              <th className="px-3 py-3 font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {users?.map((user) => (
+              <tr key={user._id}>
+                <td className="px-3 py-4 font-medium text-gray-900">{user.name || 'N/A'}</td>
+                <td className="px-3 py-4 text-gray-600">{user.email || 'N/A'}</td>
+                <td className="px-3 py-4">
+                  {user.isAdmin ? (
+                    <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">Admin</span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-700">Member</span>
+                  )}
+                </td>
+                <td className="px-3 py-4">
+                  <div className="flex items-center gap-4">
+                    <button className="text-sm text-blue-600 hover:underline" onClick={() => setEditingUser(user)}>Edit</button>
+                    <button className="text-sm text-red-600 hover:underline disabled:opacity-50 disabled:no-underline" onClick={() => handleDelete(user._id)} disabled={deletingId === user._id}>
+                      {deletingId === user._id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {users && users.length === 0 && <p className="text-center py-5 text-gray-500">No users found. Click "Add User" to get started.</p>}
       
-      {/* Load More Button - kept for pagination functionality */}
       {status === "CanLoadMore" && (
-        <div style={{ textAlign: 'center', marginTop: '16px' }}>
+        <div className="text-center mt-6">
           <button
             onClick={() => loadMore(15)}
-            style={{ backgroundColor: '#e5e7eb', color: '#1f2937', padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+            className="bg-gray-200 text-gray-800 py-2 px-4 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors"
           >
             Load More
           </button>
         </div>
       )}
 
-      {/* --- EDIT FORM IS NOW IN A MODAL --- */}
       {editingUser && (
         <Modal onClose={() => setEditingUser(null)}>
-          <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px' }}>Edit User</h2>
+          <h2 className="text-xl font-semibold mb-4">Edit User</h2>
           <EditUserForm 
             user={editingUser}
             onComplete={() => setEditingUser(null)} 
