@@ -40,7 +40,7 @@ export const createUserInvitation = mutation({
       invitationSent: true,
       accountActivated: false,
     });
-    const inviteUrl = `${process.env.SITE_URL}/invite/${inviteToken}`;
+    const inviteUrl = `${process.env.SITE_URL}/invitelink/${inviteToken}`;
 
     console.log(inviteUrl); // Log the invitation URL for debugging
     return { userId, inviteToken, inviteUrl };
@@ -65,7 +65,7 @@ export const createFirstUserInvitation = internalMutation({
       invitationSent: true,
       accountActivated: false,
     });
-    const inviteUrl = `${process.env.SITE_URL}/invite/${inviteToken}`;
+    const inviteUrl = `${process.env.SITE_URL}/invitelink/${inviteToken}`;
 
     console.log(inviteUrl); // Log the invitation URL for debugging
     return { userId, inviteToken, inviteUrl };
