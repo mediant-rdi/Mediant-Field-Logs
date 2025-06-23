@@ -11,7 +11,6 @@ export const adminCreateUser = mutation({
   args: {
     name: v.string(),
     email: v.string(),
-    
     isAdmin: v.boolean(),
   },
   handler: async (ctx, args) => {

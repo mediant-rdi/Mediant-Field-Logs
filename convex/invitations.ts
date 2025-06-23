@@ -41,6 +41,8 @@ export const createUserInvitation = mutation({
       accountActivated: false,
     });
     const inviteUrl = `${process.env.SITE_URL}/invite/${inviteToken}`;
+
+    console.log(inviteUrl); // Log the invitation URL for debugging
     return { userId, inviteToken, inviteUrl };
   },
 });
