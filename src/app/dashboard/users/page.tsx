@@ -153,7 +153,7 @@ export default function UsersPage() {
         </table>
       </div>
 
-      {users && users.length === 0 && <p className="text-center py-5 text-gray-500">No users found. Click "Add User" to get started.</p>}
+      {users && users.length === 0 && <p className="text-center py-5 text-gray-500">No users found. Click “Add User” to get started.</p>}
       
       {status === "CanLoadMore" && (
         <div className="text-center mt-6">

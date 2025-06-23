@@ -59,8 +59,14 @@ export function InvitePage() {
 
       router.push('/dashboard');
 
-    } catch (err: any) {
-      const errorMessage = err.data?.message || err.message || 'Failed to create account.';
+    } catch (err: unknown) {
+      // Type-safe error handling
+      let errorMessage = 'Failed to create account.';
+      if (err instanceof Error) {
+          // Convex errors often include a `data` object with a more specific message.
+          const specificMessage = (err as { data?: { message?: string } }).data?.message;
+          errorMessage = specificMessage || err.message;
+      }
       setError(errorMessage);
     } finally {
       setLoading(false);

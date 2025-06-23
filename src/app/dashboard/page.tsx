@@ -52,7 +52,12 @@ export default function DashboardPage() {
   }, [activeTab]);
 
   const allSubmissions = dashboardData?.submissions ?? [];
-  const addModelTypes = (submission: any): any => ({...submission, modelTypes: submission.modelTypes ?? [] });
+  // Infer the submission type from the API response to avoid `any`.
+  type ApiSubmission = (typeof allSubmissions)[number];
+  
+  // This helper ensures submission objects conform to the EnrichedReport type,
+  // specifically by guaranteeing `modelTypes` is a non-null array.
+  const addModelTypes = (submission: ApiSubmission): EnrichedReport => ({...submission, modelTypes: submission.modelTypes ?? [] });
   
   const pendingSubmissions = allSubmissions.filter((s): s is typeof s & { status: string } => 'status' in s && s.status === 'pending').map(addModelTypes);
   const engineerComplaints = allSubmissions.filter(s => s.type === 'serviceReport').map(addModelTypes);
@@ -60,7 +65,7 @@ export default function DashboardPage() {
   const feedback = allSubmissions.filter(s => s.type === 'feedback').map(addModelTypes);
 
   const getDisplaySubmissions = () => {
-    let submissions;
+    let submissions: EnrichedReport[];
     switch (activeTab) {
       case 'needsReview': submissions = pendingSubmissions; break;
       case 'serviceReports': submissions = engineerComplaints; break;

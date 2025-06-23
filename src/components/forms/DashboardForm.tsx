@@ -6,9 +6,9 @@ import { Id } from '../../../convex/_generated/dataModel';
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
 
-// --- Types are unchanged ---
+// --- Types ---
 type BaseReport = {
-  _id: Id<any>;
+  // _id is now defined in the specific report types below for better type safety.
   _creationTime: number;
   modelTypes: string;
   branchLocation: string;
@@ -16,6 +16,7 @@ type BaseReport = {
   mainText: string;
 };
 type ServiceReportWithSubmitter = BaseReport & {
+  _id: Id<"serviceReports">;
   type: 'serviceReport';
   status: "pending" | "approved" | "rejected";
   complaintText: string;
@@ -28,6 +29,7 @@ type ServiceReportWithSubmitter = BaseReport & {
   otherText?: string;
 };
 type ComplaintWithSubmitter = BaseReport & {
+  _id: Id<"complaints">;
   type: 'complaint';
   status: "pending" | "approved" | "rejected";
   complaintText: string;
@@ -44,6 +46,7 @@ type ComplaintWithSubmitter = BaseReport & {
   otherProblemDetails: string;
 };
 type FeedbackWithSubmitter = BaseReport & {
+  _id: Id<"feedback">;
   type: 'feedback';
   status?: undefined;
   feedbackDetails: string;

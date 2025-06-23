@@ -37,8 +37,15 @@ export function EditUserForm({ user, onComplete }: EditUserFormProps) {
         isAdmin,
       });
       onComplete();
-    } catch (err: any) {
-      setError(err.message || "Failed to update user.");
+    } catch (err: unknown) {
+      // Type-safe error handling
+      if (err instanceof Error) {
+        // Convex errors can have a `data` property with a more specific message.
+        const errorMessage = (err as { data?: string }).data || err.message;
+        setError(errorMessage || "Failed to update user.");
+      } else {
+        setError("An unexpected error occurred.");
+      }
     } finally {
       setIsSubmitting(false);
     }

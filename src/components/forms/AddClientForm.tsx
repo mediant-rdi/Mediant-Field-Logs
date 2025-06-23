@@ -44,9 +44,15 @@ export default function AddClientForm({ onComplete }: AddClientFormProps) {
       setAgreementType("");
       onComplete();
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Display a user-friendly error message
-      setError("Failed to create client. Please try again. " + (err.data || err.message));
+      let errorMessage = "An unknown error occurred. Please try again.";
+      if (err instanceof Error) {
+        // Convex errors can have a `data` property with a more specific message.
+        // We use a type assertion to check for it, falling back to the standard message.
+        errorMessage = (err as { data?: string }).data || err.message;
+      }
+      setError(`Failed to create client. ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }

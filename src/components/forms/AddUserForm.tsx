@@ -37,9 +37,16 @@ export function AddUserForm() {
       setEmail("");
       setIsAdmin(false);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       // The error message from our backend function will be displayed
-      setError(err.data?.message || err.message || "Failed to create invitation.");
+      let errorMessage = "Failed to create invitation.";
+      if (err instanceof Error) {
+          // Convex errors often include a `data` object with a more specific message.
+          // We use a type assertion to safely check for this nested structure.
+          const specificMessage = (err as { data?: { message?: string } }).data?.message;
+          errorMessage = specificMessage || err.message;
+      }
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

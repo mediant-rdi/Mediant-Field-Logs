@@ -56,8 +56,15 @@ export function EditMachineForm({ machine, onComplete }: EditMachineFormProps) {
         category, // Pass the updated category
       });
       onComplete(); // Call the callback on success
-    } catch (err: any) {
-      setError(err.message || "Failed to update machine.");
+    } catch (err: unknown) {
+      // Type-safe error handling
+      if (err instanceof Error) {
+        // Convex errors may have a `data` property with a more specific message
+        const errorMessage = (err as { data?: string }).data || err.message;
+        setError(errorMessage || "Failed to update machine.");
+      } else {
+        setError("An unexpected error occurred.");
+      }
     } finally {
       setIsSubmitting(false);
     }

@@ -150,7 +150,7 @@ export const verifyTokenWithServer = async (): Promise<boolean> => {
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-export const withAuth = <P extends {}>(
+export const withAuth = <P extends object>(
   WrappedComponent: React.ComponentType<P>,
   allowedRoles?: string[]
 ) => {

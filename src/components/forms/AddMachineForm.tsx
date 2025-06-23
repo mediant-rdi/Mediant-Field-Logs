@@ -42,8 +42,15 @@ export function AddMachineForm({ onComplete }: AddMachineFormProps) {
     try {
       await createMachine({ name, description, category });
       onComplete(); // Call the callback on success
-    } catch (err: any) {
-      setError(err.message || "Failed to create machine.");
+    } catch (err: unknown) {
+      // Type-safe error handling
+      if (err instanceof Error) {
+        // Convex errors might include a 'data' field, but we'll fall back to the standard message
+        const errorMessage = (err as { data?: string }).data || err.message;
+        setError(errorMessage);
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }

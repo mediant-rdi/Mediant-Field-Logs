@@ -42,8 +42,14 @@ export default function AddClientLocationForm({ onComplete }: AddClientLocationF
       onComplete();
       setClientId("");
       setName("");
-    } catch (err: any) {
-      setError("Failed to create location. " + (err.data || err.message));
+    } catch (err: unknown) {
+      // Type-safe error handling
+      let errorMessage = "An unknown error occurred. Please try again.";
+      if (err instanceof Error) {
+        // Convex errors might include a 'data' field. We safely check for it.
+        errorMessage = (err as { data?: string }).data || err.message;
+      }
+      setError("Failed to create location. " + errorMessage);
     } finally {
       setIsSubmitting(false);
     }

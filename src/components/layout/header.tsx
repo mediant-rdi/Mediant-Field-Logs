@@ -16,7 +16,8 @@ export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  const { isLoading, isAuthenticated } = useConvexAuth();
+  // 'isLoading' was removed as it was unused.
+  const { isAuthenticated } = useConvexAuth();
   const user = useQuery(api.users.current, isAuthenticated ? {} : "skip");
   const { signOut } = useAuthActions();
 
@@ -114,7 +115,7 @@ export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
                     ))
                   ) : (
                     <div style={{ padding: '16px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
-                      You're all caught up!
+                      You are all caught up!
                     </div>
                   )
                 )}
