@@ -64,7 +64,6 @@ function SuccessState() {
 }
 
 export function InvitePage() {
-  const router = useRouter();
   const params = useParams();
   const token = params.token as string;
 
@@ -125,9 +124,13 @@ export function InvitePage() {
       
       // Step 3: Show the success screen.
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err: unknown) { // <-- FIX #2: Use `unknown` instead of `any`
       console.error("Account creation/login failed:", err);
-      const friendlyMessage = err.message || "An unexpected error occurred.";
+      let friendlyMessage = "An unexpected error occurred.";
+      if (err instanceof Error) {
+        // If it's a standard Error object, we can safely use its message
+        friendlyMessage = err.message;
+      }
       setError(friendlyMessage);
     } finally {
       setLoading(false);
