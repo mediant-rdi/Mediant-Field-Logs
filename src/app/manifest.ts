@@ -4,31 +4,29 @@ import { MetadataRoute } from 'next'
  
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Mediant Field Logs',
-    short_name: 'MFL',
+    name: 'Mediant Field Logs', // Shortened for clarity
+    short_name: 'Mediant App', // A concise name for the homescreen
     description: 'A comprehensive field logging system by Mediant.',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
     theme_color: '#000000',
     icons: [
+      
       {
-        src: '/favicon.ico', // Next.js automatically provides this route
-        sizes: '48x48',
-        type: 'image/x-icon',
-      },
-      {
-        src: '/icon-192.png', // You'll need to add this to your /public folder
+        src: '/icon-192.png',
         sizes: '192x192',
         type: 'image/png'
       },
       {
-        src: '/icon-512.png', // You'll need to add this to your /public folder
+        src: '/icon-512.png',
         sizes: '512x512',
-        type: 'image/png'
+        type: 'image/png',
+        // This 'purpose' helps the OS adapt your icon for splash screens
+        purpose: 'maskable'
       },
       {
-        src: '/apple-icon.png', // You'll need to add this to your /public folder
+        src: '/apple-icon.png',
         sizes: '180x180',
         type: 'image/png'
       }
