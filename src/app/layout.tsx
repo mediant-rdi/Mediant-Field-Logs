@@ -1,29 +1,37 @@
 // app/layout.tsx
 
-import type { Metadata } from "next";
-// 1. Change the import from 'google' to 'local'
+// 1. Import Viewport alongside Metadata
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 
-// 2. Configure the fonts to load from your local files
+// Your local font configuration remains the same
 const geistSans = localFont({
   src: './fonts/Geist-Variable.woff2',
-  variable: "--font-geist-sans", // This CSS variable name is kept the same
+  variable: "--font-geist-sans",
   display: 'swap',
 });
 
 const geistMono = localFont({
   src: './fonts/GeistMono-Variable.woff2',
-  variable: "--font-geist-mono", // This CSS variable name is kept the same
+  variable: "--font-geist-mono",
   display: 'swap',
 });
 
-// The metadata remains unchanged
+// 2. Updated Metadata to link the PWA manifest
 export const metadata: Metadata = {
   title: "Mediant International Limited Field Logs App",
   description: "Field logs App",
+  manifest: "/manifest.webmanifest", // This links the manifest file for PWA functionality
+};
+
+// 3. Added Viewport settings for a better mobile/PWA experience
+export const viewport: Viewport = {
+  themeColor: "#000000", // Sets the color of the browser UI (top bar)
+  initialScale: 1,
+  width: "device-width",
 };
 
 export default function RootLayout({
@@ -34,7 +42,7 @@ export default function RootLayout({
   return (
     <ConvexAuthNextjsServerProvider>
       <html lang="en">
-        {/* 3. The className here works exactly as before, no changes needed */}
+        {/* The body and providers remain unchanged */}
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
