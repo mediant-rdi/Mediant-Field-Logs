@@ -4,13 +4,11 @@ import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import { machineCategory } from './shared';
 
-// ... (other constants are unchanged) ...
 const approvalStatus = v.union(v.literal('pending'), v.literal('approved'), v.literal('rejected'));
 const agreementType = v.union(v.literal('LEASE'), v.literal('COMPREHENSIVE'), v.literal('CONTRACT'));
 
 
 export default defineSchema({
-  // ... (authTables and users table are unchanged) ...
   ...authTables,
   users: defineTable({
     name: v.optional(v.string()),
@@ -27,7 +25,8 @@ export default defineSchema({
     accountActivated: v.optional(v.boolean()),
   })
     .index('by_email', ['email'])
-    .index('by_username', ['name']),
+    .index('by_username', ['name'])
+    .index('by_invitation_token', ['invitationToken']), // <-- ADD THIS INDEX FOR FASTER LOOKUPS
 
   machines: defineTable({ 
     name: v.string(), 
@@ -54,11 +53,11 @@ export default defineSchema({
     status: approvalStatus, 
     approvedBy: v.optional(v.id("users")), 
     approvedAt: v.optional(v.number()),
-    viewedBySubmitter: v.optional(v.boolean()), // <-- ADD THIS
+    viewedBySubmitter: v.optional(v.boolean()),
   })
     .index("by_status", ["status"])
     .index("by_submittedBy", ["submittedBy"])
-    .index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"]), // <-- ADD THIS INDEX
+    .index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"]),
 
   complaints: defineTable({ 
     submittedBy: v.id("users"),
@@ -80,11 +79,11 @@ export default defineSchema({
     status: approvalStatus, 
     approvedBy: v.optional(v.id("users")), 
     approvedAt: v.optional(v.number()), 
-    viewedBySubmitter: v.optional(v.boolean()), // <-- ADD THIS
+    viewedBySubmitter: v.optional(v.boolean()),
   })
     .index("by_status", ["status"])
     .index("by_submittedBy", ["submittedBy"])
-    .index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"]), // <-- ADD THIS INDEX
+    .index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"]),
 
   feedback: defineTable({ branchLocation: v.string(), modelType: v.string(), feedbackDetails: v.string(), imageId: v.optional(v.id('_storage')), }).index("by_branch_and_model", ["branchLocation", "modelType"]),
   

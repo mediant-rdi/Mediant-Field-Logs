@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { Id } from "./_generated/dataModel";
 
 // --- PRIVATE HELPER FUNCTION ---
 function generateInviteToken(): string {
@@ -40,7 +41,8 @@ export const createUserInvitation = mutation({
       invitationSent: true,
       accountActivated: false,
     });
-    const inviteUrl = `${process.env.SITE_URL}/invitelink/${inviteToken}`;
+    // FIXED: Changed "/invitelink/" to "/invite/" to match the frontend route
+    const inviteUrl = `${process.env.SITE_URL}/invite/${inviteToken}`;
 
     console.log(inviteUrl); // Log the invitation URL for debugging
     return { userId, inviteToken, inviteUrl };
@@ -72,7 +74,7 @@ export const createFirstUserInvitation = internalMutation({
   },
 });
 
-// 2. VERIFY INVITATION
+// 2. VERIFY INVITATION (Unchanged)
 export const verifyInvitation = query({
   args: { token: v.string() },
   handler: async (ctx, args) => {
@@ -96,25 +98,62 @@ export const verifyInvitation = query({
   },
 });
 
-// 3. COMPLETE INVITATION
+// 3. COMPLETE INVITATION (UPDATED LOGIC TO PREVENT DUPLICATES)
 export const completeInvitation = mutation({
   args: { token: v.string() },
-  handler: async (ctx, args) => {
-    const user = await ctx.db.query("users").filter((q) => q.eq(q.field("invitationToken"), args.token)).first();
-    if (!user) { throw new Error("Invalid token"); }
-    if (user.accountActivated) { throw new Error("Invitation already used"); }
-    if (user.invitationExpiresAt && user.invitationExpiresAt < Date.now()) { throw new Error("Invitation expired"); }
-    await ctx.db.patch(user._id, {
-      accountActivated: true,
-      invitationToken: undefined,
-      invitationExpiresAt: undefined,
+  handler: async (ctx, args): Promise<Id<"users">> => {
+    // 1. Get the newly authenticated user created by the auth provider.
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) {
+      throw new Error("You must be logged in to complete an invitation.");
+    }
+    const authUser = await ctx.db.get(authUserId);
+    if (!authUser) {
+      throw new Error("Authenticated user not found in the database.");
+    }
+
+    // 2. Find the original placeholder user record using the invitation token.
+    const invitedUser = await ctx.db
+      .query("users")
+      .withIndex("by_invitation_token", (q) => q.eq("invitationToken", args.token))
+      .first();
+
+    // 3. Validate the invitation record.
+    if (!invitedUser) {
+      throw new Error("Invalid invitation token.");
+    }
+    if (invitedUser.accountActivated) {
+      throw new Error("This invitation has already been used.");
+    }
+    if (invitedUser.invitationExpiresAt && invitedUser.invitationExpiresAt < Date.now()) {
+      throw new Error("This invitation has expired.");
+    }
+
+    // 4. Security Check: Ensure the email of the person who signed up matches the invitation.
+    if (invitedUser.email !== authUser.email) {
+      await ctx.db.delete(authUser._id); 
+      throw new Error(
+        "Authentication failed. The email you signed in with does not match the email on the invitation."
+      );
+    }
+    
+    // 5. Merge data: Copy details from the invitation to the authenticated user record.
+    await ctx.db.patch(authUser._id, {
+      name: invitedUser.name,       // Use the name from the invitation
+      isAdmin: invitedUser.isAdmin, // Apply the admin role from the invitation
+      accountActivated: true,       // Mark the account as fully activated
     });
-    return user._id;
+
+    // 6. Clean up by deleting the original, now-redundant, placeholder record.
+    await ctx.db.delete(invitedUser._id);
+
+    // 7. Return the ID of the final, merged user account.
+    return authUser._id;
   },
 });
 
 
-// 4. GET PENDING INVITATIONS
+// 4. GET PENDING INVITATIONS (Unchanged)
 export const getPendingInvitations = query({
   handler: async (ctx) => {
     const currentUserId = await getAuthUserId(ctx);
