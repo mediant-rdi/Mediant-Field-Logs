@@ -3,8 +3,10 @@
 
 import { Authenticated, Unauthenticated } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react"; // <-- 1. Import useState
 import { useAuthActions } from "@convex-dev/auth/react";
+import Image from "next/image";
+import { Eye, EyeOff } from "lucide-react"; // <-- 2. Import the icons
 
 export default function LoginPage() {
   return (
@@ -28,11 +30,10 @@ function RedirectToDashboard() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50">
       <div className="text-center">
-        {/* Changed spinner color to match app's blue theme */}
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mx-auto"></div>
-        <p className="mt-2 text-gray-600">Redirecting to dashboard...</p>
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-slate-600">Redirecting to your dashboard...</p>
       </div>
     </div>
   );
@@ -40,20 +41,23 @@ function RedirectToDashboard() {
 
 function SignIn() {
   const { signIn } = useAuthActions();
-
-  // Simplified logic since sign-up is removed from UI
-  const title = "Sign In to Your Account";
-  const buttonText = "Sign In";
+  // 3. State to manage password visibility
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   return (
-    // Main container to center the form on the page
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 dark:bg-gray-900">
-      {/* Styled the card to match the dashboard's look and feel */}
-      <div className="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-md dark:bg-gray-800">
-        <div>
-          {/* Adjusted heading style for consistency */}
-          <h1 className="text-center text-2xl font-semibold text-gray-900 dark:text-white">
-            {title}
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-12">
+      <div className="w-full max-w-md space-y-6 rounded-xl bg-white p-6 shadow-md sm:p-8">
+        <div className="text-center">
+          <Image
+            src="/images/logo.jpg"
+            alt="Mediant Logo"
+            width={70}
+            height={70}
+            className="mx-auto rounded-full"
+            priority
+          />
+          <h1 className="mt-5 text-center text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+            Sign In to Your Account
           </h1>
         </div>
         <form
@@ -61,19 +65,13 @@ function SignIn() {
           onSubmit={(event) => {
             event.preventDefault();
             const formData = new FormData(event.currentTarget);
-            // Since there's no sign-up flow, we can simplify this call
             void signIn("password", formData);
           }}
         >
-          {/* This hidden input is crucial, hardcoded to "signIn" */}
           <input name="flow" type="hidden" value="signIn" />
 
-          {/* Email Input */}
           <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
+            <label htmlFor="email" className="block text-sm font-medium text-slate-700">
               Email address
             </label>
             <div className="mt-1">
@@ -83,50 +81,59 @@ function SignIn() {
                 type="email"
                 autoComplete="email"
                 required
-                // Changed focus ring color from indigo to blue
-                className="block w-full appearance-none rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500"
+                className="block w-full appearance-none rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                 placeholder="you@example.com"
               />
             </div>
           </div>
 
-          {/* Password Input */}
+          {/* --- PASSWORD FIELD WITH VISIBILITY TOGGLE --- */}
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
+            <label htmlFor="password" className="block text-sm font-medium text-slate-700">
               Password
             </label>
-            <div className="mt-1">
+            {/* 4. A relative container to position the icon inside the input */}
+            <div className="relative mt-1">
               <input
                 id="password"
                 name="password"
-                type="password"
+                // 5. Dynamically set the type based on state
+                type={isPasswordVisible ? "text" : "password"}
                 autoComplete="current-password"
                 required
-                // Changed focus ring color from indigo to blue
-                className="block w-full appearance-none rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500"
+                // 6. Add padding to the right to make space for the icon
+                className="block w-full appearance-none rounded-md border border-slate-300 px-3 py-2 pr-10 text-base text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                 placeholder="••••••••"
               />
+              {/* 7. The icon button */}
+              <button
+                type="button" // Important to prevent form submission
+                onClick={() => setIsPasswordVisible((prev) => !prev)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+              >
+                {isPasswordVisible ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
             </div>
           </div>
+          {/* --- END OF PASSWORD FIELD --- */}
 
-          {/* Submit Button */}
           <div>
             <button
               type="submit"
-              // Changed button color from indigo to blue for consistency
-              className="flex w-full justify-center rounded-md border border-transparent bg-blue-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+              className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
-              {buttonText}
+              Sign In
             </button>
           </div>
         </form>
 
-        {/* Replaced the sign-up link with the requested text */}
-        <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-          Do not have an account? Contact the RDI team
+        <p className="text-center text-sm text-slate-500">
+          Do not have an account? Contact the RDI team.
         </p>
       </div>
     </div>

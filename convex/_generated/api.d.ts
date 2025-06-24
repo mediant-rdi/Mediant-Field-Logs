@@ -24,6 +24,7 @@ import type * as invitations from "../invitations.js";
 import type * as machines from "../machines.js";
 import type * as notifications from "../notifications.js";
 import type * as serviceReports from "../serviceReports.js";
+import type * as setup from "../setup.js";
 import type * as shared from "../shared.js";
 import type * as users from "../users.js";
 
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   machines: typeof machines;
   notifications: typeof notifications;
   serviceReports: typeof serviceReports;
+  setup: typeof setup;
   shared: typeof shared;
   users: typeof users;
 }>;

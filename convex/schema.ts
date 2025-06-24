@@ -10,6 +10,9 @@ const agreementType = v.union(v.literal('LEASE'), v.literal('COMPREHENSIVE'), v.
 
 export default defineSchema({
   ...authTables,
+
+  // --- UPDATED users TABLE ---
+  // Invitation fields have been removed.
   users: defineTable({
     name: v.optional(v.string()),
     image: v.optional(v.string()),
@@ -19,15 +22,24 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     isAdmin: v.optional(v.boolean()),
-    invitationToken: v.optional(v.string()),
-    invitationExpiresAt: v.optional(v.number()),
-    invitationSent: v.optional(v.boolean()),
-    accountActivated: v.optional(v.boolean()),
+    accountActivated: v.optional(v.boolean()), 
   })
-    .index('by_email', ['email'])
-    .index('by_username', ['name'])
-    .index('by_invitation_token', ['invitationToken']), // <-- ADD THIS INDEX FOR FASTER LOOKUPS
+    .index('by_email', ['email']),
 
+  // --- NEW invitations TABLE ---
+  // This stores pending invitations separately from users.
+  invitations: defineTable({
+    token: v.string(),
+    email: v.string(),
+    name: v.string(),
+    isAdmin: v.boolean(),
+    expiresAt: v.number(),
+    createdBy: v.id("users"),
+  })
+    .index("by_token", ["token"])
+    .index("by_email", ["email"]),
+
+  // --- NO CHANGES to your other tables ---
   machines: defineTable({ 
     name: v.string(), 
     description: v.optional(v.string()),
