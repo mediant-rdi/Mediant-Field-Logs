@@ -3,10 +3,10 @@
 
 import { Authenticated, Unauthenticated } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react"; // <-- 1. Import useState
+import { useEffect, useState, FormEvent } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import Image from "next/image";
-import { Eye, EyeOff } from "lucide-react"; // <-- 2. Import the icons
+import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   return (
@@ -41,8 +41,105 @@ function RedirectToDashboard() {
 
 function SignIn() {
   const { signIn } = useAuthActions();
-  // 3. State to manage password visibility
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Enhanced error message mapping for Convex auth errors
+  const getErrorMessage = (err: unknown): string => {
+    if (err instanceof Error) {
+      const message = err.message.toLowerCase();
+      const originalMessage = err.message;
+      
+      // Handle specific Convex authentication errors
+      if (message.includes("incorrect password") || message.includes("wrong password") || message.includes("invalid password")) {
+        return "The password you entered is incorrect. Please check your password and try again.";
+      }
+      
+      if (message.includes("no user") || message.includes("user not found") || message.includes("account not found")) {
+        return "No account was found with that email address. Please check your email or contact the RDI team.";
+      }
+      
+      // Handle common Convex auth server errors that should be user-friendly
+      if (message.includes("invalidsecret") || message.includes("invalid secret") || 
+          message.includes("unauthorized") || message.includes("authentication failed")) {
+        return "Invalid email or password. Please check your credentials and try again.";
+      }
+      
+      if (message.includes("invalid email") || message.includes("email format")) {
+        return "Please enter a valid email address.";
+      }
+      
+      if (message.includes("account not activated") || message.includes("account disabled")) {
+        return "Your account has not been activated yet. Please contact the RDI team.";
+      }
+      
+      if (message.includes("too many attempts") || message.includes("rate limit")) {
+        return "Too many login attempts. Please wait a few minutes before trying again.";
+      }
+      
+      if (message.includes("network") || message.includes("connection")) {
+        return "Network connection error. Please check your internet connection and try again.";
+      }
+      
+      if (message.includes("timeout")) {
+        return "The request timed out. Please try again.";
+      }
+      
+      // Handle server errors that contain technical details
+      if (message.includes("server error") || message.includes("internal error") || 
+          originalMessage.includes("[Request ID:")) {
+        return "Invalid email or password. Please check your credentials and try again.";
+      }
+      
+      // If it's a short, readable error message, show it
+      if (originalMessage && originalMessage.length < 80 && !originalMessage.includes("[Request ID:")) {
+        return originalMessage.charAt(0).toUpperCase() + originalMessage.slice(1) + (originalMessage.endsWith('.') ? '' : '.');
+      }
+    }
+    
+    // Default fallback message for authentication errors
+    return "Invalid email or password. Please check your credentials and try again.";
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      const formData = new FormData(event.currentTarget as HTMLFormElement);
+      const email = formData.get("email") as string;
+      const password = formData.get("password") as string;
+
+      // Basic client-side validation
+      if (!email || !email.trim()) {
+        setError("Please enter your email address.");
+        return;
+      }
+
+      if (!password || !password.trim()) {
+        setError("Please enter your password.");
+        return;
+      }
+
+      // Email format validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setError("Please enter a valid email address.");
+        return;
+      }
+
+      await signIn("password", formData);
+      // If successful, the <Authenticated> component will handle the redirect
+      
+    } catch (err: unknown) {
+      console.error("Login error:", err); // Keep for debugging
+      setError(getErrorMessage(err));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-12">
@@ -60,16 +157,29 @@ function SignIn() {
             Sign In to Your Account
           </h1>
         </div>
-        <form
-          className="space-y-6"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const formData = new FormData(event.currentTarget);
-            void signIn("password", formData);
-          }}
-        >
-          <input name="flow" type="hidden" value="signIn" />
 
+        {/* Enhanced error display */}
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start">
+              <AlertCircle className="h-5 w-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-red-800 leading-relaxed">
+                  {error}
+                </p>
+                {error.includes("contact the RDI team") && (
+                  <p className="text-xs text-red-600 mt-2">
+                    Need help? Reach out to your administrator.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <input name="flow" type="hidden" value="signIn" />
+          
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-slate-700">
               Email address
@@ -81,35 +191,33 @@ function SignIn() {
                 type="email"
                 autoComplete="email"
                 required
-                className="block w-full appearance-none rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                disabled={isSubmitting}
+                className="block w-full appearance-none rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
                 placeholder="you@example.com"
               />
             </div>
           </div>
-
-          {/* --- PASSWORD FIELD WITH VISIBILITY TOGGLE --- */}
+          
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-slate-700">
               Password
             </label>
-            {/* 4. A relative container to position the icon inside the input */}
             <div className="relative mt-1">
               <input
                 id="password"
                 name="password"
-                // 5. Dynamically set the type based on state
                 type={isPasswordVisible ? "text" : "password"}
                 autoComplete="current-password"
                 required
-                // 6. Add padding to the right to make space for the icon
-                className="block w-full appearance-none rounded-md border border-slate-300 px-3 py-2 pr-10 text-base text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                disabled={isSubmitting}
+                className="block w-full appearance-none rounded-md border border-slate-300 px-3 py-2 pr-10 text-base text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
                 placeholder="••••••••"
               />
-              {/* 7. The icon button */}
               <button
-                type="button" // Important to prevent form submission
+                type="button"
                 onClick={() => setIsPasswordVisible((prev) => !prev)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                disabled={isSubmitting}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 disabled:opacity-50"
                 aria-label={isPasswordVisible ? "Hide password" : "Show password"}
               >
                 {isPasswordVisible ? (
@@ -120,20 +228,27 @@ function SignIn() {
               </button>
             </div>
           </div>
-          {/* --- END OF PASSWORD FIELD --- */}
-
+          
           <div>
             <button
               type="submit"
-              className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              disabled={isSubmitting}
+              className="flex w-full justify-center items-center rounded-md border border-transparent bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
             >
-              Sign In
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Signing In...
+                </>
+              ) : (
+                "Sign In"
+              )}
             </button>
           </div>
         </form>
-
+        
         <p className="text-center text-sm text-slate-500">
-          Do not have an account? Contact the RDI team.
+          Don&apos;t have an account? Contact the RDI team.
         </p>
       </div>
     </div>

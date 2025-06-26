@@ -7,7 +7,7 @@ import { useQuery, useAction } from 'convex/react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '../../convex/_generated/api';
 import Image from 'next/image';
-import { Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 function LoadingState() {
   return (
@@ -21,6 +21,7 @@ function LoadingState() {
 }
 
 function InvalidState({ error }: { error?: string }) {
+  const router = useRouter();
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md rounded-xl bg-white p-8 text-center shadow-md">
@@ -28,10 +29,10 @@ function InvalidState({ error }: { error?: string }) {
         <h2 className="text-2xl font-bold text-red-600 mb-2">Invitation Invalid</h2>
         <p className="text-slate-600">{error || "This link may have expired or been used already."}</p>
         <button 
-          onClick={() => window.location.href = '/'}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          onClick={() => router.push('/login')}
+          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
         >
-          Go to Homepage
+          Go to Login Page
         </button>
       </div>
     </div>
@@ -78,7 +79,9 @@ export function InvitePage() {
   const { signIn } = useAuthActions();
   const setPasswordAndActivate = useAction(api.invitations.setPasswordAndCompleteInvitation);
 
-  // Skip the invitation query if we've already succeeded to prevent it from re-running
+  // --- THE FIX IS HERE ---
+  // We tell the query to 'skip' if the token is missing OR if the process has already succeeded.
+  // This prevents it from re-running after a successful submission.
   const invitation = useQuery(
     api.invitations.verifyInvitation,
     (token && !success) ? { token } : 'skip'
@@ -113,7 +116,7 @@ export function InvitePage() {
     setLoading(true);
 
     try {
-      // Step 1: Call backend action to create and activate the account.
+      // Step 1: Call backend action to create the user account and delete the invitation.
       await setPasswordAndActivate({ token, password });
       
       // Step 2: Now that the account exists, sign the user in from the client.
@@ -122,13 +125,12 @@ export function InvitePage() {
         password 
       });
       
-      // Step 3: Show the success screen.
+      // Step 3: Show the success screen. This will now take priority on the next render.
       setSuccess(true);
-    } catch (err: unknown) { // <-- FIX #2: Use `unknown` instead of `any`
+    } catch (err: unknown) {
       console.error("Account creation/login failed:", err);
-      let friendlyMessage = "An unexpected error occurred.";
+      let friendlyMessage = "An unexpected error occurred. Please try again.";
       if (err instanceof Error) {
-        // If it's a standard Error object, we can safely use its message
         friendlyMessage = err.message;
       }
       setError(friendlyMessage);
@@ -140,12 +142,13 @@ export function InvitePage() {
   // Show success state first (highest priority)
   if (success) return <SuccessState />;
   
-  // Show loading state while invitation is being fetched
+  // Show loading state while invitation is being fetched for the first time
   if (invitation === undefined) return <LoadingState />;
   
-  // Show invalid state only if invitation is explicitly invalid
+  // Show invalid state if the initial fetch shows the token is invalid
   if (!invitation.valid) return <InvalidState error={invitation.error} />;
 
+  // If all checks pass, show the form
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-12">
       <div className="w-full max-w-md space-y-6 rounded-xl bg-white p-6 shadow-md sm:p-8">
@@ -159,6 +162,16 @@ export function InvitePage() {
           <p><span className="font-semibold text-slate-700">Email:</span> {invitation.user?.email}</p>
           <p><span className="font-semibold text-slate-700">Role:</span> {invitation.user?.isAdmin ? 'Admin' : 'User'}</p>
         </div>
+
+        {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <div className="flex items-center">
+                    <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0" />
+                    <p className="text-sm font-medium text-red-700">{error}</p>
+                </div>
+            </div>
+        )}
+
         <form onSubmit={handleSignup} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">Password</label>
@@ -166,7 +179,7 @@ export function InvitePage() {
               <input type={isPasswordVisible ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className="block w-full appearance-none rounded-md border border-slate-300 px-3 py-2 pr-10 text-base text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500" placeholder="Enter your password" />
               <button type="button" onClick={() => setIsPasswordVisible(!isPasswordVisible)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600">{isPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button>
             </div>
-            <p className="mt-1 text-xs text-slate-500">Must be at least 8 characters with uppercase, lowercase, and number</p>
+            <p className="mt-1 text-xs text-slate-500">Must be 8+ characters with uppercase, lowercase, and a number.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Confirm Password</label>
@@ -175,7 +188,6 @@ export function InvitePage() {
               <button type="button" onClick={() => setIsConfirmVisible(!isConfirmVisible)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600">{isConfirmVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button>
             </div>
           </div>
-          {error && <div className="rounded-md bg-red-50 border border-red-200 p-3"><p className="text-center text-sm font-medium text-red-600">{error}</p></div>}
           <button type="submit" disabled={loading || !password || !confirmPassword} className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">{loading ? (<><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Creating Account...</>) : ('Create Account')}</button>
         </form>
       </div>

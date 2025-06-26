@@ -23,7 +23,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, [isAuthenticated, isLoading, router]);
 
   useEffect(() => {
-    if (pathname.startsWith('/dashboard/clients/add')) {
+    // --- ADD THIS ELSE IF BLOCK ---
+    if (pathname.startsWith('/dashboard/reports/add')) {
+        setActiveItem('admin-add-report');
+        setPageTitle('Add Report');
+    } else if (pathname.startsWith('/dashboard/clients/add')) {
         setActiveItem('admin-add-client');
         setPageTitle('Add Client / Location');
     } else if (pathname.startsWith('/dashboard/clients')) {
@@ -73,6 +77,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       case 'admin-add-user': router.push('/dashboard/users/add'); break;
       case 'admin-add-client': router.push('/dashboard/clients/add'); break;
       case 'admin-add-machine': router.push('/dashboard/machines/add'); break;
+      // --- ADD THIS CASE ---
+      case 'admin-add-report': router.push('/dashboard/reports/add'); break;
       default: console.warn(`Navigation for "${itemId}" is not defined.`); break;
     }
   };
@@ -97,11 +103,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         onItemClick={handleItemClick}
         activeItem={activeItem}
       />
-      {/*
-        THE ONLY CHANGE IS HERE:
-        Added `min-w-0` to this div. This prevents the content inside
-        from expanding the container and causing a horizontal scrollbar on the page.
-      */}
       <div className="flex-1 flex flex-col min-w-0">
         <Header onMenuClick={() => setSidebarOpen(true)} pageTitle={pageTitle} />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">

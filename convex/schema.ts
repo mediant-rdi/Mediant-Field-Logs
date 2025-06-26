@@ -11,8 +11,6 @@ const agreementType = v.union(v.literal('LEASE'), v.literal('COMPREHENSIVE'), v.
 export default defineSchema({
   ...authTables,
 
-  // --- UPDATED users TABLE ---
-  // Invitation fields have been removed.
   users: defineTable({
     name: v.optional(v.string()),
     image: v.optional(v.string()),
@@ -26,8 +24,6 @@ export default defineSchema({
   })
     .index('by_email', ['email']),
 
-  // --- NEW invitations TABLE ---
-  // This stores pending invitations separately from users.
   invitations: defineTable({
     token: v.string(),
     email: v.string(),
@@ -39,7 +35,6 @@ export default defineSchema({
     .index("by_token", ["token"])
     .index("by_email", ["email"]),
 
-  // --- NO CHANGES to your other tables ---
   machines: defineTable({ 
     name: v.string(), 
     description: v.optional(v.string()),
@@ -49,6 +44,16 @@ export default defineSchema({
     .searchIndex('by_name_search', { searchField: 'name' })
     .index("by_category", ["category"]),
   
+  // --- NEWLY ADDED reports TABLE ---
+  reports: defineTable({
+    description: v.string(),
+    machineId: v.id("machines"),       // Link to the machine document
+    fileStorageId: v.id("_storage"),   // Link to the uploaded file in Convex storage
+    fileName: v.string(),              // Original name of the file
+    fileType: v.string(),              // Mime type (e.g., 'application/pdf')
+    uploadedBy: v.id("users"),         // Link to the user who uploaded it
+  }).index("by_machineId", ["machineId"]), // Index for faster lookups by machine
+
   serviceReports: defineTable({ 
     submittedBy: v.id("users"), 
     modelTypes: v.string(), 
@@ -97,9 +102,24 @@ export default defineSchema({
     .index("by_submittedBy", ["submittedBy"])
     .index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"]),
 
-  feedback: defineTable({ branchLocation: v.string(), modelType: v.string(), feedbackDetails: v.string(), imageId: v.optional(v.id('_storage')), }).index("by_branch_and_model", ["branchLocation", "modelType"]),
+  feedback: defineTable({ 
+    branchLocation: v.string(), 
+    modelType: v.string(), 
+    feedbackDetails: v.string(), 
+    imageId: v.optional(v.id('_storage')), 
+  }).index("by_branch_and_model", ["branchLocation", "modelType"]),
   
-  clients: defineTable({ name: v.string(), searchName: v.string(), agreementType: agreementType, }).index("by_search_name", ["searchName"]),
+  clients: defineTable({ 
+    name: v.string(), 
+    searchName: v.string(), 
+    agreementType: agreementType, 
+  }).index("by_search_name", ["searchName"]),
   
-  clientLocations: defineTable({ clientId: v.id("clients"), name: v.string(), searchName: v.string(), fullName: v.string(), searchFullName: v.string(), }).index("by_client_and_search", ["clientId", "searchName"]).index("by_full_search_name", ["searchFullName"]),
+  clientLocations: defineTable({ 
+    clientId: v.id("clients"), 
+    name: v.string(), 
+    searchName: v.string(), 
+    fullName: v.string(), 
+    searchFullName: v.string(), 
+  }).index("by_client_and_search", ["clientId", "searchName"]).index("by_full_search_name", ["searchFullName"]),
 });
