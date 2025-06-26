@@ -1,11 +1,11 @@
 // src/components/forms/AddReportForm.tsx
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useRef } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Id } from '../../../convex/_generated/dataModel';
-import { Check, AlertCircle, Cog, FileText, UploadCloud, PlusCircle } from 'lucide-react';
+import { Check, AlertCircle, Cog, FileText, UploadCloud, PlusCircle, File as FileIcon, X } from 'lucide-react';
 
 export function AddReportForm() {
   const [selectedMachine, setSelectedMachine] = useState<string>('');
@@ -14,6 +14,7 @@ export function AddReportForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Convex hooks
   const machines = useQuery(api.reports.getMachinesForSelect);
@@ -24,8 +25,9 @@ export function AddReportForm() {
     setSelectedMachine('');
     setDescription('');
     setFile(null);
-    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
+    if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+    }
     setError('');
     setSuccess(false);
     setIsSubmitting(false);
@@ -62,17 +64,10 @@ export function AddReportForm() {
       setSuccess(true);
     } catch (err: unknown) {
       console.error(err);
-      
-      // Proper error handling without 'any' type
       let errorMessage = 'Failed to add report. Please try again.';
-      
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      } else if (typeof err === 'object' && err !== null && 'data' in err) {
-        const errorWithData = err as { data?: { message?: string }; message?: string };
-        errorMessage = errorWithData.data?.message || errorWithData.message || errorMessage;
+      if (err instanceof Error) { 
+        errorMessage = err.message; 
       }
-      
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -152,24 +147,48 @@ export function AddReportForm() {
           />
         </div>
 
+        {/* --- MOBILE-FRIENDLY FILE INPUT --- */}
         <div>
-          <label htmlFor="file-upload-label" className="block text-sm font-medium text-slate-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
             <UploadCloud className="h-4 w-4 inline mr-1.5" />
-            Report File (PDF or Word)
+            Report File
           </label>
-          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-md">
-            <div className="space-y-1 text-center">
-              <svg className="mx-auto h-12 w-12 text-slate-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /></svg>
-              <div className="flex text-sm text-slate-600">
-                <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                  <span>Upload a file</span>
-                  <input id="file-upload" name="file-upload" type="file" className="sr-only" accept=".pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => setFile(e.target.files?.[0] ?? null)} required />
-                </label>
-                <p className="pl-1">or drag and drop</p>
+          {file ? (
+            <div className="mt-2 flex items-center justify-between p-3 border rounded-md bg-slate-50">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <FileIcon className="h-6 w-6 text-slate-500 flex-shrink-0" />
+                <div className="text-sm overflow-hidden">
+                  <p className="font-medium text-slate-800 truncate">{file.name}</p>
+                  <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
+                </div>
               </div>
-              <p className="text-xs text-slate-500">{file ? file.name : "PDF, DOC, DOCX up to 10MB"}</p>
+              <button
+                type="button"
+                onClick={() => {
+                    setFile(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="p-1 rounded-full text-slate-500 hover:bg-slate-200 flex-shrink-0 ml-2"
+                aria-label="Remove file"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          </div>
+          ) : (
+            <label htmlFor="file-upload" className="mt-2 flex justify-center items-center gap-2 w-full px-6 py-4 border-2 border-slate-300 border-dashed rounded-md cursor-pointer hover:bg-slate-50 transition-colors">
+              <UploadCloud className="h-5 w-5 text-slate-400" />
+              <span className="text-sm font-medium text-slate-600">Choose a file to upload</span>
+              <input 
+                ref={fileInputRef} 
+                id="file-upload" 
+                type="file" 
+                className="sr-only" 
+                accept=".pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)} 
+                required 
+              />
+            </label>
+          )}
         </div>
       </div>
       
