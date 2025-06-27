@@ -7,28 +7,40 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import logoImage from "../../images/logo.jpg";
 
-// --- CHANGE 1: Moved baseMenuItems outside the component ---
-// This array contains all possible menu items. By defining it here,
-// its reference is stable and won't cause the useMemo hook to re-run unnecessarily.
+// --- UPDATED ICONS from lucide-react ---
+import {
+  LayoutDashboard,
+  MessageSquareHeart,
+  FileWarning,
+  Users,
+  Server,
+  ClipboardList,
+  Shield,
+  Settings,
+  ChevronDown
+} from "lucide-react";
+
+
+// All possible menu items with new, semantic icons.
 const baseMenuItems = [
-  { id: 'dashboard', name: 'Dashboard', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" /></svg> ) },
-  { id: 'feedback-form', name: 'Customer Feedback & Recommendation', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" /></svg> ), },
+  { id: 'dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+  { id: 'feedback-form', name: 'Customer Feedback', icon: <MessageSquareHeart size={20} />, },
   { 
     id: 'complaint', 
     name: 'Complaint Logging', 
-    icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> ),
+    icon: <FileWarning size={20} />,
     subItems: [
       { id: 'complaint-customer', name: 'Customer Complaint' },
       { id: 'complaint-engineer', name: 'Engineer Complaint' }
     ]
   },
-  { id: 'clients-view', name: 'View Clients', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.125-1.273-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.125-1.273.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> ), },
-  { id: 'machines', name: 'View Products', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg> ), },
-  { id: 'reports-machine-dev', name: 'Machine Development Reports', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> ), },
+  { id: 'clients-view', name: 'View Clients', icon: <Users size={20} />, },
+  { id: 'machines', name: 'View Products', icon: <Server size={20} />, },
+  { id: 'reports-machine-dev', name: 'Machine Reports', icon: <ClipboardList size={20} />, },
   { 
     id: 'admin', 
     name: 'Admin Panel', 
-    icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg> ),
+    icon: <Shield size={20} />,
     subItems: [
       { id: 'admin-view-users', name: 'View Users' },
       { id: 'admin-add-user', name: 'Add User' },
@@ -37,7 +49,7 @@ const baseMenuItems = [
       { id: 'admin-add-report', name: 'Add Report' }
     ]
   },
-  { id: 'settings', name: 'Settings', icon: ( <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> ) }
+  { id: 'settings', name: 'Settings', icon: <Settings size={20} /> }
 ];
 
 interface SidebarProps {
@@ -53,20 +65,16 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
   const { isLoading, isAuthenticated } = useConvexAuth();
   const user = useQuery(api.users.current, isAuthenticated ? {} : "skip");
 
-  // --- CHANGE 2: Dynamically generate menuItems based on user role ---
+  // Dynamically generate menuItems based on user role
   const menuItems = useMemo(() => {
-    // While user data is loading or if the user is not an admin,
-    // filter out the 'admin' menu item to hide it.
     if (isLoading || !user?.isAdmin) {
       return baseMenuItems.filter(item => item.id !== 'admin');
     }
-    // Otherwise, the user is an admin, so show all menu items.
     return baseMenuItems;
-  // --- CHANGE 3: Removed `baseMenuItems` from the dependency array ---
   }, [user, isLoading]); 
 
 
-  // The rest of the component is identical and remains unchanged...
+  // --- The rest of the component remains the same, only minor icon updates below ---
   const handleItemClick = (itemId: string) => { onItemClick(itemId); onClose(); };
   const handleDropdownToggle = (itemId: string) => { setOpenDropdown(prev => (prev === itemId ? null : itemId)); };
   const getUserInitials = (name?: string | null, email?: string | null) => { if (name) return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2); if (email) return email.slice(0, 2).toUpperCase(); return 'U'; };
@@ -91,5 +99,6 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
   const dropdownChevronStyle: React.CSSProperties = { marginLeft: 'auto', transition: 'transform 0.2s' };
   const subMenuContainerStyle: React.CSSProperties = { paddingLeft: '28px', overflow: 'hidden', transition: 'max-height 0.3s ease-in-out' };
   const getSubMenuItemStyle = (subItemId: string): React.CSSProperties => ({ ...menuItemStyle, padding: '8px 12px', fontSize: '13px', backgroundColor: activeItem === subItemId ? '#e0e7ff' : 'transparent', color: activeItem === subItemId ? '#1e40af' : '#666' });
-  return ( <> <style>{mediaQueries}</style> <div className="sidebar-overlay" style={overlayStyle} onClick={onClose}/> <div className="sidebar" style={sidebarStyle}> <div style={headerStyle}> <div style={logoStyle}><Image src={logoImage} alt="Mediant Logo" width={180} height={30} style={{ objectFit: 'contain' }}/></div> <button className="close-button" onClick={onClose} style={closeButtonStyle} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}> <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg> </button> </div> <nav style={navStyle}> <div> {menuItems.map((item) => ( <div key={item.id}> <button onClick={() => item.subItems ? handleDropdownToggle(item.id) : handleItemClick(item.id)} style={getMenuItemStyle(item.id)} onMouseEnter={(e) => { if (!activeItem.startsWith(item.id)) e.currentTarget.style.backgroundColor = '#f9fafb'; }} onMouseLeave={(e) => { if (!activeItem.startsWith(item.id)) e.currentTarget.style.backgroundColor = 'transparent'; }}> <span style={menuIconStyle}>{item.icon}</span> <span style={{flexGrow: 1}}>{item.name}</span> {item.subItems && ( <span style={{...dropdownChevronStyle, transform: openDropdown === item.id ? 'rotate(180deg)' : 'rotate(0deg)'}}> <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg> </span> )} </button> {item.subItems && ( <div style={{ ...subMenuContainerStyle, maxHeight: openDropdown === item.id ? `${item.subItems.length * 50}px` : '0px' }}> {item.subItems.map((subItem) => ( <button key={subItem.id} onClick={() => handleItemClick(subItem.id)} style={getSubMenuItemStyle(subItem.id)} onMouseEnter={(e) => { if (activeItem !== subItem.id) e.currentTarget.style.backgroundColor = '#f3f4f6'; }} onMouseLeave={(e) => { if (activeItem !== subItem.id) e.currentTarget.style.backgroundColor = 'transparent'; }} > {subItem.name} </button> ))} </div> )} </div> ))} </div> </nav> <div style={bottomSectionStyle}>{renderUserProfile()}</div> </div> </> );
+
+  return ( <> <style>{mediaQueries}</style> <div className="sidebar-overlay" style={overlayStyle} onClick={onClose}/> <div className="sidebar" style={sidebarStyle}> <div style={headerStyle}> <div style={logoStyle}><Image src={logoImage} alt="Mediant Logo" width={180} height={30} style={{ objectFit: 'contain' }}/></div> <button className="close-button" onClick={onClose} style={closeButtonStyle} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}> <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg> </button> </div> <nav style={navStyle}> <div> {menuItems.map((item) => ( <div key={item.id}> <button onClick={() => item.subItems ? handleDropdownToggle(item.id) : handleItemClick(item.id)} style={getMenuItemStyle(item.id)} onMouseEnter={(e) => { if (!activeItem.startsWith(item.id)) e.currentTarget.style.backgroundColor = '#f9fafb'; }} onMouseLeave={(e) => { if (!activeItem.startsWith(item.id)) e.currentTarget.style.backgroundColor = 'transparent'; }}> <span style={menuIconStyle}>{item.icon}</span> <span style={{flexGrow: 1}}>{item.name}</span> {item.subItems && ( <span style={{...dropdownChevronStyle, transform: openDropdown === item.id ? 'rotate(180deg)' : 'rotate(0deg)'}}> <ChevronDown size={16} /> </span> )} </button> {item.subItems && ( <div style={{ ...subMenuContainerStyle, maxHeight: openDropdown === item.id ? `${item.subItems.length * 50}px` : '0px' }}> {item.subItems.map((subItem) => ( <button key={subItem.id} onClick={() => handleItemClick(subItem.id)} style={getSubMenuItemStyle(subItem.id)} onMouseEnter={(e) => { if (activeItem !== subItem.id) e.currentTarget.style.backgroundColor = '#f3f4f6'; }} onMouseLeave={(e) => { if (activeItem !== subItem.id) e.currentTarget.style.backgroundColor = 'transparent'; }} > {subItem.name} </button> ))} </div> )} </div> ))} </div> </nav> <div style={bottomSectionStyle}>{renderUserProfile()}</div> </div> </> );
 }
