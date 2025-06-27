@@ -98,9 +98,16 @@ export default function PasswordResetPage() {
       // --- FIX #4: Call our simple action with just the token and new password ---
       await resetPasswordAction({ token, newPassword: password });
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Password reset failed:", err);
-      setError(err.data?.message || err.message || "An unexpected error occurred.");
+      const errorMessage = err instanceof Error && 'data' in err && 
+        typeof err.data === 'object' && err.data !== null && 
+        'message' in err.data && typeof err.data.message === 'string'
+        ? err.data.message
+        : err instanceof Error && err.message
+        ? err.message
+        : "An unexpected error occurred.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

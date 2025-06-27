@@ -80,9 +80,14 @@ export default function UsersPage() {
       try {
         await deleteUser({ userId });
         toast.success("User successfully deleted.");
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to delete user:", error);
-        toast.error(error.data?.message || "An error occurred while deleting the user.");
+        const errorMessage = error instanceof Error && 'data' in error && 
+          typeof error.data === 'object' && error.data !== null && 
+          'message' in error.data && typeof error.data.message === 'string'
+          ? error.data.message
+          : "An error occurred while deleting the user.";
+        toast.error(errorMessage);
       } finally {
         setDeletingId(null);
       }
@@ -98,9 +103,14 @@ export default function UsersPage() {
         setIsResetModalOpen(true);
         toast.info("Password reset link generated. The user can use this link to set a new password.");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to generate reset link:", error);
-      toast.error(error.data?.message || "An unexpected error occurred.");
+      const errorMessage = error instanceof Error && 'data' in error && 
+        typeof error.data === 'object' && error.data !== null && 
+        'message' in error.data && typeof error.data.message === 'string'
+        ? error.data.message
+        : "An unexpected error occurred.";
+      toast.error(errorMessage);
     } finally {
       setIsResetting(null);
     }
@@ -218,7 +228,7 @@ export default function UsersPage() {
           </table>
         </div>
 
-        {users && users.length === 0 && <p className="text-center py-5 text-gray-500">No users found. {isAdmin ? 'Click “Add User” to get started.' : ''}</p>}
+        {users && users.length === 0 && <p className="text-center py-5 text-gray-500">No users found. {isAdmin ? 'Click "Add User" to get started.' : ''}</p>}
         
         {(status === "CanLoadMore" || status === "LoadingMore") && (
           <div className="text-center mt-6">
