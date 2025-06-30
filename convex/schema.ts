@@ -36,19 +36,26 @@ export default defineSchema({
     createdBy: v.id("users"),
   }).index("by_token", ["token"]).index("by_email", ["email"]),
     
-  // --- This is the simple, correct version of the table ---
   passwordResetTokens: defineTable({
     userId: v.id("users"),
     token: v.string(),
     expiresAt: v.number(),
   }).index("by_token", ["token"]).index("by_userId", ["userId"]),
 
-  // ... (the rest of your schema remains unchanged)
   machines: defineTable({ name: v.string(), description: v.optional(v.string()), category: machineCategory, }).index('by_name', ['name']).searchIndex('by_name_search', { searchField: 'name' }).index("by_category", ["category"]),
   reports: defineTable({ description: v.string(), machineId: v.id("machines"), fileStorageId: v.id("_storage"), fileName: v.string(), fileType: v.string(), uploadedBy: v.id("users"), }).index("by_machineId", ["machineId"]),
   serviceReports: defineTable({ submittedBy: v.id("users"), modelTypes: v.string(), branchLocation: v.string(), complaintText: v.string(), solution: v.string(), problemType: v.union(v.literal('electrical'), v.literal('mechanical'), v.literal('software'), v.literal('service-delay'), v.literal('other')), backofficeAccess: v.boolean(), spareDelay: v.boolean(), delayedReporting: v.boolean(), communicationBarrier: v.boolean(), otherText: v.optional(v.string()), imageId: v.optional(v.id('_storage')), status: approvalStatus, approvedBy: v.optional(v.id("users")), approvedAt: v.optional(v.number()), viewedBySubmitter: v.optional(v.boolean()), }).index("by_status", ["status"]).index("by_submittedBy", ["submittedBy"]).index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"]),
   complaints: defineTable({ submittedBy: v.id("users"), modelType: v.string(), branchLocation: v.string(), complaintText: v.string(), solution: v.string(), problemType: v.union(v.literal('equipment-fault'), v.literal('poor-experience'), v.literal('other')), fault_oldAge: v.boolean(), fault_frequentBreakdowns: v.boolean(), fault_undoneRepairs: v.boolean(), experience_paperJamming: v.boolean(), experience_noise: v.boolean(), experience_freezing: v.boolean(), experience_dust: v.boolean(), experience_buttonsSticking: v.boolean(), otherProblemDetails: v.string(), imageId: v.optional(v.id('_storage')), status: approvalStatus, approvedBy: v.optional(v.id("users")), approvedAt: v.optional(v.number()), viewedBySubmitter: v.optional(v.boolean()), }).index("by_status", ["status"]).index("by_submittedBy", ["submittedBy"]).index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"]),
-  feedback: defineTable({ branchLocation: v.string(), modelType: v.string(), feedbackDetails: v.string(), imageId: v.optional(v.id('_storage')), }).index("by_branch_and_model", ["branchLocation", "modelType"]),
+  
+  // --- SCHEMA UPDATE IS HERE ---
+  feedback: defineTable({
+    branchLocation: v.string(),
+    modelType: v.string(),
+    feedbackDetails: v.string(),
+    imageId: v.optional(v.id('_storage')),
+    submittedBy: v.optional(v.id("users")), // <-- ADD THIS LINE
+  }).index("by_branch_and_model", ["branchLocation", "modelType"]),
+  
   clients: defineTable({ name: v.string(), searchName: v.string(), agreementType: agreementType, }).index("by_search_name", ["searchName"]),
   clientLocations: defineTable({ clientId: v.id("clients"), name: v.string(), searchName: v.string(), fullName: v.string(), searchFullName: v.string(), }).index("by_client_and_search", ["clientId", "searchName"]).index("by_full_search_name", ["searchFullName"]),
 });

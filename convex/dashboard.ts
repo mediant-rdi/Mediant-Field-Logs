@@ -51,37 +51,40 @@ export const getDashboardSubmissions = query({
     ]);
     const complaints = complaintsRaw as Doc<"complaints">[];
 
-    const approvalDocs = [...serviceReports, ...complaints];
-    const submitterIds = approvalDocs.map((doc) => doc.submittedBy);
+    // This logic correctly includes feedback documents to find the submitter's ID.
+    const allDocsWithSubmitters = [...serviceReports, ...complaints, ...feedback];
+
+    const submitterIds = allDocsWithSubmitters
+      .map(doc => (doc as { submittedBy?: Id<"users"> }).submittedBy)
+      .filter((id): id is Id<"users"> => !!id);
+
     const uniqueSubmitterIds = [...new Set(submitterIds)];
     const submitters = uniqueSubmitterIds.length > 0 ? await ctx.db.query("users").filter((q) => q.or(...uniqueSubmitterIds.map((id) => q.eq(q.field("_id"), id)))).collect() : [];
     const submitterNames = new Map(submitters.map((s) => [s._id, s.name ?? "Unnamed User"]));
 
-    // Use the Doc<> type for type safety
     const enrichedServiceReports = serviceReports
       .filter((report): report is Doc<"serviceReports"> => (report as Doc<"serviceReports">).modelTypes !== undefined)
       .map((report) => ({
         ...report,
         submitterName: submitterNames.get(report.submittedBy) ?? "Unknown User",
         type: 'serviceReport' as const,
-        // --- FIX #1: Use 'complaintText' which exists in your schema. 'workPerformed' does not. ---
         mainText: report.complaintText,
       }));
 
     const enrichedComplaints = complaints.map((complaint: Doc<"complaints">) => ({
       ...complaint,
-      // --- FIX #2: Correctly map singular 'modelType' to plural 'modelTypes' for consistency. ---
       modelTypes: complaint.modelType,
       submitterName: submitterNames.get(complaint.submittedBy) ?? "Unknown User",
       type: 'complaint' as const,
       mainText: complaint.complaintText,
     }));
 
-    const enrichedFeedback = feedback.map((fb: Doc<"feedback">) => ({
+    // This logic now correctly looks up the name for feedback submissions.
+    const enrichedFeedback = feedback.map((fb: Doc<"feedback"> & { submittedBy?: Id<"users"> }) => ({
       ...fb,
       modelTypes: fb.modelType,
       branchLocation: fb.branchLocation,
-      submitterName: "Customer",
+      submitterName: fb.submittedBy ? (submitterNames.get(fb.submittedBy) ?? "Unknown User") : "Customer",
       type: 'feedback' as const,
       mainText: fb.feedbackDetails,
     }));

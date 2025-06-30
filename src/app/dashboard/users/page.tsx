@@ -162,30 +162,48 @@ export default function UsersPage() {
 
         {/* Mobile Card View */}
         <div className="space-y-4 md:hidden">
-          {users?.map((user) => (
-            <div key={user._id} className="bg-gray-50 p-4 border rounded-lg shadow-sm space-y-3">
-              <div>
-                <div className="font-semibold text-gray-900">{user.name || 'N/A'}</div>
-                <div className="text-sm text-gray-500">{user.email || 'N/A'}</div>
-              </div>
-              <div>
-                <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${user.isAdmin ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>
-                  {user.isAdmin ? 'Admin' : 'Member'}
-                </span>
-              </div>
-              {isAdmin && (
-                <div className="flex gap-x-4 pt-2 border-t border-gray-200 flex-wrap">
-                  <button className="text-sm font-medium text-blue-600 hover:text-blue-800" onClick={() => setEditingUser(user)}>Edit</button>
-                  <button className="text-sm font-medium text-yellow-600 hover:text-yellow-800 disabled:opacity-50" onClick={() => handleResetPassword(user._id)} disabled={isResetting === user._id}>
-                    {isResetting === user._id ? "Generating..." : "Reset Password"}
-                  </button>
-                  <button className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50" onClick={() => handleDelete(user._id)} disabled={deletingId === user._id}>
-                    {deletingId === user._id ? "Deleting..." : "Delete"}
-                  </button>
+          {users?.map((user) => {
+            const isDeleted = user.accountActivated === false;
+            const roleText = isDeleted ? 'Deleted' : user.isAdmin ? 'Admin' : 'Member';
+            const roleClasses = isDeleted 
+              ? 'bg-red-100 text-red-800' 
+              : user.isAdmin 
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-gray-200 text-gray-700';
+            
+            return (
+              <div key={user._id} className="bg-gray-50 p-4 border rounded-lg shadow-sm space-y-3">
+                <div>
+                  <div className="font-semibold text-gray-900">{user.name || 'N/A'}</div>
+                  <div className="text-sm text-gray-500">{user.email || 'N/A'}</div>
                 </div>
-              )}
-            </div>
-          ))}
+                <div>
+                  <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${roleClasses}`}>
+                    {roleText}
+                  </span>
+                </div>
+                {isAdmin && (
+                  <div className="flex gap-x-4 pt-2 border-t border-gray-200 flex-wrap">
+                    {/* --- FIX START: Conditionally render actions for non-deleted users --- */}
+                    {isDeleted ? (
+                      <span className="text-sm text-gray-500 italic">Deleted</span>
+                    ) : (
+                      <>
+                        <button className="text-sm font-medium text-blue-600 hover:text-blue-800" onClick={() => setEditingUser(user)}>Edit</button>
+                        <button className="text-sm font-medium text-yellow-600 hover:text-yellow-800 disabled:opacity-50" onClick={() => handleResetPassword(user._id)} disabled={isResetting === user._id}>
+                          {isResetting === user._id ? "Generating..." : "Reset Password"}
+                        </button>
+                        <button className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50" onClick={() => handleDelete(user._id)} disabled={deletingId === user._id}>
+                          {deletingId === user._id ? "Deleting..." : "Delete"}
+                        </button>
+                      </>
+                    )}
+                    {/* --- FIX END --- */}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Desktop Table View */}
@@ -200,30 +218,46 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {users?.map((user) => (
-                <tr key={user._id}>
-                  <td className="px-3 py-4 font-medium text-gray-900">{user.name || 'N/A'}</td>
-                  <td className="px-3 py-4 text-gray-600">{user.email || 'N/A'}</td>
-                  <td className="px-3 py-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${user.isAdmin ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>
-                      {user.isAdmin ? 'Admin' : 'Member'}
-                    </span>
-                  </td>
-                  {isAdmin && (
+              {users?.map((user) => {
+                const isDeleted = user.accountActivated === false;
+                const roleText = isDeleted ? 'Deleted' : user.isAdmin ? 'Admin' : 'Member';
+                const roleClasses = isDeleted 
+                  ? 'bg-red-100 text-red-800' 
+                  : user.isAdmin 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-gray-200 text-gray-700';
+
+                return (
+                  <tr key={user._id}>
+                    <td className="px-3 py-4 font-medium text-gray-900">{user.name || 'N/A'}</td>
+                    <td className="px-3 py-4 text-gray-600">{user.email || 'N/A'}</td>
                     <td className="px-3 py-4">
-                      <div className="flex items-center gap-4">
-                        <button className="text-sm text-blue-600 hover:underline" onClick={() => setEditingUser(user)}>Edit</button>
-                        <button className="text-sm text-yellow-600 hover:underline disabled:opacity-50 disabled:no-underline" onClick={() => handleResetPassword(user._id)} disabled={isResetting === user._id}>
-                          {isResetting === user._id ? "Generating..." : "Reset Password"}
-                        </button>
-                        <button className="text-sm text-red-600 hover:underline disabled:opacity-50 disabled:no-underline" onClick={() => handleDelete(user._id)} disabled={deletingId === user._id}>
-                          {deletingId === user._id ? "Deleting..." : "Delete"}
-                        </button>
-                      </div>
+                      <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${roleClasses}`}>
+                        {roleText}
+                      </span>
                     </td>
-                  )}
-                </tr>
-              ))}
+                    {isAdmin && (
+                      <td className="px-3 py-4">
+                        {/* --- FIX START: Conditionally render actions for non-deleted users --- */}
+                        {isDeleted ? (
+                           <span className="text-gray-500 italic">Deleted</span>
+                        ) : (
+                          <div className="flex items-center gap-4">
+                            <button className="text-sm text-blue-600 hover:underline" onClick={() => setEditingUser(user)}>Edit</button>
+                            <button className="text-sm text-yellow-600 hover:underline disabled:opacity-50 disabled:no-underline" onClick={() => handleResetPassword(user._id)} disabled={isResetting === user._id}>
+                              {isResetting === user._id ? "Generating..." : "Reset Password"}
+                            </button>
+                            <button className="text-sm text-red-600 hover:underline disabled:opacity-50 disabled:no-underline" onClick={() => handleDelete(user._id)} disabled={deletingId === user._id}>
+                              {deletingId === user._id ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
+                        )}
+                        {/* --- FIX END --- */}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

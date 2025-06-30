@@ -193,7 +193,7 @@ function SignIn() {
                 required
                 disabled={isSubmitting}
                 className="block w-full appearance-none rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
-                placeholder="you@example.com"
+                placeholder="you@mediantinternational.com"
               />
             </div>
           </div>

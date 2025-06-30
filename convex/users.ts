@@ -19,7 +19,26 @@ export const updateUser = mutation({
 });
 export const deleteUser = mutation({
     args: { userId: v.id("users") },
-    handler: async (ctx, args) => { await ctx.db.delete(args.userId) },
+    handler: async (ctx, args) => {
+        const authAccounts = await ctx.db
+            .query('authAccounts')
+            .withIndex('by_userId', q => q.eq('userId', args.userId))
+            .collect();
+
+        const deletePromises = authAccounts.map(account => ctx.db.delete(account._id));
+        await Promise.all(deletePromises);
+
+        await ctx.db.patch(args.userId, {
+            image: undefined,
+            phone: undefined,
+            phoneVerificationTime: undefined,
+            emailVerificationTime: undefined,
+            isAnonymous: undefined,
+
+            isAdmin: false,
+            accountActivated: false,
+        });
+    },
 });
 export const current = query({
   handler: async (ctx) => {
