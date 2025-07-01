@@ -5,7 +5,7 @@ import { useState, FormEvent, useRef } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Id } from '../../../convex/_generated/dataModel';
-import { Check, AlertCircle, Cog, FileText, UploadCloud, PlusCircle, File as FileIcon, X } from 'lucide-react';
+import { Check, UploadCloud, File as FileIcon, X, PlusCircle } from 'lucide-react';
 
 export function AddReportForm() {
   const [selectedMachine, setSelectedMachine] = useState<string>('');
@@ -67,6 +67,8 @@ export function AddReportForm() {
       let errorMessage = 'Failed to add report. Please try again.';
       if (err instanceof Error) { 
         errorMessage = err.message; 
+      } else {
+        errorMessage = "An unexpected error occurred. Please try again.";
       }
       setError(errorMessage);
     } finally {
@@ -76,20 +78,18 @@ export function AddReportForm() {
 
   if (success) {
     return (
-      <div className="p-4 bg-green-50 text-green-900 border border-green-200 rounded-lg text-center">
-        <div className="flex items-center justify-center mb-2">
-          <Check className="h-6 w-6 text-green-600 mr-2" />
-          <p className="font-semibold text-base">Report Added Successfully!</p>
-        </div>
-        <p className="text-sm text-green-700 mb-4">
-          The new report is now available in the machine development reports list.
+      <div className="p-6 bg-green-50 text-center rounded-lg">
+        <Check className="h-12 w-12 text-green-500 mx-auto mb-3" />
+        <h3 className="text-lg font-medium text-gray-900">Report Added Successfully!</h3>
+        <p className="text-sm text-gray-600 mt-2 mb-4">
+          The new report is now available for the selected machine.
         </p>
         <button
           type="button"
           onClick={resetForm}
-          className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md"
         >
-          <PlusCircle className="h-4 w-4 mr-2" />
+          <PlusCircle className="h-5 w-5 mr-2" />
           Add Another Report
         </button>
       </div>
@@ -97,116 +97,101 @@ export function AddReportForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-          <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
-            <p className="text-sm font-medium text-red-600">{error}</p>
-          </div>
-        </div>
-      )}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && <p className="text-red-500 text-sm">{error}</p>}
       
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="machine" className="block text-sm font-medium text-slate-700 mb-1">
-            <Cog className="h-4 w-4 inline mr-1.5" />
-            Machine Model
-          </label>
-          <select
-            id="machine"
-            value={selectedMachine}
-            onChange={(e) => setSelectedMachine(e.target.value)}
-            className="block w-full rounded-md border-slate-300 px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500 placeholder-slate-400"
-            required
-          >
-            <option value="" disabled>
-              {machines === undefined ? "Loading..." : "Select a machine"}
+      <div>
+        <label htmlFor="machine" className="block text-sm font-medium text-gray-700">
+          Machine Model
+        </label>
+        <select
+          id="machine"
+          value={selectedMachine}
+          onChange={(e) => setSelectedMachine(e.target.value)}
+          required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="" disabled>
+            {machines === undefined ? "Loading..." : "Select a machine"}
+          </option>
+          {machines?.map((machine) => (
+            <option key={machine._id} value={machine._id}>
+              {machine.name}
             </option>
-            {machines?.map((machine) => (
-              <option key={machine._id} value={machine._id}>
-                {machine.name}
-              </option>
-            ))}
-          </select>
-        </div>
+          ))}
+        </select>
+      </div>
 
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-1">
-            <FileText className="h-4 w-4 inline mr-1.5" />
-            Brief Description
-          </label>
-          <textarea
-            id="description"
-            rows={4}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="block w-full rounded-md border-slate-300 px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500 placeholder-slate-400"
-            placeholder="Enter a brief description of the report..."
-            required
-          />
-        </div>
+      <div>
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+          Brief Description
+        </label>
+        <textarea
+          id="description"
+          rows={4}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          required
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Enter a brief description of the report..."
+        />
+      </div>
 
-        {/* --- MOBILE-FRIENDLY FILE INPUT --- */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            <UploadCloud className="h-4 w-4 inline mr-1.5" />
-            Report File
-          </label>
-          {file ? (
-            <div className="mt-2 flex items-center justify-between p-3 border rounded-md bg-slate-50">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <FileIcon className="h-6 w-6 text-slate-500 flex-shrink-0" />
-                <div className="text-sm overflow-hidden">
-                  <p className="font-medium text-slate-800 truncate">{file.name}</p>
-                  <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
-                </div>
+      {/* --- FILE INPUT (Styling adjusted to match theme) --- */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">
+          Report File
+        </label>
+        {file ? (
+          <div className="mt-1 flex items-center justify-between p-3 border border-gray-300 rounded-md bg-gray-50">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <FileIcon className="h-6 w-6 text-gray-500 flex-shrink-0" />
+              <div className="text-sm overflow-hidden">
+                <p className="font-medium text-gray-800 truncate">{file.name}</p>
+                <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                    setFile(null);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                }}
-                className="p-1 rounded-full text-slate-500 hover:bg-slate-200 flex-shrink-0 ml-2"
-                aria-label="Remove file"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
-          ) : (
-            <label htmlFor="file-upload" className="mt-2 flex justify-center items-center gap-2 w-full px-6 py-4 border-2 border-slate-300 border-dashed rounded-md cursor-pointer hover:bg-slate-50 transition-colors">
-              <UploadCloud className="h-5 w-5 text-slate-400" />
-              <span className="text-sm font-medium text-slate-600">Choose a file to upload</span>
-              <input 
-                ref={fileInputRef} 
-                id="file-upload" 
-                type="file" 
-                className="sr-only" 
-                accept=".pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)} 
-                required 
-              />
-            </label>
-          )}
-        </div>
+            <button
+              type="button"
+              onClick={() => {
+                  setFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+              }}
+              className="p-1 rounded-full text-gray-500 hover:bg-gray-200 flex-shrink-0 ml-2"
+              aria-label="Remove file"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <label htmlFor="file-upload" className="mt-1 flex justify-center items-center gap-2 w-full px-6 py-4 border-2 border-gray-300 border-dashed rounded-md cursor-pointer hover:bg-gray-50 transition-colors">
+            <UploadCloud className="h-5 w-5 text-gray-400" />
+            <span className="text-sm font-medium text-gray-600">Choose a file to upload</span>
+            <input 
+              ref={fileInputRef} 
+              id="file-upload" 
+              type="file" 
+              className="sr-only" 
+              accept=".pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)} 
+              required 
+            />
+          </label>
+        )}
       </div>
       
       <button 
         type="submit" 
         disabled={isSubmitting || !selectedMachine || !description || !file} 
-        className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-full flex justify-center items-center bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md disabled:bg-blue-300"
       >
         {isSubmitting ? (
           <>
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-            Submitting Report...
+            Submitting...
           </>
         ) : (
-          <>
-            <PlusCircle className="h-5 w-5 mr-2" />
-            Add Report
-          </>
+          "Add Report"
         )}
       </button>
     </form>
