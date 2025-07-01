@@ -4,6 +4,8 @@
 import Link from 'next/link';
 import { useQuery } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
+import { Doc } from '../../../../convex/_generated/dataModel';
+import React from 'react'; // Import React for React.memo
 
 // A responsive loading skeleton component.
 const TableSkeleton = () => (
@@ -22,6 +24,36 @@ const TableSkeleton = () => (
     </div>
   </div>
 );
+
+// OPTIMIZATION: Created a memoized component for the mobile card view.
+// This prevents re-rendering unless the client data changes.
+const ClientCard = React.memo(function ClientCard({ client }: { client: Doc<'clients'> }) {
+  return (
+    <div className="bg-gray-50 p-4 border rounded-lg shadow-sm">
+      <div className="font-semibold text-gray-900">{client.name}</div>
+      <div className="mt-2 text-sm text-gray-600">
+        <span className="font-medium">Agreement:</span> {client.agreementType}
+      </div>
+      <div className="mt-1 text-sm text-gray-500">
+        <span className="font-medium">Added:</span> {new Date(client._creationTime).toLocaleDateString()}
+      </div>
+    </div>
+  );
+});
+
+// OPTIMIZATION: Created a memoized component for the desktop table row.
+// This prevents re-rendering unless the client data changes.
+const ClientRow = React.memo(function ClientRow({ client }: { client: Doc<'clients'> }) {
+  return (
+    <tr>
+      <td className="px-4 py-3 font-medium text-gray-900">{client.name}</td>
+      <td className="px-4 py-3 text-gray-600">{client.agreementType}</td>
+      <td className="px-4 py-3 text-gray-600">
+        {new Date(client._creationTime).toLocaleDateString()}
+      </td>
+    </tr>
+  );
+});
 
 /**
  * A responsive component to display the client data.
@@ -70,15 +102,7 @@ function ClientsDataTable({ isAdmin }: { isAdmin: boolean }) {
       {/* Mobile View: Card List (hidden on screens md and up) */}
       <div className="space-y-4 md:hidden">
         {clients.map((client) => (
-          <div key={client._id} className="bg-gray-50 p-4 border rounded-lg shadow-sm">
-            <div className="font-semibold text-gray-900">{client.name}</div>
-            <div className="mt-2 text-sm text-gray-600">
-              <span className="font-medium">Agreement:</span> {client.agreementType}
-            </div>
-            <div className="mt-1 text-sm text-gray-500">
-              <span className="font-medium">Added:</span> {new Date(client._creationTime).toLocaleDateString()}
-            </div>
-          </div>
+          <ClientCard key={client._id} client={client} />
         ))}
       </div>
 
@@ -94,13 +118,7 @@ function ClientsDataTable({ isAdmin }: { isAdmin: boolean }) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {clients.map((client) => (
-              <tr key={client._id}>
-                <td className="px-4 py-3 font-medium text-gray-900">{client.name}</td>
-                <td className="px-4 py-3 text-gray-600">{client.agreementType}</td>
-                <td className="px-4 py-3 text-gray-600">
-                  {new Date(client._creationTime).toLocaleDateString()}
-                </td>
-              </tr>
+              <ClientRow key={client._id} client={client} />
             ))}
           </tbody>
         </table>

@@ -26,6 +26,9 @@ function RedirectToDashboard() {
   const router = useRouter();
   
   useEffect(() => {
+    // OPTIMIZATION: Preload the dashboard page's code to make the
+    // subsequent navigation feel instantaneous.
+    import('../dashboard/page');
     router.push("/dashboard");
   }, [router]);
 
@@ -248,7 +251,7 @@ function SignIn() {
         </form>
         
         <p className="text-center text-sm text-slate-500">
-          Don&apos;t have an account? Contact the RDI team.
+          Do not have an account? Contact the RDI team.
         </p>
       </div>
     </div>

@@ -16,9 +16,9 @@ type BaseReport = {
   mainText: string;
 };
 type ServiceReportWithSubmitter = BaseReport & {
-  _id: Id<"serviceReports">;
+  _id: Id<'serviceReports'>;
   type: 'serviceReport';
-  status: "pending" | "approved" | "rejected";
+  status: 'pending' | 'approved' | 'rejected';
   complaintText: string;
   solution: string;
   problemType: 'electrical' | 'mechanical' | 'software' | 'service-delay' | 'other';
@@ -27,11 +27,12 @@ type ServiceReportWithSubmitter = BaseReport & {
   delayedReporting: boolean;
   communicationBarrier: boolean;
   otherText?: string;
+  imageId?: Id<'_storage'>; // <<< FIX: Added optional imageId
 };
 type ComplaintWithSubmitter = BaseReport & {
-  _id: Id<"complaints">;
+  _id: Id<'complaints'>;
   type: 'complaint';
-  status: "pending" | "approved" | "rejected";
+  status: 'pending' | 'approved' | 'rejected';
   complaintText: string;
   solution: string;
   problemType: 'equipment-fault' | 'poor-experience' | 'other';
@@ -44,13 +45,16 @@ type ComplaintWithSubmitter = BaseReport & {
   experience_dust: boolean;
   experience_buttonsSticking: boolean;
   otherProblemDetails: string;
+  imageId?: Id<'_storage'>; // <<< FIX: Added optional imageId
 };
 type FeedbackWithSubmitter = BaseReport & {
-  _id: Id<"feedback">;
+  _id: Id<'feedback'>;
   type: 'feedback';
   status?: undefined;
   feedbackDetails: string;
+  imageId?: Id<'_storage'>; // <<< FIX: Added optional imageId
 };
+
 export type EnrichedReport = ServiceReportWithSubmitter | ComplaintWithSubmitter | FeedbackWithSubmitter;
 export type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
 type DashboardFormProps = {
@@ -63,38 +67,31 @@ type DashboardFormProps = {
 };
 
 // --- StatusBadge with Tailwind CSS ---
-export const StatusBadge = ({ status }: { status: "pending" | "approved" | "rejected" }) => {
-    const badgeClasses = {
-      pending: "bg-yellow-100 text-yellow-800",
-      approved: "bg-green-100 text-green-800",
-      rejected: "bg-red-100 text-red-800",
-    };
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClasses[status]}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
+export const StatusBadge = ({ status }: { status: 'pending' | 'approved' | 'rejected' }) => {
+  const badgeClasses = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    approved: 'bg-green-100 text-green-800',
+    rejected: 'bg-red-100 text-red-800',
+  };
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClasses[status]}`}>
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
 };
 
-export const DashboardForm = ({
-  submissions,
-  isAdmin,
-  currentStatusFilter,
-  onStatusFilterChange,
-  isFilterable,
-  onViewSubmission,
-}: DashboardFormProps) => {
+export const DashboardForm = ({ submissions, isAdmin, currentStatusFilter, onStatusFilterChange, isFilterable, onViewSubmission }: DashboardFormProps) => {
   const updateServiceReport = useMutation(api.serviceReports.updateServiceReportStatus);
   const updateComplaint = useMutation(api.complaints.updateComplaintStatus);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const handleStatusUpdate = async (id: Id<"serviceReports"> | Id<"complaints">, status: 'approved' | 'rejected', type: 'serviceReport' | 'complaint') => {
+  const handleStatusUpdate = async (id: Id<'serviceReports'> | Id<'complaints'>, status: 'approved' | 'rejected', type: 'serviceReport' | 'complaint') => {
     setUpdatingId(id);
     try {
       if (type === 'serviceReport') {
-        await updateServiceReport({ serviceReportId: id as Id<"serviceReports">, status });
+        await updateServiceReport({ serviceReportId: id as Id<'serviceReports'>, status });
       } else if (type === 'complaint') {
-        await updateComplaint({ complaintId: id as Id<"complaints">, status });
+        await updateComplaint({ complaintId: id as Id<'complaints'>, status });
       }
     } catch (error) {
       console.error(`Failed to update ${type} status:`, error);
@@ -119,7 +116,9 @@ export const DashboardForm = ({
       <div className="space-y-4 md:hidden">
         {isFilterable && isAdmin && (
           <div className="flex items-center gap-2">
-            <label htmlFor="status-filter-mobile" className="text-sm font-medium text-gray-700">Status:</label>
+            <label htmlFor="status-filter-mobile" className="text-sm font-medium text-gray-700">
+              Status:
+            </label>
             <select
               id="status-filter-mobile"
               value={currentStatusFilter}
@@ -138,27 +137,33 @@ export const DashboardForm = ({
             <div className="flex justify-between items-start">
               <div>
                 <p className="font-semibold text-gray-900 line-clamp-3">{report.mainText}</p>
-                <p className="text-sm text-gray-500 mt-1">{report.modelTypes} @ {report.branchLocation}</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {report.modelTypes} @ {report.branchLocation}
+                </p>
               </div>
-              <button onClick={() => onViewSubmission(report)} className="ml-2 text-sm font-medium text-blue-600 hover:text-blue-800 flex-shrink-0">View</button>
+              <button onClick={() => onViewSubmission(report)} className="ml-2 text-sm font-medium text-blue-600 hover:text-blue-800 flex-shrink-0">
+                View
+              </button>
             </div>
             <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
               <div className="text-gray-600">
                 <p>{report.submitterName}</p>
                 <p>{new Date(report._creationTime).toLocaleDateString()}</p>
               </div>
-              <div>
-                {report.status ? <StatusBadge status={report.status} /> : <span className="text-gray-500">-</span>}
-              </div>
+              <div>{report.status ? <StatusBadge status={report.status} /> : <span className="text-gray-500">-</span>}</div>
             </div>
             {isAdmin && report.status === 'pending' && (
               <div className="flex items-center gap-4 pt-2 border-t border-gray-200">
-                { (report.type === 'serviceReport' || report.type === 'complaint') && (
+                {report.type === 'serviceReport' || report.type === 'complaint' ? (
                   <>
-                    <button onClick={() => handleStatusUpdate(report._id, 'approved', report.type)} disabled={updatingId === report._id} className="text-sm font-medium text-green-600 hover:text-green-800 disabled:opacity-50">Approve</button>
-                    <button onClick={() => handleStatusUpdate(report._id, 'rejected', report.type)} disabled={updatingId === report._id} className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50">Reject</button>
+                    <button onClick={() => handleStatusUpdate(report._id, 'approved', report.type)} disabled={updatingId === report._id} className="text-sm font-medium text-green-600 hover:text-green-800 disabled:opacity-50">
+                      Approve
+                    </button>
+                    <button onClick={() => handleStatusUpdate(report._id, 'rejected', report.type)} disabled={updatingId === report._id} className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50">
+                      Reject
+                    </button>
                   </>
-                )}
+                ) : null}
               </div>
             )}
           </div>
@@ -177,14 +182,21 @@ export const DashboardForm = ({
                 {isAdmin && isFilterable ? (
                   <div className="flex items-center gap-2">
                     <span>Status</span>
-                    <select value={currentStatusFilter} onChange={(e) => onStatusFilterChange?.(e.target.value as StatusFilter)} className="text-xs p-1 rounded-md border-gray-300" >
-                      <option value="all">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
+                    <select value={currentStatusFilter} onChange={(e) => onStatusFilterChange?.(e.target.value as StatusFilter)} className="text-xs p-1 rounded-md border-gray-300">
+                      <option value="all">All</option>
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
                     </select>
                   </div>
-                ) : ('Status')}
+                ) : (
+                  'Status'
+                )}
               </th>
               {isAdmin && <th className="px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
-              <th className="relative px-3 py-3"><span className="sr-only">View</span></th>
+              <th className="relative px-3 py-3">
+                <span className="sr-only">View</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -192,7 +204,9 @@ export const DashboardForm = ({
               <tr key={report._id}>
                 <td className="px-3 py-4 max-w-xs">
                   <p className="font-medium text-gray-900 truncate">{report.mainText}</p>
-                  <p className="text-gray-500 mt-1 truncate">{report.modelTypes} @ {report.branchLocation}</p>
+                  <p className="text-gray-500 mt-1 truncate">
+                    {report.modelTypes} @ {report.branchLocation}
+                  </p>
                 </td>
                 <td className="px-3 py-4 text-gray-600">{report.submitterName}</td>
                 <td className="px-3 py-4 text-gray-600">{new Date(report._creationTime).toLocaleDateString()}</td>
@@ -200,7 +214,7 @@ export const DashboardForm = ({
                 {isAdmin && (
                   <td className="px-3 py-4">
                     {report.status === 'pending' ? (
-                      (report.type === 'serviceReport' || report.type === 'complaint') ? (
+                      report.type === 'serviceReport' || report.type === 'complaint' ? (
                         <div className="flex items-center gap-4">
                           <button
                             onClick={() => handleStatusUpdate(report._id, 'approved', report.type)}
@@ -218,11 +232,15 @@ export const DashboardForm = ({
                           </button>
                         </div>
                       ) : null
-                    ) : ( <span className="text-gray-500 italic">{report.status ? 'Resolved' : 'N/A'}</span> )}
+                    ) : (
+                      <span className="text-gray-500 italic">{report.status ? 'Resolved' : 'N/A'}</span>
+                    )}
                   </td>
                 )}
                 <td className="px-3 py-4 text-right">
-                  <button onClick={() => onViewSubmission(report)} className="font-medium text-blue-600 hover:underline">View</button>
+                  <button onClick={() => onViewSubmission(report)} className="font-medium text-blue-600 hover:underline">
+                    View
+                  </button>
                 </td>
               </tr>
             ))}

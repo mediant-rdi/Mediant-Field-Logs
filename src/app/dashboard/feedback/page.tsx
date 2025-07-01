@@ -1,14 +1,14 @@
 // app/dashboard/forms/customer-feedback/page.tsx
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react'; // Added useEffect
 import type { FormEvent, ChangeEvent } from 'react';
 import Image from 'next/image';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 import { Id, Doc } from '../../../../convex/_generated/dataModel';
 
-// --- All the TypeScript types, initial state, and component logic remain exactly the same ---
+// --- TypeScript types and initial state (unchanged) ---
 type FeedbackFormData = {
   branchLocation: string;
   modelType: string;
@@ -20,6 +20,27 @@ const initialState: FeedbackFormData = {
   modelType: '',
   feedbackDetails: '',
 };
+
+// OPTIMIZATION: Custom hook to debounce a value.
+// This prevents rapid-fire queries to the backend on every keystroke.
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    // Set up a timer to update the debounced value after the delay
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    // Clean up the timer if the value changes before the delay has passed
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 
 export default function CustomerFeedbackForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,8 +59,20 @@ export default function CustomerFeedbackForm() {
   const [showModelSuggestions, setShowModelSuggestions] = useState(false);
   const [showBranchSuggestions, setShowBranchSuggestions] = useState(false);
 
-  const machineSuggestions = useQuery(api.machines.searchByName, { searchText: formData.modelType }) ?? [];
-  const branchSuggestions = useQuery(api.clients.searchLocations, { searchText: formData.branchLocation }) ?? [];
+  // OPTIMIZATION: Debounce the search terms from the form inputs.
+  const debouncedModelType = useDebounce(formData.modelType, 300);
+  const debouncedBranchLocation = useDebounce(formData.branchLocation, 300);
+
+  // OPTIMIZATION: Use the debounced values for the queries.
+  // The query will only run if the search term is 2+ characters long.
+  const machineSuggestions = useQuery(
+    api.machines.searchByName, 
+    debouncedModelType.length < 2 ? 'skip' : { searchText: debouncedModelType }
+  ) ?? [];
+  const branchSuggestions = useQuery(
+    api.clients.searchLocations,
+    debouncedBranchLocation.length < 2 ? 'skip' : { searchText: debouncedBranchLocation }
+  ) ?? [];
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -189,7 +222,7 @@ export default function CustomerFeedbackForm() {
         </>
       )}
 
-      {/* --- RESPONSIVE CSS UPDATES --- */}
+      {/* --- CSS is unchanged --- */}
       <style jsx>{`
         /* Mobile-first styles */
         .form-container { max-width: 800px; margin: 0 auto; padding: 16px; background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
