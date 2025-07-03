@@ -6,6 +6,7 @@ import { useConvexAuth, useQuery, useMutation } from 'convex/react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '../../../convex/_generated/api';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation'; // CHANGED: Import useRouter
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -21,6 +22,7 @@ export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
   const user = useQuery(api.users.current, isAuthenticated ? {} : "skip");
   const { signOut } = useAuthActions();
   const isAdmin = user?.isAdmin;
+  const router = useRouter(); // CHANGED: Instantiate the router
   
   const statsData = useQuery(api.dashboard.getDashboardStats, isAdmin ? {} : "skip");
   const adminPendingCount = statsData?.pendingCount ?? 0;
@@ -54,7 +56,18 @@ export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
     };
   }, [notificationsOpen]);
 
-  const handleLogout = async () => { await signOut(); };
+  // CHANGED: Updated the handleLogout function for optimistic UI
+  const handleLogout = () => {
+    // 1. Fire the signOut function but don't wait for it to complete.
+    // This sends the request to Convex to invalidate the session in the background.
+    signOut();
+
+    // 2. Immediately redirect the user. This makes the UI feel instant.
+    // The user is navigated away while the background task finishes.
+    // You can change '/' to your login page, e.g., '/login'
+    router.push('/'); 
+  };
+  
   const getUserInitials = (name?: string | null, email?: string | null) => { if (name) { return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2); } if (email) { return email.slice(0, 2).toUpperCase(); } return ''; };
   const getDisplayName = (name?: string | null, email?: string | null) => { return name || email?.split('@')[0] || ''; };
 
