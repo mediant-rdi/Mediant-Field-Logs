@@ -17,6 +17,7 @@ import type * as auth from "../auth.js";
 import type * as clients from "../clients.js";
 import type * as complaints from "../complaints.js";
 import type * as dashboard from "../dashboard.js";
+import type * as data from "../data.js";
 import type * as feedback from "../feedback.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   clients: typeof clients;
   complaints: typeof complaints;
   dashboard: typeof dashboard;
+  data: typeof data;
   feedback: typeof feedback;
   files: typeof files;
   http: typeof http;
