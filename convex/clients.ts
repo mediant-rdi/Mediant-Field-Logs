@@ -12,47 +12,84 @@ const agreementType = v.union(
 
 /**
  * Normalizes a string for searching.
- * Converts to lowercase, removes punctuation, and trims extra whitespace.
+ * Converts to lowercase, removes punctuation, removes the word "bank",
+ * and trims extra whitespace.
  * e.g., "J.P. Morgan & Co." -> "jp morgan co"
+ * e.g., "NCBA Bank Town" -> "ncba town"
  */
 const normalizeName = (name: string): string => {
   return name
     .toLowerCase()
     .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "") // Remove punctuation
+    .replace(/\bbank\b/g, "") // Remove the whole word "bank"
     .replace(/\s{2,}/g, " ") // Replace multiple spaces with a single one
     .trim();
 };
 
 // --- UPDATED SEARCH QUERY ---
 /**
- * Searches for client locations by their full name for autocomplete.
- * This query ONLY returns results from the `clientLocations` table.
+ * Searches for client locations by their full name OR branch name.
+ *
+ * This query implements a two-tiered search:
+ * 1. It first prioritizes matches on the full name (e.g., "KCB - Gikomba").
+ * 2. It then includes matches on just the branch name (e.g., "Gikomba").
+ *
+ * The search is case-insensitive, ignores punctuation, and the word "bank".
  */
 export const searchLocations = query({
   args: {
     searchText: v.string(),
   },
   handler: async (ctx, args) => {
-    // Return empty if the search text is too short to be meaningful
     if (args.searchText.length < 2) {
       return [];
     }
 
     const normalizedQuery = normalizeName(args.searchText);
 
-    // Search ONLY the clientLocations table by the prefix of their full name
-    const locationResults = await ctx.db
-      .query("clientLocations")
-      .withIndex("by_full_search_name", (q) =>
-        q.gte("searchFullName", normalizedQuery).lt("searchFullName", normalizedQuery + "\uffff")
-      )
-      .take(10); // Take up to 10 matching locations
+    // If the query is empty after normalization (e.g., user only typed "bank"), return no results.
+    if (normalizedQuery.length === 0) {
+      return [];
+    }
 
-    // Format results for the frontend, returning only what's needed.
-    return locationResults.map(doc => ({
-      _id: doc._id,
-      displayText: doc.fullName,
-    }));
+    // Run searches for full name and branch name in parallel for efficiency
+    const [fullNameResults, nameResults] = await Promise.all([
+      // Primary search: by the prefix of the full search name
+      ctx.db
+        .query("clientLocations")
+        .withIndex("by_full_search_name", (q) =>
+          q.gte("searchFullName", normalizedQuery).lt("searchFullName", normalizedQuery + "\uffff")
+        )
+        .take(10),
+
+      // Secondary search: by the prefix of the branch search name
+      // This allows searching for "gikomba" to find "KCB - Gikomba", "Co-op - Gikomba", etc.
+      ctx.db
+        .query("clientLocations")
+        .withIndex("by_search_name", (q) =>
+          q.gte("searchName", normalizedQuery).lt("searchName", normalizedQuery + "\uffff")
+        )
+        .take(10),
+    ]);
+
+    // Combine results, with full name matches appearing first to give them priority
+    const combinedResults = [...fullNameResults, ...nameResults];
+
+    // De-duplicate the results using a Map, which preserves insertion order (and thus priority)
+    const uniqueResults = new Map<Id<"clientLocations">, Doc<"clientLocations">>();
+    for (const doc of combinedResults) {
+      if (!uniqueResults.has(doc._id)) {
+        uniqueResults.set(doc._id, doc);
+      }
+    }
+
+    // Convert map back to an array, limit to 10 total results, and format for the frontend
+    return Array.from(uniqueResults.values())
+      .slice(0, 10)
+      .map(doc => ({
+        _id: doc._id,
+        displayText: doc.fullName,
+      }));
   },
 });
 
@@ -100,7 +137,7 @@ export const createLocation = mutation({
     if (args.name.trim().length === 0) {
       throw new Error("Location name cannot be empty.");
     }
-    
+
     // 1. Get the parent client to construct the full name
     const client = await ctx.db.get(args.clientId);
     if (!client) {
