@@ -12,29 +12,22 @@ const agreementType = v.union(
 
 /**
  * Normalizes a string for searching.
- * Converts to lowercase, removes punctuation, removes the word "bank",
- * and trims extra whitespace.
- * e.g., "J.P. Morgan & Co." -> "jp morgan co"
- * e.g., "NCBA Bank Town" -> "ncba town"
+ * Converts to lowercase, removes the word "bank", then removes punctuation,
+ * and trims extra whitespace. The order of operations is important.
+ * e.g., "NCBA Bank - Town" -> "ncba town"
  */
 const normalizeName = (name: string): string => {
   return name
     .toLowerCase()
-    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "") // Remove punctuation
-    .replace(/\bbank\b/g, "") // Remove the whole word "bank"
-    .replace(/\s{2,}/g, " ") // Replace multiple spaces with a single one
+    .replace(/\bbank\b/g, "") // 1. Remove the whole word "bank" first
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "") // 2. Then, remove punctuation
+    .replace(/\s{2,}/g, " ") // 3. Replace multiple spaces with a single one
     .trim();
 };
 
-// --- UPDATED SEARCH QUERY ---
+// --- SEARCH QUERY (for locations autocomplete) ---
 /**
  * Searches for client locations by their full name OR branch name.
- *
- * This query implements a two-tiered search:
- * 1. It first prioritizes matches on the full name (e.g., "KCB - Gikomba").
- * 2. It then includes matches on just the branch name (e.g., "Gikomba").
- *
- * The search is case-insensitive, ignores punctuation, and the word "bank".
  */
 export const searchLocations = query({
   args: {
@@ -47,23 +40,17 @@ export const searchLocations = query({
 
     const normalizedQuery = normalizeName(args.searchText);
 
-    // If the query is empty after normalization (e.g., user only typed "bank"), return no results.
     if (normalizedQuery.length === 0) {
       return [];
     }
 
-    // Run searches for full name and branch name in parallel for efficiency
     const [fullNameResults, nameResults] = await Promise.all([
-      // Primary search: by the prefix of the full search name
       ctx.db
         .query("clientLocations")
         .withIndex("by_full_search_name", (q) =>
           q.gte("searchFullName", normalizedQuery).lt("searchFullName", normalizedQuery + "\uffff")
         )
         .take(10),
-
-      // Secondary search: by the prefix of the branch search name
-      // This allows searching for "gikomba" to find "KCB - Gikomba", "Co-op - Gikomba", etc.
       ctx.db
         .query("clientLocations")
         .withIndex("by_search_name", (q) =>
@@ -72,10 +59,8 @@ export const searchLocations = query({
         .take(10),
     ]);
 
-    // Combine results, with full name matches appearing first to give them priority
     const combinedResults = [...fullNameResults, ...nameResults];
 
-    // De-duplicate the results using a Map, which preserves insertion order (and thus priority)
     const uniqueResults = new Map<Id<"clientLocations">, Doc<"clientLocations">>();
     for (const doc of combinedResults) {
       if (!uniqueResults.has(doc._id)) {
@@ -83,7 +68,6 @@ export const searchLocations = query({
       }
     }
 
-    // Convert map back to an array, limit to 10 total results, and format for the frontend
     return Array.from(uniqueResults.values())
       .slice(0, 10)
       .map(doc => ({
@@ -98,7 +82,6 @@ export const searchLocations = query({
 
 /**
  * Creates a new client.
- * Automatically generates the normalized `searchName` for autocomplete.
  */
 export const createClient = mutation({
   args: {
@@ -106,7 +89,6 @@ export const createClient = mutation({
     agreementType: agreementType,
   },
   handler: async (ctx, args) => {
-    // Prevent creating clients with empty names
     if (args.name.trim().length === 0) {
       throw new Error("Client name cannot be empty.");
     }
@@ -125,12 +107,10 @@ export const createClient = mutation({
 
 /**
  * Creates a new client location (branch).
- * Requires a parent client and automatically generates all search fields.
  */
 export const createLocation = mutation({
   args: {
     clientId: v.id("clients"),
-    // This is the "Branch Name" from the form
     name: v.string(),
   },
   handler: async (ctx, args) => {
@@ -138,18 +118,15 @@ export const createLocation = mutation({
       throw new Error("Location name cannot be empty.");
     }
 
-    // 1. Get the parent client to construct the full name
     const client = await ctx.db.get(args.clientId);
     if (!client) {
       throw new Error("Client not found. Cannot create location.");
     }
 
-    // 2. Generate all required name variations
     const fullName = `${client.name} - ${args.name}`;
     const searchName = normalizeName(args.name);
     const searchFullName = normalizeName(fullName);
 
-    // 3. Insert the new location into the database
     const locationId = await ctx.db.insert("clientLocations", {
       clientId: args.clientId,
       name: args.name,
@@ -165,12 +142,54 @@ export const createLocation = mutation({
 // --- QUERIES ---
 
 /**
- * Gets a list of all clients for populating dropdowns, like in AddClientLocationForm.
+ * Gets a list of all clients for populating dropdowns.
  */
 export const listClients = query({
   handler: async (ctx): Promise<Doc<"clients">[]> => {
-    // Using .collect() to get all clients. For very large lists, you might add pagination.
     const clients = await ctx.db.query("clients").order("asc").collect();
+    return clients;
+  },
+});
+
+/**
+ * Gets a specific client and all of their associated locations (branches).
+ */
+export const getLocationsForClient = query({
+  args: {
+    clientId: v.id("clients"),
+  },
+  handler: async (ctx, args) => {
+    const client = await ctx.db.get(args.clientId);
+    if (!client) {
+      return null;
+    }
+    const locations = await ctx.db
+      .query("clientLocations")
+      .withIndex("by_client_and_search", q => q.eq("clientId", args.clientId))
+      .order("asc")
+      .collect();
+    return { client, locations };
+  },
+});
+
+/**
+ * Searches for clients by name for the main client list page.
+ */
+export const searchClients = query({
+  args: {
+    searchText: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (args.searchText.trim() === "") {
+      return ctx.db.query("clients").order("asc").collect();
+    }
+    const normalizedQuery = normalizeName(args.searchText);
+    const clients = await ctx.db
+      .query("clients")
+      .withIndex("by_search_name", (q) =>
+        q.gte("searchName", normalizedQuery).lt("searchName", normalizedQuery + "\uffff")
+      )
+      .collect();
     return clients;
   },
 });
