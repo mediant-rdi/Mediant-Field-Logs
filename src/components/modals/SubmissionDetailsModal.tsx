@@ -1,24 +1,9 @@
 // components/modals/SubmissionDetailsModal.tsx
 'use client';
 
-import { useState } from 'react';
-
-// POTENTIAL CAUSE OF THE REACT ERROR:
-// The imports below might be creating a circular dependency. If 'DashboardForm.tsx' (or the page
-// that uses it) dynamically imports this modal, and this modal statically imports components/types
-// from 'DashboardForm.tsx', it can lead to errors like "Expected static flag was missing".
-//
-// RECOMMENDED FIX:
-// 1. Move the `EnrichedReport` type to a dedicated types file (e.g., 'src/types/index.ts').
-// 2. Move the `StatusBadge` component to its own file (e.g., 'src/components/ui/StatusBadge.tsx').
-// 3. Update the imports here and in 'DashboardForm.tsx' to point to these new, separate files.
-//
-// For example:
-// import type { EnrichedReport } from '@/types';
-// import { StatusBadge } from '@/components/ui/StatusBadge';
+import { useState, useEffect } from 'react';
 import { EnrichedReport, StatusBadge } from '@/components/forms/DashboardForm';
-
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import Image from 'next/image';
 
@@ -27,11 +12,14 @@ type SubmissionDetailsModalProps = {
   onClose: () => void;
 };
 
-const DetailRow = ({ label, value }: { label: string; value?: React.ReactNode }) => {
+// UPDATED: Label prop type is now React.ReactNode and flex styles are added for alignment.
+const DetailRow = ({ label, value }: { label: React.ReactNode; value?: React.ReactNode }) => {
   if (!value && value !== 0) return null;
   return (
     <div style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
-      <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>{label}</p>
+      <p style={{ margin: 0, color: '#6b7280', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {label}
+      </p>
       <div style={{ marginTop: '4px', color: '#111827', fontSize: '16px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
         {value}
       </div>
@@ -45,27 +33,117 @@ const SpecificDetails = ({ submission, onImageView }: { submission: EnrichedRepo
     submission.imageId ? { storageId: submission.imageId } : 'skip'
   );
 
+  // --- START: NEW LOGIC FOR EDITING SOLUTION ---
+  const currentUser = useQuery(api.users.current);
+  const editSolutionMutation = useMutation(api.complaints.editSubmissionSolution);
+
+  const [isEditingSolution, setIsEditingSolution] = useState(false);
+  
+  const [solutionText, setSolutionText] = useState(
+    submission.type === 'complaint' || submission.type === 'serviceReport' ? submission.solution || '' : ''
+  );
+  
+  // Reset local state if a new submission is passed into the modal.
+  useEffect(() => {
+    if (submission.type === 'complaint' || submission.type === 'serviceReport') {
+      setSolutionText(submission.solution || '');
+    }
+    setIsEditingSolution(false);
+  }, [submission]);
+
+  const handleSaveSolution = async () => {
+    if (submission.type !== 'complaint' && submission.type !== 'serviceReport') return;
+    
+    try {
+      await editSolutionMutation({
+        submissionId: submission._id,
+        submissionType: submission.type,
+        newSolution: solutionText,
+      });
+      setIsEditingSolution(false);
+    } catch (error) {
+      console.error("Failed to save solution:", error);
+      alert("Error saving solution. Only admins can perform this action.");
+    }
+  };
+  
+  const isAdmin = currentUser?.isAdmin === true;
+  const canEditSolution = isAdmin && (submission.type === 'complaint' || submission.type === 'serviceReport');
+  
+  const SolutionEditor = (
+    <>
+      {isEditingSolution ? (
+        <div style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+          <p style={{ margin: 0, color: '#6b7280', fontSize: '14px', marginBottom: '8px' }}>Solution Provided</p>
+          <textarea
+            value={solutionText}
+            onChange={(e) => setSolutionText(e.target.value)}
+            rows={5}
+            style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '6px', padding: '8px', fontSize: '16px', resize: 'vertical' }}
+            autoFocus
+          />
+          <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <button
+              onClick={() => {
+                setIsEditingSolution(false);
+                // Reset on cancel
+                setSolutionText(
+                  (submission.type === 'complaint' || submission.type === 'serviceReport')
+                    ? submission.solution || ''
+                    : ''
+                ); 
+              }}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #d1d5db', background: 'white', cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveSolution}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#2563eb', color: 'white', cursor: 'pointer' }}
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+      ) : (
+        <DetailRow
+          label={
+            <>
+              <span>Solution Provided</span>
+              {canEditSolution && (
+                <button
+                  onClick={() => setIsEditingSolution(true)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', fontSize: '14px', fontWeight: 500, padding: '4px' }}
+                >
+                  Edit
+                </button>
+              )}
+            </>
+          }
+          // --- THIS IS THE FIX ---
+          // Display the value from the local state `solutionText` instead of the `submission` prop.
+          // This ensures the UI updates immediately after a save, as `solutionText` holds the new value.
+          value={solutionText}
+        />
+      )}
+    </>
+  );
+  // --- END: NEW LOGIC FOR EDITING SOLUTION ---
+
   return (
     <>
       {(() => {
-        // Switch statement for details remains unchanged
+        // The `switch` statement correctly narrows the `submission` type.
         switch (submission.type) {
           case 'serviceReport':
-            return (
-              <>
-                <DetailRow label="Problem Type" value={submission.problemType} />
-                <DetailRow label="Complaint Details" value={submission.complaintText} />
-                <DetailRow label="Solution Provided" value={submission.solution} />
-                {submission.otherText && <DetailRow label="Other Notes" value={submission.otherText} />}
-              </>
-            );
           case 'complaint':
             return (
               <>
                 <DetailRow label="Problem Type" value={submission.problemType} />
                 <DetailRow label="Complaint Details" value={submission.complaintText} />
-                <DetailRow label="Solution Provided" value={submission.solution} />
-                {submission.otherProblemDetails && <DetailRow label="Other Problem Notes" value={submission.otherProblemDetails} />}
+                {SolutionEditor}
+                {submission.type === 'serviceReport' && submission.otherText && <DetailRow label="Other Notes" value={submission.otherText} />}
+                {submission.type === 'complaint' && submission.otherProblemDetails && <DetailRow label="Other Problem Notes" value={submission.otherProblemDetails} />}
               </>
             );
           case 'feedback':
@@ -121,12 +199,9 @@ const SpecificDetails = ({ submission, onImageView }: { submission: EnrichedRepo
 };
 
 export default function SubmissionDetailsModal({ submission, onClose }: SubmissionDetailsModalProps) {
-  // FIX 1: Hooks must be called unconditionally at the top level.
-  // The early return `if (!submission)` was moved below all hook calls.
   const [isImageFullscreen, setIsImageFullscreen] = useState(false);
   const imageUrl = useQuery(
     api.files.getImageUrl,
-    // Ensure we don't query if submission or imageId is missing
     isImageFullscreen && submission?.imageId ? { storageId: submission.imageId } : 'skip'
   );
 
@@ -178,8 +253,6 @@ export default function SubmissionDetailsModal({ submission, onClose }: Submissi
         >
           <button
             onClick={() => setIsImageFullscreen(false)}
-            // FIX 2: Added a zIndex to ensure the button is clickable.
-            // The button was being covered by the image container div.
             style={{ position: 'absolute', top: '24px', right: '24px', color: 'white', fontSize: '32px', border: 'none', background: 'transparent', cursor: 'pointer', zIndex: 1060 }}
           >
             ×
