@@ -216,23 +216,9 @@ export const DashboardForm = ({
     }
   };
 
-  if (submissions.length === 0) {
-    return (
-      <div className="text-center py-12 px-6 sm:py-20">
-        <div className="mx-auto w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-          <FileText className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400" />
-        </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Reports Found</h3>
-        <p className="text-gray-500 max-w-md mx-auto">
-          There are no reports to display for this category. Reports will appear here once they are submitted.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* Filter Section */}
+      {/* Filter Section - Always render if filterable */}
       {isFilterable && isAdmin && onStatusFilterChange && (
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div className="flex items-center gap-3">
@@ -245,95 +231,107 @@ export const DashboardForm = ({
         </div>
       )}
 
-      {/* Modern Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {submissions.map((report) => (
-          <div key={report._id} className="group flex flex-col bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-200">
-            <div className="flex-grow">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <TypeIcon type={report.type} />
-                    <div>
-                      <h3 className="font-semibold text-gray-900 text-sm">
-                        {report.type === 'serviceReport' ? 'Service Report' : 
-                         report.type === 'complaint' ? 'Complaint' : 'Feedback'}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        {new Date(report._creationTime).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </p>
+      {/* Conditionally render submissions grid or "No reports" message */}
+      {submissions.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {submissions.map((report) => (
+            <div key={report._id} className="group flex flex-col bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-200">
+              <div className="flex-grow">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <TypeIcon type={report.type} />
+                      <div>
+                        <h3 className="font-semibold text-gray-900 text-sm">
+                          {report.type === 'serviceReport' ? 'Engineer Complaint' : // CHANGED
+                           report.type === 'complaint' ? 'Customer Complaints' : 'Feedback'} {/* CHANGED */}
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          {new Date(report._creationTime).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    {report.status && <StatusBadge status={report.status} />}
+                  </div>
+
+                  {/* Content */}
+                  <div className="space-y-3 mb-4">
+                    <p className="text-gray-900 text-sm leading-relaxed line-clamp-3">
+                      {report.mainText}
+                    </p>
+                    
+                    {/* Problem Type */}
+                    {(report.type === 'serviceReport' || report.type === 'complaint') && (
+                      <ProblemTypeBadge type={report.problemType} />
+                    )}
+                    
+                    {/* Metadata */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500">
+                      <div className="flex items-center gap-1.5">
+                        <User className="w-3 h-3" />
+                        {report.submitterName}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="w-3 h-3" />
+                        {report.branchLocation}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Settings className="w-3 h-3" />
+                        {report.modelTypes}
+                      </div>
                     </div>
                   </div>
-                  {report.status && <StatusBadge status={report.status} />}
-                </div>
+              </div>
 
-                {/* Content */}
-                <div className="space-y-3 mb-4">
-                  <p className="text-gray-900 text-sm leading-relaxed line-clamp-3">
-                    {report.mainText}
-                  </p>
-                  
-                  {/* Problem Type */}
-                  {(report.type === 'serviceReport' || report.type === 'complaint') && (
-                    <ProblemTypeBadge type={report.problemType} />
-                  )}
-                  
-                  {/* Metadata */}
-                  <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500">
-                    <div className="flex items-center gap-1.5">
-                      <User className="w-3 h-3" />
-                      {report.submitterName}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3 h-3" />
-                      {report.branchLocation}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Settings className="w-3 h-3" />
-                      {report.modelTypes}
-                    </div>
+              {/* Actions */}
+              <div className="mt-auto pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  onClick={() => onViewSubmission(report)}
+                  className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <Eye className="w-4 h-4" />
+                  View Details
+                </button>
+                
+                {isAdmin && report.status === 'pending' && (report.type === 'serviceReport' || report.type === 'complaint') && (
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      onClick={() => handleStatusUpdate(report._id, 'approved', report.type)}
+                      disabled={updatingId === report._id}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <CheckCircle className="w-3 h-3" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleStatusUpdate(report._id, 'rejected', report.type)}
+                      disabled={updatingId === report._id}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <XCircle className="w-3 h-3" />
+                      Reject
+                    </button>
                   </div>
-                </div>
+                )}
+              </div>
             </div>
-
-            {/* Actions */}
-            <div className="mt-auto pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center gap-3">
-              <button
-                onClick={() => onViewSubmission(report)}
-                className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-              >
-                <Eye className="w-4 h-4" />
-                View Details
-              </button>
-              
-              {isAdmin && report.status === 'pending' && (report.type === 'serviceReport' || report.type === 'complaint') && (
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => handleStatusUpdate(report._id, 'approved', report.type)}
-                    disabled={updatingId === report._id}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    <CheckCircle className="w-3 h-3" />
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => handleStatusUpdate(report._id, 'rejected', report.type)}
-                    disabled={updatingId === report._id}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    <XCircle className="w-3 h-3" />
-                    Reject
-                  </button>
-                </div>
-              )}
-            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 px-6 sm:py-20">
+          <div className="mx-auto w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <FileText className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400" />
           </div>
-        ))}
-      </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Reports Found</h3>
+          <p className="text-gray-500 max-w-md mx-auto">
+            There are no reports to display for this category or filter. Try selecting a different filter option.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

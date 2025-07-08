@@ -238,12 +238,12 @@ export default function DashboardPage() {
     {
       key: 'serviceReports' as TabType,
       icon: Settings,
-      label: 'Service Reports',
+      label: 'Engineer Complaint', // CHANGED
     },
     {
       key: 'complaints' as TabType,
       icon: MessageSquare,
-      label: 'Complaints',
+      label: 'Customer Complaints', // CHANGED
     },
     ...(isAdmin ? [{
       key: 'feedback' as TabType,
@@ -268,7 +268,6 @@ export default function DashboardPage() {
                     : "Track your submissions and view approved company reports."}
               </p>
             </div>
-            {/* Real-time updates text removed */}
           </div>
         </div>
 
@@ -279,9 +278,11 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {/* Tabs Container - Horizontally Scrollable on Mobile */}
           <div className="border-b border-gray-200 bg-gray-50">
-            <div className="px-4 sm:px-6">
+            {/* Wrapper to contain the scrollable area and the gradient */}
+            <div className="relative">
               <div 
-                className="flex items-center gap-2 overflow-x-auto pb-px"
+                className="flex items-center gap-2 overflow-x-auto px-4 sm:px-6"
+                // Hide scrollbar for a cleaner look
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
                 {tabs.map((tab) => (
@@ -295,6 +296,8 @@ export default function DashboardPage() {
                   />
                 ))}
               </div>
+              {/* Gradient Fade for scroll affordance on mobile */}
+              <div className="absolute top-0 right-0 bottom-0 w-16 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none md:hidden" />
             </div>
           </div>
 
