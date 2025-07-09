@@ -199,10 +199,10 @@ export default function MachineDevelopmentReportsPage() {
               <div key={report._id} className="bg-gray-50 p-4 border rounded-lg shadow-sm space-y-3">
                 <div className="flex justify-between items-start gap-4">
                   <p className="font-semibold text-gray-900 truncate min-w-0" title={report.fileName}>{report.fileName}</p>
-                  <span className="text-xs text-gray-500 flex-shrink-0">{new Date(report._creationTime).toLocaleDateString()}</span>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-700">{report.machineName}</p>
+                  <p className="text-sm text-gray-500">Uploaded by {report.uploaderName}</p>
                   <p className="text-sm text-gray-600 line-clamp-2 mt-1">{report.description || 'N/A'}</p>
                 </div>
                 <div className="flex gap-4 pt-2 border-t border-gray-200">
@@ -220,8 +220,8 @@ export default function MachineDevelopmentReportsPage() {
                 <tr>
                   <th className="px-3 py-3 font-medium w-[20%]">Machine Name</th>
                   <th className="px-3 py-3 font-medium w-[25%]">File Name</th>
-                  <th className="px-3 py-3 font-medium w-[30%]">Description</th>
-                  <th className="px-3 py-3 font-medium w-[15%]">Uploaded At</th>
+                  <th className="px-3 py-3 font-medium w-[25%]">Description</th>
+                  <th className="px-3 py-3 font-medium w-[20%]">Uploaded By</th>
                   {isAdmin && <th className="px-3 py-3 font-medium w-[10%] text-right">Actions</th>}
                 </tr>
               </thead>
@@ -231,7 +231,7 @@ export default function MachineDevelopmentReportsPage() {
                     <td className="px-3 py-4 font-medium text-gray-800">{report.machineName}</td>
                     <td className="px-3 py-4 text-gray-700 truncate max-w-xs" title={report.fileName}>{report.fileName}</td>
                     <td className="px-3 py-4 text-gray-600 truncate max-w-md" title={report.description || undefined}>{report.description || 'N/A'}</td>
-                    <td className="px-3 py-4 text-gray-600">{new Date(report._creationTime).toLocaleDateString()}</td>
+                    <td className="px-3 py-4 text-gray-600 truncate" title={report.uploaderName}>{report.uploaderName}</td>
                     {isAdmin && (
                       <td className="px-3 py-4 text-right">
                         <div className="flex items-center justify-end gap-4">

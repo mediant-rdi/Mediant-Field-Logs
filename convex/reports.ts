@@ -67,7 +67,7 @@ export const addReport = mutation({
   },
 });
 
-// --- GET REPORTS: Fetches all reports with their machine info and file URL ---
+// --- GET REPORTS: Fetches all reports with their machine info, file URL, and uploader name ---
 export const getReports = query({
   handler: async (ctx) => {
     // Any authenticated user can view the list of reports
@@ -78,16 +78,21 @@ export const getReports = query({
 
     const reports = await ctx.db.query("reports").order("desc").collect();
 
-    // Join report data with machine data and generate file URLs
+    // Join report data with machine data, uploader name, and generate file URLs
     const reportsWithDetails = await Promise.all(
       reports.map(async (report) => {
-        const machine = await ctx.db.get(report.machineId);
-        const fileUrl = await ctx.storage.getUrl(report.fileStorageId);
+        // Fetch machine, file URL, and uploader in parallel for efficiency
+        const [machine, fileUrl, uploader] = await Promise.all([
+          ctx.db.get(report.machineId),
+          ctx.storage.getUrl(report.fileStorageId),
+          ctx.db.get(report.uploadedBy), // Fetch the user who uploaded the report
+        ]);
 
         return {
           ...report,
-          machineName: machine?.name ?? "Unknown Machine", // Handle if machine was deleted
-          fileUrl: fileUrl, // This URL is temporary and secure
+          machineName: machine?.name ?? "Unknown Machine",
+          fileUrl: fileUrl,
+          uploaderName: uploader?.name ?? "Unknown User", // Add uploader's name
         };
       })
     );
