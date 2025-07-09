@@ -16,7 +16,8 @@ const agreementType = v.union(
  * and trims extra whitespace. The order of operations is important.
  * e.g., "NCBA Bank - Town" -> "ncba town"
  */
-const normalizeName = (name: string): string => {
+// --- MODIFIED: Added 'export' to make this function available to other modules ---
+export const normalizeName = (name: string): string => {
   return name
     .toLowerCase()
     .replace(/\bbank\b/g, "") // 1. Remove the whole word "bank" first

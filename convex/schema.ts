@@ -2,7 +2,7 @@
 import { authTables } from '@convex-dev/auth/server';
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
-import { machineCategory } from './shared';
+import { machineCategory } from './shared'; // <-- IMPORTANT: Import the new source of truth
 
 const approvalStatus = v.union(
   v.literal('pending'),
@@ -16,9 +16,20 @@ const agreementType = v.union(
   v.literal('CONTRACT')
 );
 
+// --- DELETE THIS OLD DEFINITION ---
+// const machineCategory = v.union(
+//   v.literal('ATM'),
+//   v.literal('TCD'),
+//   v.literal('TCR'),
+//   v.literal('KIOSK'),
+//   v.literal('OTHER')
+// );
+
 export default defineSchema({
   ...authTables,
 
+  // ... (users, invitations, etc. tables remain the same)
+  
   authAccounts: defineTable({
     userId: v.id("users"),
     provider: v.string(),
@@ -58,16 +69,19 @@ export default defineSchema({
   })
     .index("by_token", ["token"])
     .index("by_userId", ["userId"]),
-
+    
+  // --- THIS TABLE DEFINITION IS NOW FIXED ---
   machines: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
-    category: machineCategory,
+    category: machineCategory, // <-- Use the imported definition
   })
     .index('by_name', ['name'])
     .searchIndex('by_name_search', { searchField: 'name' })
     .index("by_category", ["category"]),
 
+  // ... (all other tables like reports, serviceReports, complaints, etc. remain the same)
+  
   reports: defineTable({
     description: v.string(),
     machineId: v.id("machines"),
@@ -97,7 +111,11 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_submittedBy", ["submittedBy"])
-    .index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"]),
+    .index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"])
+    .searchIndex("search_complaint_text", {
+      searchField: "complaintText",
+    })
+    .index("by_branchLocation", ["branchLocation"]),
 
   complaints: defineTable({
     submittedBy: v.id("users"),
@@ -123,15 +141,17 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_submittedBy", ["submittedBy"])
-    .index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"]),
-
-  // --- SCHEMA UPDATE IS HERE ---
+    .index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"])
+    .searchIndex("search_complaint_text", {
+      searchField: "complaintText",
+    })
+    .index("by_branchLocation", ["branchLocation"]),
+    
   feedback: defineTable({
     branchLocation: v.string(),
     modelType: v.string(),
     feedbackDetails: v.string(),
     imageId: v.optional(v.id('_storage')),
-    // Field added as requested
     submittedBy: v.optional(v.id("users")),
   }).index("by_branch_and_model", ["branchLocation", "modelType"]),
 
@@ -150,6 +170,5 @@ export default defineSchema({
   })
     .index("by_client_and_search", ["clientId", "searchName"])
     .index("by_full_search_name", ["searchFullName"])
-    // Index added for the new search functionality
     .index("by_search_name", ["searchName"]),
 });
