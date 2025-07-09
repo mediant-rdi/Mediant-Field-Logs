@@ -16,12 +16,13 @@ import {
   Server,
   ClipboardList,
   Shield,
-  Settings,
+  Settings, // This import is no longer strictly needed but can remain
   ChevronDown
 } from "lucide-react";
 
 
 // All possible menu items with new, semantic icons.
+// --- MODIFIED: Removed the 'Settings' item from this array ---
 const baseMenuItems = [
   { id: 'dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
   { id: 'feedback-form', name: 'Customer Feedback', icon: <MessageSquareHeart size={20} />, },
@@ -49,7 +50,7 @@ const baseMenuItems = [
       { id: 'admin-add-report', name: 'Add Report' }
     ]
   },
-  { id: 'settings', name: 'Settings', icon: <Settings size={20} /> }
+  
 ];
 
 interface SidebarProps {
@@ -74,7 +75,7 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
   }, [user, isLoading]); 
 
 
-  // --- The rest of the component remains the same, only minor icon updates below ---
+  // --- The rest of the component remains the same ---
   const handleItemClick = (itemId: string) => { onItemClick(itemId); onClose(); };
   const handleDropdownToggle = (itemId: string) => { setOpenDropdown(prev => (prev === itemId ? null : itemId)); };
   const getUserInitials = (name?: string | null, email?: string | null) => { if (name) return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2); if (email) return email.slice(0, 2).toUpperCase(); return 'U'; };
