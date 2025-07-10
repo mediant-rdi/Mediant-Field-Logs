@@ -1,7 +1,7 @@
 // app/dashboard/forms/customer-feedback/page.tsx
 'use client';
 
-import { useState, useRef, useEffect } from 'react'; // Added useEffect
+import { useState, useRef, useEffect } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import Image from 'next/image';
 import { useMutation, useQuery } from 'convex/react';
@@ -21,59 +21,53 @@ const initialState: FeedbackFormData = {
   feedbackDetails: '',
 };
 
-// OPTIMIZATION: Custom hook to debounce a value.
-// This prevents rapid-fire queries to the backend on every keystroke.
+// --- useDebounce hook (unchanged) ---
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
   useEffect(() => {
-    // Set up a timer to update the debounced value after the delay
     const handler = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
-
-    // Clean up the timer if the value changes before the delay has passed
     return () => {
       clearTimeout(handler);
     };
   }, [value, delay]);
-
   return debouncedValue;
 }
 
-
 export default function CustomerFeedbackForm() {
+  // --- Refs ---
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modelTypeContainerRef = useRef<HTMLDivElement>(null);
   const branchLocationContainerRef = useRef<HTMLDivElement>(null);
+  // --- MODIFIED --- Add refs for the inline camera
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // --- Convex Hooks (unchanged) ---
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const submitFeedback = useMutation(api.feedback.submitFeedback);
 
+  // --- Form State ---
   const [formData, setFormData] = useState<FeedbackFormData>(initialState);
   const [file, setFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  
   const [isReviewing, setIsReviewing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showModelSuggestions, setShowModelSuggestions] = useState(false);
   const [showBranchSuggestions, setShowBranchSuggestions] = useState(false);
 
-  // OPTIMIZATION: Debounce the search terms from the form inputs.
+  // --- NEW --- State to manage the camera view
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+
+  // --- Debounced Queries (unchanged) ---
   const debouncedModelType = useDebounce(formData.modelType, 300);
   const debouncedBranchLocation = useDebounce(formData.branchLocation, 300);
+  const machineSuggestions = useQuery(api.machines.searchByName, debouncedModelType.length < 2 ? 'skip' : { searchText: debouncedModelType }) ?? [];
+  const branchSuggestions = useQuery(api.clients.searchLocations, debouncedBranchLocation.length < 2 ? 'skip' : { searchText: debouncedBranchLocation }) ?? [];
 
-  // OPTIMIZATION: Use the debounced values for the queries.
-  // The query will only run if the search term is 2+ characters long.
-  const machineSuggestions = useQuery(
-    api.machines.searchByName, 
-    debouncedModelType.length < 2 ? 'skip' : { searchText: debouncedModelType }
-  ) ?? [];
-  const branchSuggestions = useQuery(
-    api.clients.searchLocations,
-    debouncedBranchLocation.length < 2 ? 'skip' : { searchText: debouncedBranchLocation }
-  ) ?? [];
-
+  // --- Form Handlers (mostly unchanged) ---
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     if (name === 'modelType') setShowModelSuggestions(true);
@@ -86,69 +80,81 @@ export default function CustomerFeedbackForm() {
     if (selectedFile) {
       setFile(selectedFile);
       setImagePreview(URL.createObjectURL(selectedFile));
+      stopCamera(); // Close camera if user chooses a file while it's open
     }
   };
   
   const handleRemoveFile = () => {
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setFile(null);
     setImagePreview(null);
     if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      fileInputRef.current.value = '';
     }
   };
   
-  const resetForm = () => {
-    setFormData(initialState);
-    handleRemoveFile();
-  };
+  // --- Unchanged Form Logic ---
+  const resetForm = () => { setFormData(initialState); handleRemoveFile(); };
+  const handleModelSuggestionClick = (machineName: string) => { setFormData((prevData) => ({ ...prevData, modelType: machineName })); setShowModelSuggestions(false); };
+  const handleBranchSuggestionClick = (displayText: string) => { setFormData((prevData) => ({ ...prevData, branchLocation: displayText })); setShowBranchSuggestions(false); };
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>, type: 'model' | 'branch') => { if (!e.currentTarget.contains(e.relatedTarget)) { setTimeout(() => { if (type === 'model') setShowModelSuggestions(false); if (type === 'branch') setShowBranchSuggestions(false); }, 150); } };
+  const handleProceedToReview = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); setIsReviewing(true); };
+  const handleEdit = () => { setIsReviewing(false); };
+  const handleFinalSubmit = async () => { setIsSubmitting(true); try { let imageId: Id<"_storage"> | undefined = undefined; if (file) { const uploadUrl = await generateUploadUrl(); const result = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": file.type }, body: file }); const { storageId } = await result.json(); imageId = storageId; } await submitFeedback({ ...formData, imageId }); alert('Feedback submitted successfully!'); resetForm(); setIsReviewing(false); } catch (error) { console.error("Failed to submit feedback:", error); alert("There was an error submitting your feedback. Please try again."); } finally { setIsSubmitting(false); }};
 
-  const handleModelSuggestionClick = (machineName: string) => {
-    setFormData((prevData) => ({ ...prevData, modelType: machineName }));
-    setShowModelSuggestions(false);
-  };
-  
-  const handleBranchSuggestionClick = (displayText: string) => {
-    setFormData((prevData) => ({ ...prevData, branchLocation: displayText }));
-    setShowBranchSuggestions(false);
-  };
-  
-  const handleBlur = (e: React.FocusEvent<HTMLDivElement>, type: 'model' | 'branch') => {
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-        setTimeout(() => {
-            if (type === 'model') setShowModelSuggestions(false);
-            if (type === 'branch') setShowBranchSuggestions(false);
-        }, 150);
+  // --- NEW --- Camera Logic Integrated Into Form
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
     }
+    setIsCameraOpen(false);
+    setStream(null);
   };
 
-  const handleProceedToReview = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsReviewing(true);
-  };
-
-  const handleEdit = () => {
-    setIsReviewing(false);
-  };
-
-  const handleFinalSubmit = async () => {
-    setIsSubmitting(true);
+  const startCamera = async () => {
+    handleRemoveFile(); // Clear any existing file
     try {
-      let imageId: Id<"_storage"> | undefined = undefined;
-      if (file) {
-        const uploadUrl = await generateUploadUrl();
-        const result = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": file.type }, body: file });
-        const { storageId } = await result.json();
-        imageId = storageId;
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      setStream(mediaStream);
+      setIsCameraOpen(true);
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      alert('Could not access camera. Please ensure permissions are granted in your browser settings.');
+    }
+  };
+  
+  useEffect(() => {
+    if (isCameraOpen && stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
       }
-      await submitFeedback({ ...formData, imageId });
-      alert('Feedback submitted successfully!');
-      resetForm();
-      setIsReviewing(false);
-    } catch (error) {
-      console.error("Failed to submit feedback:", error);
-      alert("There was an error submitting your feedback. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+    };
+  }, [isCameraOpen, stream]);
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      if (!context) return;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const capturedFile = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          setFile(capturedFile);
+          setImagePreview(URL.createObjectURL(blob));
+          stopCamera(); // This will close the camera view and show the preview
+        }
+      }, 'image/jpeg');
     }
   };
 
@@ -201,30 +207,49 @@ export default function CustomerFeedbackForm() {
                 </ul>
               )}
             </div>
+            
             <div className="form-group">
               <label htmlFor="feedbackDetails">Feedback, Complaint, or Recommendation</label>
               <textarea id="feedbackDetails" name="feedbackDetails" value={formData.feedbackDetails} onChange={handleChange} rows={5} placeholder="Please provide your detailed feedback here..." required />
+              
               <label className="file-input-label">Attach a Supporting Picture (Optional)</label>
-              <div className="file-input-wrapper">
-                 <label htmlFor="feedbackImage" className="file-upload-button">Choose File</label>
-                 <input type="file" id="feedbackImage" name="feedbackImage" className="file-input-hidden" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} ref={fileInputRef}/>
-                 {file && <span className="file-name">{file.name}</span>}
+              
+              {/* --- MODIFIED --- This section now handles all attachment states (buttons, camera, preview) --- */}
+              <div className="attachment-area">
+                {isCameraOpen ? (
+                  <div className="camera-view-container">
+                    <video ref={videoRef} autoPlay playsInline muted className="camera-feed" />
+                    <div className="file-input-wrapper">
+                      <button type="button" onClick={capturePhoto} className="file-upload-button camera-capture">Capture</button>
+                      <button type="button" onClick={stopCamera} className="file-upload-button">Cancel</button>
+                    </div>
+                  </div>
+                ) : imagePreview ? (
+                  <div className="image-preview">
+                    <Image src={imagePreview} alt="Feedback preview" width={200} height={200} style={{ objectFit: 'cover', borderRadius: '8px' }}/>
+                    <button type="button" onClick={handleRemoveFile} className="remove-image-button" aria-label="Remove image"></button>
+                  </div>
+                ) : (
+                  <div className="file-input-wrapper">
+                    {/* The `onClick` for these buttons now calls the new camera/file logic */}
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="file-upload-button">Choose from Library</button>
+                    <button type="button" onClick={startCamera} className="file-upload-button">Take Picture</button>
+                  </div>
+                )}
               </div>
-              {imagePreview && (
-                <div className="image-preview">
-                  <Image src={imagePreview} alt="Feedback preview" width={200} height={200} style={{ objectFit: 'cover', borderRadius: '8px' }}/>
-                  <button type="button" onClick={handleRemoveFile} className="remove-image-button" aria-label="Remove image"></button>
-                </div>
-              )}
+              
+              {/* These are always present but hidden, just as you had them */}
+              <input type="file" id="feedbackImage" ref={fileInputRef} className="file-input-hidden" accept="image/*" onChange={handleFileChange} />
+              <canvas ref={canvasRef} className="file-input-hidden" />
             </div>
+            
             <button type="submit" className="submit-button">Review Feedback</button>
           </form>
         </>
       )}
 
-      {/* --- CSS is unchanged --- */}
       <style jsx>{`
-        /* Mobile-first styles */
+        /* --- YOUR ORIGINAL CSS (UNCHANGED) --- */
         .form-container { max-width: 800px; margin: 0 auto; padding: 16px; background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
         p { color: #4a5568; margin-bottom: 24px; font-size: 14px; }
@@ -260,7 +285,28 @@ export default function CustomerFeedbackForm() {
         .suggestions-list li { padding: 10px 12px; cursor: pointer; font-size: 14px; }
         .suggestions-list li:hover { background-color: #f7fafc; }
 
-        /* Styles for medium screens and up (md: 768px) */
+        /* --- NEW, MINIMAL CSS FOR INLINE CAMERA --- */
+        .camera-view-container {
+            margin-top: 8px;
+            width: 100%;
+        }
+        .camera-feed {
+            width: 100%;
+            max-width: 400px;
+            border-radius: 8px;
+            background-color: #000;
+            border: 1px solid #cbd5e0;
+        }
+        .file-upload-button.camera-capture {
+            background-color: #3182ce;
+            color: white;
+            border-color: #3182ce;
+        }
+        .file-upload-button.camera-capture:hover {
+            background-color: #2b6cb0;
+        }
+        
+        /* --- YOUR ORIGINAL MEDIA QUERIES (UNCHANGED) --- */
         @media (min-width: 768px) {
             .form-container { padding: 24px; }
             h1 { font-size: 24px; }

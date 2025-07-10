@@ -1,7 +1,7 @@
 // app/dashboard/complaint/engineer/page.tsx
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import Image from 'next/image';
 import { useMutation, useQuery } from 'convex/react';
@@ -36,13 +36,19 @@ const initialState: CombinedFormData = {
 };
 
 export default function ServiceDelayForm() {
+  // --- Refs ---
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modelTypesContainerRef = useRef<HTMLDivElement>(null);
   const branchLocationContainerRef = useRef<HTMLDivElement>(null);
+  // --- NEW --- Add refs for the inline camera
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // --- Convex Hooks (unchanged) ---
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const submitServiceReport = useMutation(api.serviceReports.submitServiceReport);
 
+  // --- Form State ---
   const [formData, setFormData] = useState<CombinedFormData>(initialState);
   const [file, setFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -51,16 +57,15 @@ export default function ServiceDelayForm() {
   const [showBranchSuggestions, setShowBranchSuggestions] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
 
-  const machineSuggestions = useQuery(
-    api.machines.searchByName,
-    { searchText: formData.modelTypes }
-  ) ?? [];
+  // --- NEW --- State to manage the camera view
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
-  const branchSuggestions = useQuery(
-    api.clients.searchLocations,
-    { searchText: formData.branchLocation }
-  ) ?? [];
+  // --- Convex Queries (unchanged) ---
+  const machineSuggestions = useQuery(api.machines.searchByName, { searchText: formData.modelTypes }) ?? [];
+  const branchSuggestions = useQuery(api.clients.searchLocations, { searchText: formData.branchLocation }) ?? [];
 
+  // --- Form Handlers (mostly unchanged) ---
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
@@ -77,10 +82,14 @@ export default function ServiceDelayForm() {
     if (selectedFile) {
       setFile(selectedFile);
       setImagePreview(URL.createObjectURL(selectedFile));
+      stopCamera(); // Close camera if user chooses a file while it's open
     }
   };
   
   const handleRemoveFile = () => {
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setFile(null);
     setImagePreview(null);
     if (fileInputRef.current) {
@@ -88,67 +97,65 @@ export default function ServiceDelayForm() {
     }
   };
 
-  const resetForm = () => {
-    setFormData(initialState);
-    handleRemoveFile();
-  };
-  
-  const handleModelSuggestionClick = (machineName: string) => {
-    setFormData((prevData) => ({ ...prevData, modelTypes: machineName }));
-    setShowModelSuggestions(false);
-  };
-  
-  const handleBranchSuggestionClick = (displayText: string) => {
-    setFormData((prevData) => ({ ...prevData, branchLocation: displayText }));
-    setShowBranchSuggestions(false);
+  const resetForm = () => { setFormData(initialState); handleRemoveFile(); };
+  const handleModelSuggestionClick = (machineName: string) => { setFormData((prevData) => ({ ...prevData, modelTypes: machineName })); setShowModelSuggestions(false); };
+  const handleBranchSuggestionClick = (displayText: string) => { setFormData((prevData) => ({ ...prevData, branchLocation: displayText })); setShowBranchSuggestions(false); };
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>, type: 'model' | 'branch') => { if (!e.currentTarget.contains(e.relatedTarget)) { setTimeout(() => { if (type === 'model') setShowModelSuggestions(false); if (type === 'branch') setShowBranchSuggestions(false); }, 150); } };
+  const handleProceedToReview = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); if (formData.problemType === '') { alert('Please select a Problem Type from the dropdown.'); return; } setIsReviewing(true); };
+  const handleEdit = () => { setIsReviewing(false); };
+  const handleFinalSubmit = async () => { if (formData.problemType === '') { alert("A problem type must be selected. Please go back and edit your report."); setIsReviewing(false); return; } setIsSubmitting(true); try { let imageId: Id<"_storage"> | undefined = undefined; if (file) { const uploadUrl = await generateUploadUrl(); const result = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": file.type }, body: file }); const { storageId } = await result.json(); imageId = storageId; } await submitServiceReport({ ...formData, problemType: formData.problemType, imageId: imageId }); alert('Report submitted successfully for approval!'); resetForm(); setIsReviewing(false); } catch (error) { console.error("Failed to submit report:", error); alert("There was an error submitting your report. Please try again."); } finally { setIsSubmitting(false); } };
+
+  // --- NEW --- Camera Logic Integrated Into Form
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+    setIsCameraOpen(false);
+    setStream(null);
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLDivElement>, type: 'model' | 'branch') => {
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-        setTimeout(() => {
-            if (type === 'model') setShowModelSuggestions(false);
-            if (type === 'branch') setShowBranchSuggestions(false);
-        }, 150);
-    }
-  };
-
-  const handleProceedToReview = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (formData.problemType === '') {
-        alert('Please select a Problem Type from the dropdown.');
-        return;
-    }
-    setIsReviewing(true);
-  };
-  
-  const handleEdit = () => {
-    setIsReviewing(false);
-  };
-
-  const handleFinalSubmit = async () => {
-    if (formData.problemType === '') {
-      alert("A problem type must be selected. Please go back and edit your report.");
-      setIsReviewing(false);
-      return;
-    }
-    setIsSubmitting(true);
+  const startCamera = async () => {
+    handleRemoveFile(); // Clear any existing file
     try {
-      let imageId: Id<"_storage"> | undefined = undefined;
-      if (file) {
-        const uploadUrl = await generateUploadUrl(); 
-        const result = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": file.type }, body: file });
-        const { storageId } = await result.json();
-        imageId = storageId;
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      setStream(mediaStream);
+      setIsCameraOpen(true);
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      alert('Could not access camera. Please ensure permissions are granted.');
+    }
+  };
+  
+  useEffect(() => {
+    if (isCameraOpen && stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
       }
-      await submitServiceReport({ ...formData, problemType: formData.problemType, imageId: imageId });
-      alert('Report submitted successfully for approval!');
-      resetForm();
-      setIsReviewing(false);
-    } catch (error) {
-      console.error("Failed to submit report:", error);
-      alert("There was an error submitting your report. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+    };
+  }, [isCameraOpen, stream]);
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      if (!context) return;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const capturedFile = new File([blob], `service-report-photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          setFile(capturedFile);
+          setImagePreview(URL.createObjectURL(blob));
+          stopCamera(); // Close camera view and show preview
+        }
+      }, 'image/jpeg');
     }
   };
 
@@ -222,24 +229,45 @@ export default function ServiceDelayForm() {
             )}
             {formData.problemType === 'other' && ( <div className="conditional-group"> <label htmlFor="otherText">Please specify the problem</label> <textarea id="otherText" name="otherText" value={formData.otherText} onChange={handleChange} rows={3} placeholder="Describe the specific problem..." required /> </div> )}
             <div className="form-group"> <label htmlFor="complaintText">Full Problem Details</label> <textarea id="complaintText" name="complaintText" value={formData.complaintText} onChange={handleChange} rows={4} placeholder="Describe the issue in detail..." required/> </div>
+            
+            {/* --- MODIFIED --- This section now handles all attachment states --- */}
             <div className="form-group">
               <label className="file-input-label">Attach a Picture (Optional)</label>
-              <div className="file-input-wrapper">
-                 <label htmlFor="complaintImage" className="file-upload-button">Choose File</label>
-                 <input type="file" id="complaintImage" name="complaintImage" className="file-input-hidden" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} ref={fileInputRef}/>
-                 {file && <span className="file-name">{file.name}</span>}
+              <div className="attachment-area">
+                {isCameraOpen ? (
+                  <div className="camera-view-container">
+                    <video ref={videoRef} autoPlay playsInline muted className="camera-feed" />
+                    <div className="file-input-wrapper">
+                      <button type="button" onClick={capturePhoto} className="file-upload-button camera-capture">Capture</button>
+                      <button type="button" onClick={stopCamera} className="file-upload-button">Cancel</button>
+                    </div>
+                  </div>
+                ) : imagePreview ? (
+                  <div className="image-preview">
+                    <Image src={imagePreview} alt="Complaint preview" width={200} height={200} style={{ objectFit: 'cover', borderRadius: '8px' }}/>
+                    <button type="button" onClick={handleRemoveFile} className="remove-image-button" aria-label="Remove Image"></button>
+                  </div>
+                ) : (
+                  <div className="file-input-wrapper">
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="file-upload-button">Choose File</button>
+                    <button type="button" onClick={startCamera} className="file-upload-button">Take Picture</button>
+                    {file && <span className="file-name">{file.name}</span>}
+                  </div>
+                )}
               </div>
-              {imagePreview && ( <div className="image-preview"> <Image src={imagePreview} alt="Complaint preview" width={200} height={200} style={{ objectFit: 'cover', borderRadius: '8px' }}/> <button type="button" onClick={handleRemoveFile} className="remove-image-button" aria-label="Remove Image"></button> </div> )}
+              {/* Hidden inputs are still necessary */}
+              <input type="file" id="complaintImage" name="complaintImage" className="file-input-hidden" accept="image/*" onChange={handleFileChange} ref={fileInputRef}/>
+              <canvas ref={canvasRef} className="file-input-hidden" />
             </div>
+
             <div className="form-group"> <label htmlFor="solution">Solution Provided</label> <textarea id="solution" name="solution" value={formData.solution} onChange={handleChange} rows={4} placeholder="Describe the solution..." required /> </div>
             <button type="submit" className="submit-button"> Review Report </button>
           </form>
         </>
       )}
 
-      {/* --- RESPONSIVE CSS UPDATES --- */}
       <style jsx>{`
-        /* Mobile-first styles */
+        /* --- YOUR ORIGINAL CSS (UNCHANGED) --- */
         .form-container { max-width: 800px; margin: 0 auto; padding: 16px; background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
         p { color: #4a5568; margin-bottom: 24px; font-size: 14px; }
@@ -253,12 +281,12 @@ export default function ServiceDelayForm() {
         .suggestions-list li:hover { background-color: #f7fafc; }
         .conditional-group { background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin-top: -10px; }
         .conditional-group > label { font-weight: 500; margin-bottom: 12px; display: block; }
-        .checkbox-grid { display: grid; grid-template-columns: 1fr; gap: 12px; } /* Single column for mobile */
+        .checkbox-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
         .checkbox-group { display: flex; align-items: center; }
         .checkbox-group input[type="checkbox"] { width: 20px; height: 20px; margin-right: 12px; cursor: pointer; flex-shrink: 0; }
         .checkbox-group label { font-weight: normal; cursor: pointer; margin-bottom: 0; }
         .file-input-label { font-weight: 500; }
-        .file-input-wrapper { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; } /* Allow wrapping */
+        .file-input-wrapper { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
         .file-input-hidden { display: none; }
         .file-upload-button { display: inline-block; padding: 8px 16px; background-color: #edf2f7; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; font-weight: 500; transition: background-color 0.2s; white-space: nowrap; }
         .file-upload-button:hover { background-color: #e2e8f0; }
@@ -267,7 +295,7 @@ export default function ServiceDelayForm() {
         .remove-image-button { position: absolute; top: 8px; right: 8px; background-color: rgba(0, 0, 0, 0.6); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; line-height: 1; }
         .remove-image-button:after { content: '×'; }
         .remove-image-button:hover { background-color: rgba(255, 0, 0, 0.8); }
-        .submit-button, .edit-button { padding: 12px 20px; border-radius: 4px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background-color 0.2s; border: none; width: 100%; } /* Full width buttons */
+        .submit-button, .edit-button { padding: 12px 20px; border-radius: 4px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background-color 0.2s; border: none; width: 100%; }
         .submit-button { background-color: #3182ce; color: white; }
         .submit-button:hover { background-color: #2b6cb0; }
         .submit-button:disabled { background-color: #a0aec0; cursor: not-allowed; }
@@ -280,9 +308,30 @@ export default function ServiceDelayForm() {
         .review-item strong { display: block; margin-bottom: 6px; color: #2d3748; }
         .review-item p, .review-item ul { margin: 0; color: #4a5568; white-space: pre-wrap; }
         .review-item ul { padding-left: 20px; }
-        .review-actions { display: flex; flex-direction: column-reverse; gap: 12px; margin-top: 24px; } /* Stack buttons on mobile */
+        .review-actions { display: flex; flex-direction: column-reverse; gap: 12px; margin-top: 24px; }
 
-        /* Styles for medium screens and up (md: 768px) */
+        /* --- NEW, MINIMAL CSS FOR INLINE CAMERA --- */
+        .camera-view-container {
+            margin-top: 8px;
+            width: 100%;
+        }
+        .camera-feed {
+            width: 100%;
+            max-width: 400px;
+            border-radius: 8px;
+            background-color: #000;
+            border: 1px solid #cbd5e0;
+        }
+        .file-upload-button.camera-capture {
+            background-color: #3182ce;
+            color: white;
+            border-color: #3182ce;
+        }
+        .file-upload-button.camera-capture:hover {
+            background-color: #2b6cb0;
+        }
+
+        /* --- YOUR ORIGINAL MEDIA QUERIES (UNCHANGED) --- */
         @media (min-width: 768px) {
             .form-container { padding: 24px; }
             h1 { font-size: 24px; }

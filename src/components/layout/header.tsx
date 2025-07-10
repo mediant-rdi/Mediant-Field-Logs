@@ -6,7 +6,7 @@ import { useConvexAuth, useQuery, useMutation } from 'convex/react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '../../../convex/_generated/api';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // CHANGED: Import useRouter
+import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -16,13 +16,15 @@ interface HeaderProps {
 export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const notificationsRef = useRef<HTMLDivElement>(null);
   
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const userDropdownRef = useRef<HTMLDivElement>(null); // NEW: Add a ref for the user dropdown
+
   const { isAuthenticated } = useConvexAuth();
   const user = useQuery(api.users.current, isAuthenticated ? {} : "skip");
   const { signOut } = useAuthActions();
   const isAdmin = user?.isAdmin;
-  const router = useRouter(); // CHANGED: Instantiate the router
+  const router = useRouter(); 
   
   const statsData = useQuery(api.dashboard.getDashboardStats, isAdmin ? {} : "skip");
   const adminPendingCount = statsData?.pendingCount ?? 0;
@@ -42,6 +44,7 @@ export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
     };
   }, [notificationsOpen, isAdmin, userUnreadCount, markAsRead]);
 
+  // Click-outside handler for the notifications dropdown
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
@@ -56,15 +59,27 @@ export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
     };
   }, [notificationsOpen]);
 
-  // CHANGED: Updated the handleLogout function for optimistic UI
-  const handleLogout = () => {
-    // 1. Fire the signOut function but don't wait for it to complete.
-    // This sends the request to Convex to invalidate the session in the background.
-    signOut();
+  // NEW: Add a click-outside handler for the user dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      // If the ref is set and the click was outside the user dropdown element...
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        // ...close the dropdown.
+        setUserDropdownOpen(false);
+      }
+    }
+    // Add the event listener only when the dropdown is open
+    if (userDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    // Cleanup function to remove the listener
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [userDropdownOpen]); // This effect depends on the dropdown's open state
 
-    // 2. Immediately redirect the user. This makes the UI feel instant.
-    // The user is navigated away while the background task finishes.
-    // You can change '/' to your login page, e.g., '/login'
+  const handleLogout = () => {
+    signOut();
     router.push('/'); 
   };
   
@@ -86,9 +101,6 @@ export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
   const notificationBadgeStyle: React.CSSProperties = { position: 'absolute', top: '4px', right: '4px', minWidth: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#dc2626', color: 'white', fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid white', pointerEvents: 'none' };
   const notificationCloseButtonStyle: React.CSSProperties = { background: 'transparent', border: 'none', color: '#6b7280', fontSize: '24px', lineHeight: 1, padding: '0', cursor: 'pointer' };
 
-  // =========================================================================
-  // FIX: Switched to fixed positioning on mobile to center the dropdown correctly.
-  // =========================================================================
   const mediaQueries = `
     .header-container { padding: 16px 24px; } .header-left-side { gap: 16px; } .header-title { font-size: 20px; } .header-right-side { gap: 16px; } .notification-dropdown { position: absolute; right: 0; top: 100%; margin-top: 8px; width: 320px; max-height: 400px; overflow-y: auto; background-color: white; border-radius: 6px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); border: 1px solid #e5e5e5; z-index: 50; display: ${notificationsOpen ? 'block' : 'none'}; } .notification-item-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } @media (max-width: 1024px) { .menu-button { display: block !important; } .desktop-search { display: none !important; } .user-name { display: none !important; } } 
     
@@ -99,17 +111,12 @@ export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
       .header-right-side { gap: 8px; } 
       
       .notification-dropdown { 
-        /* FIX: Use fixed positioning to center horizontally relative to the screen. */
         position: fixed;
-        top: 60px; /* Position it below the mobile header. */
+        top: 60px;
         left: 50%;
         transform: translateX(-50%);
-
-        /* Retain the desired width constraints. */
         width: 90vw;
         max-width: 400px;
-        
-        /* Unset properties that would conflict with the new positioning. */
         right: auto;
         margin-top: 0;
       } 
@@ -117,9 +124,9 @@ export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
       .notification-item-text { white-space: normal; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; } 
     }
   `;
-  // =========================================================================
 
-  const renderUserMenu = () => { return ( <div style={userMenuStyle}> <button style={userButtonStyle} onClick={() => setUserDropdownOpen(!userDropdownOpen)} onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f3f4f6')} onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')} > <span style={avatarStyle}> {getUserInitials(user?.name, user?.email)} </span> <span className="user-name">{getDisplayName(user?.name, user?.email)}</span> <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> <div style={userDropdownStyle}> <button style={dropdownItemStyle} onClick={handleLogout}>Sign out</button> </div> </div> ); };
+  // CHANGED: Attached the new ref to the user menu's container div
+  const renderUserMenu = () => { return ( <div style={userMenuStyle} ref={userDropdownRef}> <button style={userButtonStyle} onClick={() => setUserDropdownOpen(!userDropdownOpen)} onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f3f4f6')} onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')} > <span style={avatarStyle}> {getUserInitials(user?.name, user?.email)} </span> <span className="user-name">{getDisplayName(user?.name, user?.email)}</span> <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> <div style={userDropdownStyle}> <button style={dropdownItemStyle} onClick={handleLogout}>Sign out</button> </div> </div> ); };
 
   return (
     <>
