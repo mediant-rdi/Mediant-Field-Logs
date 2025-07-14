@@ -121,15 +121,13 @@ export default function DashboardPage() {
   const statsData = useQuery(api.dashboard.getDashboardStats);
   const isAdmin = statsData?.isAdmin;
 
+  // This query now returns our unified EnrichedReport[]
   const submissionsData = useQuery(api.dashboard.getFilteredSubmissions, {
     tab: activeTab,
     statusFilter: activeTab === 'needsReview' ? 'pending' : statusFilter,
     searchQuery: debouncedSearchQuery,
   });
 
-  // --- THIS IS THE FIX ---
-  // Memoize rawSubmissions to ensure its reference is stable.
-  // This prevents the other useMemo hooks from re-running unnecessarily.
   const rawSubmissions = useMemo(
     () => (submissionsData?.submissions ?? []) as EnrichedReport[],
     [submissionsData]
@@ -138,7 +136,8 @@ export default function DashboardPage() {
   const fuse = useMemo(() => {
     if (!rawSubmissions.length) return null;
     return new Fuse(rawSubmissions, {
-      keys: ['mainText', 'branchLocation'], 
+      // --- MODIFIED: Search on the new unified fields ---
+      keys: ['mainText', 'locationName', 'machineName', 'submitterName'], 
       includeScore: true,
       threshold: 0.4,
       minMatchCharLength: 2,
@@ -220,7 +219,7 @@ export default function DashboardPage() {
                     </div>
                     <input
                         type="text"
-                        placeholder="Search problems or client locations..."
+                        placeholder="Search problems, clients, machines..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"

@@ -1,13 +1,21 @@
+// convex/serviceReports.ts
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { Id } from './_generated/dataModel';
 
-// This mutation is correct and needs no changes.
+// --- MODIFIED: This mutation now accepts and stores IDs and an array of image IDs ---
 export const submitServiceReport = mutation({
   args: {
-    modelTypes: v.string(),
+    // Relational IDs
+    clientId: v.id('clients'),
+    locationId: v.id('clientLocations'),
+    machineId: v.id('machines'),
+    // Denormalized names for display
     branchLocation: v.string(),
+    machineName: v.string(),
+
+    // Other service report fields
     complaintText: v.string(),
     solution: v.string(),
     problemType: v.union(
@@ -22,13 +30,19 @@ export const submitServiceReport = mutation({
     delayedReporting: v.boolean(),
     communicationBarrier: v.boolean(),
     otherText: v.optional(v.string()),
-    imageId: v.optional(v.id('_storage')),
+
+    // Array of image IDs, up to 4 (enforced on client)
+    imageIds: v.array(v.id('_storage')),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
 
     if (!userId) {
       throw new Error("You must be logged in to submit a report.");
+    }
+    
+    if (args.imageIds.length > 4) {
+      throw new Error("Cannot submit more than 4 images.");
     }
 
     const reportId = await ctx.db.insert('serviceReports', {

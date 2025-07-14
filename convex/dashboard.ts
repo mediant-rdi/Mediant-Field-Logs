@@ -3,7 +3,7 @@ import { query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
-import { normalizeName } from "./clients"; // Import our utility from clients.ts
+import { normalizeName } from "./clients";
 
 // getDashboardStats remains the same.
 export const getDashboardStats = query({
@@ -47,7 +47,6 @@ export const getDashboardStats = query({
 
 /**
  * A powerful, server-filtered query for all dashboard lists.
- * NOW SUPPORTS DUAL SEARCH: by complaint text AND by client location.
  */
 export const getFilteredSubmissions = query({
   args: {
@@ -67,87 +66,40 @@ export const getFilteredSubmissions = query({
     const nonAdminQuery = (q: any) => q.or(q.eq(q.field("submittedBy"), userId), q.eq(q.field("status"), "approved"));
     
     if (searchQuery && searchQuery.length > 0) {
-      // --- START OF CORRECTED SEARCH LOGIC ---
-      
-      // === STRATEGY 1: Full-text search on report content (existing) ===
-      const baseServiceReportTextSearch = ctx.db
-        .query("serviceReports")
-        .withSearchIndex("search_complaint_text", (q) => q.search("complaintText", searchQuery));
-
-      const baseComplaintTextSearch = ctx.db
-        .query("complaints")
-        .withSearchIndex("search_complaint_text", (q) => q.search("complaintText", searchQuery));
-        
+      const baseServiceReportTextSearch = ctx.db.query("serviceReports").withSearchIndex("search_complaint_text", (q) => q.search("complaintText", searchQuery));
+      const baseComplaintTextSearch = ctx.db.query("complaints").withSearchIndex("search_complaint_text", (q) => q.search("complaintText", searchQuery));
       const serviceReportTextPromise = (isAdmin ? baseServiceReportTextSearch : baseServiceReportTextSearch.filter(nonAdminQuery)).collect();
       const complaintTextPromise = (isAdmin ? baseComplaintTextSearch : baseComplaintTextSearch.filter(nonAdminQuery)).collect();
       
-      // === STRATEGY 2: Search by client location name (new and corrected) ===
       const normalizedQuery = normalizeName(searchQuery);
-      const matchingLocations = await ctx.db
-        .query("clientLocations")
-        .withIndex("by_full_search_name", (q) =>
-          q.gte("searchFullName", normalizedQuery).lt("searchFullName", normalizedQuery + "\uffff")
-        )
-        .collect();
-
+      const matchingLocations = await ctx.db.query("clientLocations").withIndex("by_full_search_name", (q) => q.gte("searchFullName", normalizedQuery).lt("searchFullName", normalizedQuery + "\uffff")).collect();
       const locationFullNames = matchingLocations.map(loc => loc.fullName);
       
       let serviceReportLocationPromise: Promise<Doc<"serviceReports">[]> = Promise.resolve([]);
       let complaintLocationPromise: Promise<Doc<"complaints">[]> = Promise.resolve([]);
 
       if (locationFullNames.length > 0) {
-        // --- THIS IS THE FIX ---
-        // Create an array of small, indexed query promises, one for each location.
         const serviceReportPromises = locationFullNames.map(name => {
-            const baseQuery = ctx.db.query("serviceReports")
-                                  .withIndex("by_branchLocation", q => q.eq("branchLocation", name));
-            // Apply the non-admin filter *after* using the index
+            const baseQuery = ctx.db.query("serviceReports").withIndex("by_branchLocation", q => q.eq("branchLocation", name));
             return (isAdmin ? baseQuery : baseQuery.filter(nonAdminQuery)).collect();
         });
-
         const complaintPromises = locationFullNames.map(name => {
-            const baseQuery = ctx.db.query("complaints")
-                                  .withIndex("by_branchLocation", q => q.eq("branchLocation", name));
+            const baseQuery = ctx.db.query("complaints").withIndex("by_branchLocation", q => q.eq("branchLocation", name));
             return (isAdmin ? baseQuery : baseQuery.filter(nonAdminQuery)).collect();
         });
-        
-        // Execute all promises in parallel and flatten the array of arrays into a single array.
         serviceReportLocationPromise = Promise.all(serviceReportPromises).then(results => results.flat());
         complaintLocationPromise = Promise.all(complaintPromises).then(results => results.flat());
       }
-
-      // === Run all searches in parallel and combine results ===
-      const [
-        serviceReportTextResults, 
-        complaintTextResults,
-        serviceReportLocationResults,
-        complaintLocationResults
-      ] = await Promise.all([
-        serviceReportTextPromise,
-        complaintTextPromise,
-        serviceReportLocationPromise,
-        complaintLocationPromise
-      ]);
       
-      const combinedResults = [
-        ...serviceReportTextResults, 
-        ...complaintTextResults,
-        ...serviceReportLocationResults,
-        ...complaintLocationResults
-      ];
-
-      // Deduplicate results
+      const [ serviceReportTextResults, complaintTextResults, serviceReportLocationResults, complaintLocationResults ] = await Promise.all([ serviceReportTextPromise, complaintTextPromise, serviceReportLocationPromise, complaintLocationPromise ]);
+      const combinedResults = [ ...serviceReportTextResults, ...complaintTextResults, ...serviceReportLocationResults, ...complaintLocationResults ];
+      
       const uniqueResults = new Map<Id<"serviceReports" | "complaints">, Doc<"serviceReports"> | Doc<"complaints">>();
       for (const doc of combinedResults) {
-        if (!uniqueResults.has(doc._id)) {
-          uniqueResults.set(doc._id, doc);
-        }
+        if (!uniqueResults.has(doc._id)) { uniqueResults.set(doc._id, doc); }
       }
       documents = Array.from(uniqueResults.values());
-      // --- END OF CORRECTED SEARCH LOGIC ---
-
     } else {
-      // Tabbed browsing logic remains the same
       switch(tab) {
           case 'needsReview':
               if(isAdmin) {
@@ -175,23 +127,49 @@ export const getFilteredSubmissions = query({
         filteredDocs = documents.filter(doc => 'status' in doc && doc.status === statusFilter);
     }
     
-    // Enriching results logic remains the same
-    const submitterIds = filteredDocs
-      .map(doc => (doc as { submittedBy?: Id<"users"> }).submittedBy)
-      .filter((id): id is Id<"users"> => !!id);
-    
-    const uniqueSubmitterIds = [...new Set(submitterIds)];
-    const submitters = uniqueSubmitterIds.length > 0 ? await ctx.db.query("users").filter((q) => q.or(...uniqueSubmitterIds.map((id) => q.eq(q.field("_id"), id)))).collect() : [];
-    const submitterNames = new Map(submitters.map((s) => [s._id, s.name ?? "Unnamed User"]));
+    // --- START OF CORRECTED ENRICHMENT LOGIC ---
+    const allSubmissions = await Promise.all(filteredDocs.map(async (doc) => {
+      const submitter = 'submittedBy' in doc && doc.submittedBy ? await ctx.db.get(doc.submittedBy) : null;
+      const submitterName = submitter?.name ?? "Unknown User";
 
-    const allSubmissions = filteredDocs.map(doc => {
-      const type = 'feedbackDetails' in doc ? 'feedback' : 'modelTypes' in doc ? 'serviceReport' : 'complaint';
-      const mainText = 'feedbackDetails' in doc ? doc.feedbackDetails : doc.complaintText;
-      const modelTypes = 'modelTypes' in doc ? doc.modelTypes : 'modelType' in doc ? doc.modelType : undefined;
-      const submitterName = 'submittedBy' in doc && doc.submittedBy ? (submitterNames.get(doc.submittedBy) ?? "Unknown User") : "Customer";
+      let type: 'feedback' | 'serviceReport' | 'complaint';
+      let mainText: string;
+      let locationName: string;
+      let machineName: string;
+
+      // Use `any` to safely access legacy fields that may not exist on the current schema type
+      const anyDoc = doc as any;
+
+      // Determine document type using a unique field as a guard
+      if ('feedbackDetails' in anyDoc) {
+        type = 'feedback';
+        mainText = anyDoc.feedbackDetails;
+        locationName = anyDoc.clientName;
+        machineName = anyDoc.machineName;
+      } else if ('backofficeAccess' in anyDoc) { // `backofficeAccess` is unique to Service Reports
+        type = 'serviceReport';
+        mainText = anyDoc.complaintText;
+        locationName = anyDoc.branchLocation;
+        // Handle both new (`machineName`) and legacy (`modelTypes`) fields
+        machineName = anyDoc.machineName ?? anyDoc.modelTypes;
+      } else { // Fallback to Complaint
+        type = 'complaint';
+        mainText = anyDoc.complaintText;
+        locationName = anyDoc.branchLocation;
+        // Complaints use `modelType`
+        machineName = anyDoc.modelType;
+      }
       
-      return { ...doc, type, mainText, modelTypes, submitterName };
-    });
+      return { 
+        ...doc, 
+        type, 
+        mainText, 
+        locationName, 
+        machineName, 
+        submitterName 
+      };
+    }));
+    // --- END OF CORRECTED ENRICHMENT LOGIC ---
 
     allSubmissions.sort((a, b) => b._creationTime - a._creationTime);
     return { submissions: allSubmissions, isAdmin };

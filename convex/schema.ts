@@ -16,19 +16,8 @@ const agreementType = v.union(
   v.literal('CONTRACT')
 );
 
-// --- DELETE THIS OLD DEFINITION ---
-// const machineCategory = v.union(
-//   v.literal('ATM'),
-//   v.literal('TCD'),
-//   v.literal('TCR'),
-//   v.literal('KIOSK'),
-//   v.literal('OTHER')
-// );
-
 export default defineSchema({
   ...authTables,
-
-  // ... (users, invitations, etc. tables remain the same)
   
   authAccounts: defineTable({
     userId: v.id("users"),
@@ -70,7 +59,6 @@ export default defineSchema({
     .index("by_token", ["token"])
     .index("by_userId", ["userId"]),
     
-  // --- THIS TABLE DEFINITION IS NOW FIXED ---
   machines: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
@@ -80,8 +68,6 @@ export default defineSchema({
     .searchIndex('by_name_search', { searchField: 'name' })
     .index("by_category", ["category"]),
 
-  // ... (all other tables like reports, serviceReports, complaints, etc. remain the same)
-  
   reports: defineTable({
     description: v.string(),
     machineId: v.id("machines"),
@@ -91,10 +77,20 @@ export default defineSchema({
     uploadedBy: v.id("users"),
   }).index("by_machineId", ["machineId"]),
 
+  // --- MODIFIED: `serviceReports` table is updated ---
   serviceReports: defineTable({
     submittedBy: v.id("users"),
-    modelTypes: v.string(),
+
+    // Store IDs for robust, relational data.
+    clientId: v.id('clients'),
+    locationId: v.id('clientLocations'),
+    machineId: v.id('machines'),
+
+    // Keep denormalized names for easy display and backward compatibility.
+    // Rename `modelTypes` to `machineName` for consistency.
     branchLocation: v.string(),
+    machineName: v.string(),
+
     complaintText: v.string(),
     solution: v.string(),
     problemType: v.union(v.literal('electrical'), v.literal('mechanical'), v.literal('software'), v.literal('service-delay'), v.literal('other')),
@@ -103,7 +99,12 @@ export default defineSchema({
     delayedReporting: v.boolean(),
     communicationBarrier: v.boolean(),
     otherText: v.optional(v.string()),
-    imageId: v.optional(v.id('_storage')),
+
+    // Store an array of image storage IDs, allowing for multiple uploads.
+    // The old `imageId` field is now deprecated for new submissions.
+    // We make this optional to support old documents without this field.
+    imageIds: v.optional(v.array(v.id('_storage'))),
+    
     status: approvalStatus,
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
@@ -115,12 +116,24 @@ export default defineSchema({
     .searchIndex("search_complaint_text", {
       searchField: "complaintText",
     })
-    .index("by_branchLocation", ["branchLocation"]),
+    .index("by_branchLocation", ["branchLocation"])
+    // Add new indexes for efficient querying by new relational IDs
+    .index("by_client", ["clientId"])
+    .index("by_location", ["locationId"])
+    .index("by_machine", ["machineId"]),
 
   complaints: defineTable({
     submittedBy: v.id("users"),
-    modelType: v.string(),
-    branchLocation: v.string(),
+    
+    // Store IDs for robust, relational data.
+    clientId: v.id('clients'),
+    locationId: v.id('clientLocations'),
+    machineId: v.id('machines'),
+
+    // Keep denormalized names for easy display and backward compatibility.
+    branchLocation: v.string(), 
+    modelType: v.string(), 
+
     complaintText: v.string(),
     solution: v.string(),
     problemType: v.union(v.literal('equipment-fault'), v.literal('poor-experience'), v.literal('other')),
@@ -133,7 +146,9 @@ export default defineSchema({
     experience_dust: v.boolean(),
     experience_buttonsSticking: v.boolean(),
     otherProblemDetails: v.string(),
-    imageId: v.optional(v.id('_storage')),
+    
+    imageIds: v.optional(v.array(v.id('_storage'))),
+    
     status: approvalStatus,
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
@@ -145,15 +160,27 @@ export default defineSchema({
     .searchIndex("search_complaint_text", {
       searchField: "complaintText",
     })
-    .index("by_branchLocation", ["branchLocation"]),
+    .index("by_branchLocation", ["branchLocation"])
+    .index("by_client", ["clientId"])
+    .index("by_location", ["locationId"])
+    .index("by_machine", ["machineId"]),
     
   feedback: defineTable({
-    branchLocation: v.string(),
-    modelType: v.string(),
+    clientId: v.id('clients'),
+    machineId: v.id('machines'),
+    
+    clientName: v.string(),
+    machineName: v.string(),
+
     feedbackDetails: v.string(),
-    imageId: v.optional(v.id('_storage')),
-    submittedBy: v.optional(v.id("users")),
-  }).index("by_branch_and_model", ["branchLocation", "modelType"]),
+    
+    imageIds: v.array(v.id('_storage')),
+    
+    submittedBy: v.id("users"),
+  })
+  .index("by_client", ["clientId"])
+  .index("by_machine", ["machineId"])
+  .index("by_submittedBy", ["submittedBy"]),
 
   clients: defineTable({
     name: v.string(),

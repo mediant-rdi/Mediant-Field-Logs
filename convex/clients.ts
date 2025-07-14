@@ -16,7 +16,6 @@ const agreementType = v.union(
  * and trims extra whitespace. The order of operations is important.
  * e.g., "NCBA Bank - Town" -> "ncba town"
  */
-// --- MODIFIED: Added 'export' to make this function available to other modules ---
 export const normalizeName = (name: string): string => {
   return name
     .toLowerCase()
@@ -45,6 +44,7 @@ export const searchLocations = query({
       return [];
     }
 
+    // Search logic remains the same
     const [fullNameResults, nameResults] = await Promise.all([
       ctx.db
         .query("clientLocations")
@@ -69,17 +69,21 @@ export const searchLocations = query({
       }
     }
 
+    // --- THIS IS THE FIX ---
+    // Instead of creating a new object with only _id and displayText,
+    // we now spread the entire original `doc` and just add `displayText`.
+    // This preserves all fields, including the crucial `clientId`.
     return Array.from(uniqueResults.values())
       .slice(0, 10)
       .map(doc => ({
-        _id: doc._id,
-        displayText: doc.fullName,
+        ...doc, // Spread all fields from the original document
+        displayText: doc.fullName, // Add the convenient display text
       }));
   },
 });
 
 
-// --- MUTATIONS ---
+// --- MUTATIONS (Unchanged) ---
 
 /**
  * Creates a new client.
@@ -93,15 +97,12 @@ export const createClient = mutation({
     if (args.name.trim().length === 0) {
       throw new Error("Client name cannot be empty.");
     }
-
     const searchName = normalizeName(args.name);
-
     const clientId = await ctx.db.insert("clients", {
       name: args.name,
       searchName: searchName,
       agreementType: args.agreementType,
     });
-
     return clientId;
   },
 });
@@ -118,16 +119,13 @@ export const createLocation = mutation({
     if (args.name.trim().length === 0) {
       throw new Error("Location name cannot be empty.");
     }
-
     const client = await ctx.db.get(args.clientId);
     if (!client) {
       throw new Error("Client not found. Cannot create location.");
     }
-
     const fullName = `${client.name} - ${args.name}`;
     const searchName = normalizeName(args.name);
     const searchFullName = normalizeName(fullName);
-
     const locationId = await ctx.db.insert("clientLocations", {
       clientId: args.clientId,
       name: args.name,
@@ -135,12 +133,11 @@ export const createLocation = mutation({
       searchName: searchName,
       searchFullName: searchFullName,
     });
-
     return locationId;
   },
 });
 
-// --- QUERIES ---
+// --- QUERIES (Unchanged) ---
 
 /**
  * Gets a list of all clients for populating dropdowns.

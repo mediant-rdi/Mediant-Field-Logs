@@ -6,13 +6,14 @@ import { EnrichedReport, StatusBadge } from '@/components/forms/DashboardForm';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import Image from 'next/image';
+import { Id } from '../../../convex/_generated/dataModel';
 
 type SubmissionDetailsModalProps = {
   submission: EnrichedReport | null;
   onClose: () => void;
 };
 
-// UPDATED: Label prop type is now React.ReactNode and flex styles are added for alignment.
+// DetailRow component is unchanged
 const DetailRow = ({ label, value }: { label: React.ReactNode; value?: React.ReactNode }) => {
   if (!value && value !== 0) return null;
   return (
@@ -27,33 +28,43 @@ const DetailRow = ({ label, value }: { label: React.ReactNode; value?: React.Rea
   );
 };
 
-const SpecificDetails = ({ submission, onImageView }: { submission: EnrichedReport, onImageView: () => void }) => {
-  const imageUrl = useQuery(
-    api.files.getImageUrl,
-    submission.imageId ? { storageId: submission.imageId } : 'skip'
-  );
+// --- MODIFIED: SpecificDetails now robustly handles different image data structures ---
+const SpecificDetails = ({ submission, onImageView }: { submission: EnrichedReport, onImageView: (url: string) => void }) => {
+  // --- START OF THE FIX ---
+  // This logic robustly finds images for any submission type by using type guards.
+  let storageIdsToFetch: Id<"_storage">[] | 'skip' = 'skip';
+  
+  // Use type guards ('in' operator) to safely access properties that may not exist on all submission types.
+  if ('imageIds' in submission && submission.imageIds && submission.imageIds.length > 0) {
+    // This handles `feedback` and new-style `complaints` / `serviceReports`.
+    // Within this block, TypeScript knows `submission.imageIds` is safe to access.
+    storageIdsToFetch = submission.imageIds;
+  } else if ('imageId' in submission && typeof submission.imageId === 'string' && submission.imageId) {
+    // This is a fallback for old-style submissions that only have the single `imageId`.
+    // Within this block, TypeScript knows `submission.imageId` is safe to access.
+    storageIdsToFetch = [submission.imageId as Id<"_storage">];
+  }
 
-  // --- START: NEW LOGIC FOR EDITING SOLUTION ---
+  const imageUrls = useQuery(
+    api.files.getMultipleImageUrls,
+    storageIdsToFetch !== 'skip' ? { storageIds: storageIdsToFetch } : 'skip'
+  );
+  // --- END OF THE FIX ---
+
   const currentUser = useQuery(api.users.current);
   const editSolutionMutation = useMutation(api.complaints.editSubmissionSolution);
-
   const [isEditingSolution, setIsEditingSolution] = useState(false);
-  
   const [solutionText, setSolutionText] = useState(
     submission.type === 'complaint' || submission.type === 'serviceReport' ? submission.solution || '' : ''
   );
-  
-  // Reset local state if a new submission is passed into the modal.
   useEffect(() => {
     if (submission.type === 'complaint' || submission.type === 'serviceReport') {
       setSolutionText(submission.solution || '');
     }
     setIsEditingSolution(false);
   }, [submission]);
-
   const handleSaveSolution = async () => {
     if (submission.type !== 'complaint' && submission.type !== 'serviceReport') return;
-    
     try {
       await editSolutionMutation({
         submissionId: submission._id,
@@ -66,10 +77,8 @@ const SpecificDetails = ({ submission, onImageView }: { submission: EnrichedRepo
       alert("Error saving solution. Only admins can perform this action.");
     }
   };
-  
   const isAdmin = currentUser?.isAdmin === true;
   const canEditSolution = isAdmin && (submission.type === 'complaint' || submission.type === 'serviceReport');
-  
   const SolutionEditor = (
     <>
       {isEditingSolution ? (
@@ -84,15 +93,7 @@ const SpecificDetails = ({ submission, onImageView }: { submission: EnrichedRepo
           />
           <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
             <button
-              onClick={() => {
-                setIsEditingSolution(false);
-                // Reset on cancel
-                setSolutionText(
-                  (submission.type === 'complaint' || submission.type === 'serviceReport')
-                    ? submission.solution || ''
-                    : ''
-                ); 
-              }}
+              onClick={() => { setIsEditingSolution(false); setSolutionText((submission.type === 'complaint' || submission.type === 'serviceReport') ? submission.solution || '' : ''); }}
               style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #d1d5db', background: 'white', cursor: 'pointer' }}
             >
               Cancel
@@ -107,33 +108,16 @@ const SpecificDetails = ({ submission, onImageView }: { submission: EnrichedRepo
         </div>
       ) : (
         <DetailRow
-          label={
-            <>
-              <span>Solution Provided</span>
-              {canEditSolution && (
-                <button
-                  onClick={() => setIsEditingSolution(true)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', fontSize: '14px', fontWeight: 500, padding: '4px' }}
-                >
-                  Edit
-                </button>
-              )}
-            </>
-          }
-          // --- THIS IS THE FIX ---
-          // Display the value from the local state `solutionText` instead of the `submission` prop.
-          // This ensures the UI updates immediately after a save, as `solutionText` holds the new value.
+          label={<><span>Solution Provided</span>{canEditSolution && (<button onClick={() => setIsEditingSolution(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', fontSize: '14px', fontWeight: 500, padding: '4px' }}>Edit</button>)}</>}
           value={solutionText}
         />
       )}
     </>
   );
-  // --- END: NEW LOGIC FOR EDITING SOLUTION ---
 
   return (
     <>
       {(() => {
-        // The `switch` statement correctly narrows the `submission` type.
         switch (submission.type) {
           case 'serviceReport':
           case 'complaint':
@@ -143,53 +127,31 @@ const SpecificDetails = ({ submission, onImageView }: { submission: EnrichedRepo
                 <DetailRow label="Complaint Details" value={submission.complaintText} />
                 {SolutionEditor}
                 {submission.type === 'serviceReport' && submission.otherText && <DetailRow label="Other Notes" value={submission.otherText} />}
-                {submission.type === 'complaint' && submission.otherProblemDetails && <DetailRow label="Other Problem Notes" value={submission.otherProblemDetails} />}
+                {submission.type === 'complaint' && 'otherProblemDetails' in submission && submission.otherProblemDetails && <DetailRow label="Other Problem Notes" value={submission.otherProblemDetails} />}
               </>
             );
           case 'feedback':
-            return (
-              <>
-                <DetailRow label="Feedback Details" value={submission.feedbackDetails} />
-              </>
-            );
+            return <DetailRow label="Feedback Details" value={'feedbackDetails' in submission ? submission.feedbackDetails : ''} />;
           default:
             return null;
         }
       })()}
-      {imageUrl && (
+
+      {imageUrls && imageUrls.length > 0 && (
         <DetailRow
-          label="Attached Image"
+          label={`Attached Image${imageUrls.length > 1 ? 's' : ''}`}
           value={
-            <div style={{ marginTop: '8px', position: 'relative' }}>
-              <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#f9fafb' }}>
-                <Image src={imageUrl} alt="Submission attachment" layout="fill" objectFit="contain" />
-              </div>
-              <button
-                onClick={onImageView}
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '9999px',
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  transition: 'background-color 0.2s',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.8)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.6)'}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-                View
-              </button>
+            <div style={{ marginTop: '8px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '10px' }}>
+              {imageUrls.map((url, index) => (
+                <button
+                  key={index}
+                  onClick={() => onImageView(url)}
+                  style={{ border: 'none', padding: 0, background: 'none', cursor: 'pointer', position: 'relative', width: '100%', paddingTop: '100%', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#f9fafb' }}
+                  aria-label={`View image ${index + 1} fullscreen`}
+                >
+                  <Image src={url} alt={`Submission attachment ${index + 1}`} layout="fill" objectFit="cover" />
+                </button>
+              ))}
             </div>
           }
         />
@@ -199,17 +161,17 @@ const SpecificDetails = ({ submission, onImageView }: { submission: EnrichedRepo
 };
 
 export default function SubmissionDetailsModal({ submission, onClose }: SubmissionDetailsModalProps) {
-  const [isImageFullscreen, setIsImageFullscreen] = useState(false);
-  const imageUrl = useQuery(
-    api.files.getImageUrl,
-    isImageFullscreen && submission?.imageId ? { storageId: submission.imageId } : 'skip'
-  );
+  const [fullscreenImageUrl, setFullscreenImageUrl] = useState<string | null>(null);
 
   if (!submission) {
     return null;
   }
 
   const handleContentClick = (e: React.MouseEvent) => e.stopPropagation();
+
+  const handleImageView = (url: string) => {
+    setFullscreenImageUrl(url);
+  };
 
   return (
     <>
@@ -229,20 +191,20 @@ export default function SubmissionDetailsModal({ submission, onClose }: Submissi
           <div style={{ overflowY: 'auto', padding: '8px 24px 24px 24px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <DetailRow label="Submitter" value={submission.submitterName} />
-              <DetailRow label="Branch Location" value={submission.branchLocation} />
-              <DetailRow label="Model(s)" value={submission.modelTypes} />
+              <DetailRow label="Branch Location" value={submission.locationName} />
+              <DetailRow label="Model(s)" value={submission.machineName} />
               <DetailRow label="Date Submitted" value={new Date(submission._creationTime).toLocaleString()} />
-              <DetailRow label="Status" value={submission.status ? <StatusBadge status={submission.status} /> : 'N/A'} />
+              {submission.status && <DetailRow label="Status" value={<StatusBadge status={submission.status} />} />}
               <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '16px 0' }} />
-              <SpecificDetails submission={submission} onImageView={() => setIsImageFullscreen(true)} />
+              <SpecificDetails submission={submission} onImageView={handleImageView} />
             </div>
           </div>
         </div>
       </div>
 
-      {isImageFullscreen && imageUrl && (
+      {fullscreenImageUrl && (
         <div
-          onClick={() => setIsImageFullscreen(false)}
+          onClick={() => setFullscreenImageUrl(null)}
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.85)',
@@ -252,14 +214,14 @@ export default function SubmissionDetailsModal({ submission, onClose }: Submissi
           }}
         >
           <button
-            onClick={() => setIsImageFullscreen(false)}
+            onClick={() => setFullscreenImageUrl(null)}
             style={{ position: 'absolute', top: '24px', right: '24px', color: 'white', fontSize: '32px', border: 'none', background: 'transparent', cursor: 'pointer', zIndex: 1060 }}
           >
             ×
           </button>
           <div style={{ position: 'relative', width: '100%', height: '100%' }} onClick={(e) => e.stopPropagation()}>
             <Image
-              src={imageUrl}
+              src={fullscreenImageUrl}
               alt="Fullscreen submission attachment"
               layout="fill"
               objectFit="contain"

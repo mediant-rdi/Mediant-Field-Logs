@@ -4,11 +4,18 @@ import { v } from 'convex/values';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { Id } from './_generated/dataModel';
 
-// This is the submission logic. No changes needed here.
+// --- MODIFIED: This mutation now accepts and stores IDs and an array of image IDs ---
 export const submitComplaint = mutation({
   args: {
-    modelType: v.string(),
+    // Relational IDs
+    clientId: v.id('clients'),
+    locationId: v.id('clientLocations'),
+    machineId: v.id('machines'),
+    // Denormalized names for display
     branchLocation: v.string(),
+    modelType: v.string(),
+    
+    // Other complaint fields
     problemType: v.union(v.literal('equipment-fault'), v.literal('poor-experience'), v.literal('other')),
     fault_oldAge: v.boolean(),
     fault_frequentBreakdowns: v.boolean(),
@@ -21,13 +28,20 @@ export const submitComplaint = mutation({
     otherProblemDetails: v.string(),
     complaintText: v.string(),
     solution: v.string(),
-    imageId: v.optional(v.id('_storage')),
+    
+    // Array of image IDs, up to 4 (enforced on client)
+    imageIds: v.array(v.id('_storage')),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("You must be logged in to submit a complaint.");
     }
+    
+    if (args.imageIds.length > 4) {
+      throw new Error("Cannot submit more than 4 images.");
+    }
+    
     const complaintId = await ctx.db.insert('complaints', {
       ...args,
       submittedBy: userId,
