@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { FormEvent, ChangeEvent } from 'react';
 import Image from 'next/image';
 import { useMutation, useQuery } from 'convex/react';
@@ -9,9 +10,7 @@ import { api } from '../../../../convex/_generated/api';
 import { Id, Doc } from '../../../../convex/_generated/dataModel';
 
 // --- TypeScript types and initial state ---
-// This type now correctly matches the (fixed) return type of our backend query
 type BranchSuggestion = Doc<'clientLocations'> & { displayText: string };
-
 type BranchSelection = { locationId: Id<'clientLocations'>; clientId: Id<'clients'>; text: string };
 type ModelSelection = { id: Id<'machines'>; text: string };
 
@@ -43,6 +42,34 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// --- NEW: Success Dialog Component with React Portal ---
+const SuccessDialog = ({ isOpen, onClose, title, message }: { isOpen: boolean; onClose: () => void; title: string; message: string; }) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!isOpen || !mounted) {
+    return null;
+  }
+
+  return createPortal(
+    <div className="dialog-overlay" onClick={onClose}>
+      <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
+        <div className="dialog-icon">✓</div>
+        <h2 className="dialog-title">{title}</h2>
+        <p className="dialog-message">{message}</p>
+        <button className="dialog-button" onClick={onClose}>
+          Done
+        </button>
+      </div>
+    </div>,
+    document.getElementById('dialog-portal')!
+  );
+};
+
 export default function CustomerFeedbackForm() {
   // --- Refs (unchanged) ---
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,15 +94,13 @@ export default function CustomerFeedbackForm() {
   const [showBranchSuggestions, setShowBranchSuggestions] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false); // --- NEW: State for dialog
 
   // --- Debounced Queries ---
   const debouncedModelType = useDebounce(modelSearchText, 300);
   const debouncedBranchLocation = useDebounce(branchSearchText, 300);
   const machineSuggestions = useQuery(api.machines.searchByName, debouncedModelType.length < 2 ? 'skip' : { searchText: debouncedModelType }) ?? [];
-  
-  // This line is now correct because the backend query sends the right data shape.
   const branchSuggestions: BranchSuggestion[] = useQuery(api.clients.searchLocations, debouncedBranchLocation.length < 2 ? 'skip' : { searchText: debouncedBranchLocation }) ?? [];
-
 
   // --- Input Handlers (unchanged) ---
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => { const { name, value } = e.target; if (name === 'modelTypeSearch') { setModelSearchText(value); setShowModelSuggestions(true); } if (name === 'branchLocationSearch') { setBranchSearchText(value); setShowBranchSuggestions(true); } };
@@ -104,13 +129,20 @@ export default function CustomerFeedbackForm() {
   const capturePhoto = () => { if (videoRef.current && canvasRef.current) { const canvas = canvasRef.current; const video = videoRef.current; const context = canvas.getContext('2d'); if (!context) return; canvas.width = video.videoWidth; canvas.height = video.videoHeight; context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight); canvas.toBlob((blob) => { if (blob) { if (files.length >= MAX_IMAGES) { alert(`You can only upload a maximum of ${MAX_IMAGES} images.`); } else { const capturedFile = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' }); setFiles(prev => [...prev, capturedFile]); setImagePreviews(prev => [...prev, URL.createObjectURL(blob)]); } stopCamera(); } }, 'image/jpeg'); } };
   useEffect(() => { if (isCameraOpen && stream && videoRef.current) { videoRef.current.srcObject = stream; } return () => { if (stream) { stream.getTracks().forEach(track => track.stop()); } }; }, [isCameraOpen, stream]);
 
-  // --- Form Lifecycle (unchanged) ---
+  // --- Form Lifecycle (updated for dialog) ---
   const resetForm = () => { setFormData(initialState); setBranchSearchText(''); setModelSearchText(''); imagePreviews.forEach(URL.revokeObjectURL); setFiles([]); setImagePreviews([]); };
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>, type: 'model' | 'branch') => { if (!e.currentTarget.contains(e.relatedTarget)) { setTimeout(() => { if (type === 'model') setShowModelSuggestions(false); if (type === 'branch') setShowBranchSuggestions(false); }, 150); } };
   const handleProceedToReview = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); if (!formData.branch || !formData.model) { alert("Please select a branch and a model type from the suggestions."); return; } setIsReviewing(true); };
   const handleEdit = () => { setIsReviewing(false); };
   
-  // --- MODIFIED: The submission handler now sends the names to the backend ---
+  // --- NEW: Handler to close the dialog and reset the form ---
+  const handleCloseSuccessDialog = () => {
+    setShowSuccessDialog(false);
+    resetForm();
+    setIsReviewing(false);
+  };
+
+  // --- MODIFIED: The submission handler now shows the dialog ---
   const handleFinalSubmit = async () => {
     setIsSubmitting(true);
     try {
@@ -126,20 +158,15 @@ export default function CustomerFeedbackForm() {
       const imageIds = await Promise.all(uploadPromises);
       
       await submitFeedback({
-        // Existing IDs
         clientId: formData.branch.clientId,
         machineId: formData.model.id,
-        // --- ADDED: Pass the text values for display in the modal ---
         clientName: formData.branch.text,
         machineName: formData.model.text,
-        // Other fields
         feedbackDetails: formData.feedbackDetails,
         imageIds,
       });
 
-      alert('Feedback submitted successfully!');
-      resetForm();
-      setIsReviewing(false);
+      setShowSuccessDialog(true); // --- MODIFIED: Show dialog instead of alert
     } catch (error) {
       console.error("Failed to submit feedback:", error);
       alert("There was an error submitting your feedback. Please try again.");
@@ -148,9 +175,17 @@ export default function CustomerFeedbackForm() {
     }
   };
 
-  // --- Rendering Logic (unchanged) ---
+  // --- Rendering Logic (updated with dialog) ---
   return (
     <div className="form-container">
+      {/* --- NEW: Render the Success Dialog --- */}
+      <SuccessDialog
+        isOpen={showSuccessDialog}
+        onClose={handleCloseSuccessDialog}
+        title="Submission Successful"
+        message="Your feedback has been submitted successfully."
+      />
+
       {isReviewing ? (
         <div className="review-container">
           <h1>Review Your Feedback</h1>
@@ -321,6 +356,92 @@ export default function CustomerFeedbackForm() {
             .review-grid { grid-template-columns: 1fr 1fr; gap: 20px; padding: 24px; }
             .review-item.full-width { grid-column: span 2; }
             .review-actions { flex-direction: row; justify-content: flex-end; gap: 16px; }
+        }
+      `}</style>
+      <style jsx global>{`
+        .dialog-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          -webkit-backdrop-filter: blur(4px);
+          backdrop-filter: blur(4px);
+        }
+
+        .dialog-content {
+          background: white;
+          padding: 24px;
+          border-radius: 12px;
+          text-align: center;
+          max-width: 90%;
+          width: 400px;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          animation: dialog-appear 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+        }
+
+        @keyframes dialog-appear {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .dialog-icon {
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          background-color: #22c55e; /* green-500 */
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 28px;
+          font-weight: bold;
+          margin-bottom: 16px;
+        }
+
+        .dialog-title {
+          font-size: 20px;
+          font-weight: 600;
+          color: #111827; /* gray-900 */
+          margin: 0 0 8px;
+        }
+
+        .dialog-message {
+          font-size: 16px;
+          color: #4b5563; /* gray-600 */
+          margin: 0 0 24px;
+          line-height: 1.5;
+        }
+
+        .dialog-button {
+          width: 100%;
+          padding: 10px;
+          border: none;
+          border-radius: 8px;
+          background-color: #3b82f6; /* blue-500 */
+          color: white;
+          font-size: 16px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .dialog-button:hover {
+          background-color: #2563eb; /* blue-600 */
         }
       `}</style>
     </div>

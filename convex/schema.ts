@@ -90,6 +90,8 @@ export default defineSchema({
     // Rename `modelTypes` to `machineName` for consistency.
     branchLocation: v.string(),
     machineName: v.string(),
+    // --- NEW: Optional field for the machine's serial number ---
+    machineSerialNumber: v.optional(v.string()),
 
     complaintText: v.string(),
     solution: v.string(),
@@ -133,6 +135,8 @@ export default defineSchema({
     // Keep denormalized names for easy display and backward compatibility.
     branchLocation: v.string(), 
     modelType: v.string(), 
+    // --- NEW: Optional field for the machine's serial number ---
+    machineSerialNumber: v.optional(v.string()),
 
     complaintText: v.string(),
     solution: v.string(),

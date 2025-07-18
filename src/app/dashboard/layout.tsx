@@ -1,7 +1,7 @@
 // src/app/dashboard/layout.tsx
 'use client';
 
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect, ReactNode, Fragment } from 'react'; // Import Fragment
 import { usePathname, useRouter } from 'next/navigation';
 import { useConvexAuth } from "convex/react";
 import Sidebar from '@/components/layout/sidebar'; 
@@ -22,8 +22,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, isLoading, router]);
 
+  // Logic for setting active item and page title (unchanged)
   useEffect(() => {
-    // --- ADD THIS ELSE IF BLOCK ---
     if (pathname.startsWith('/dashboard/reports/add')) {
         setActiveItem('admin-add-report');
         setPageTitle('Add Report');
@@ -77,7 +77,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       case 'admin-add-user': router.push('/dashboard/users/add'); break;
       case 'admin-add-client': router.push('/dashboard/clients/add'); break;
       case 'admin-add-machine': router.push('/dashboard/machines/add'); break;
-      // --- ADD THIS CASE ---
       case 'admin-add-report': router.push('/dashboard/reports/add'); break;
       default: console.warn(`Navigation for "${itemId}" is not defined.`); break;
     }
@@ -96,19 +95,22 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onItemClick={handleItemClick}
-        activeItem={activeItem}
-      />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header onMenuClick={() => setSidebarOpen(true)} pageTitle={pageTitle} />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-          {children}
-        </main>
+    <Fragment>
+      <div className="flex h-screen bg-gray-100 overflow-hidden">
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onItemClick={handleItemClick}
+          activeItem={activeItem}
+        />
+        <div className="flex-1 flex flex-col min-w-0">
+          <Header onMenuClick={() => setSidebarOpen(true)} pageTitle={pageTitle} />
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+      <div id="dialog-portal"></div>
+    </Fragment>
   );
 }

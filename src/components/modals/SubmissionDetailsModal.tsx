@@ -28,20 +28,14 @@ const DetailRow = ({ label, value }: { label: React.ReactNode; value?: React.Rea
   );
 };
 
-// --- MODIFIED: SpecificDetails now robustly handles different image data structures ---
+// SpecificDetails is unchanged
 const SpecificDetails = ({ submission, onImageView }: { submission: EnrichedReport, onImageView: (url: string) => void }) => {
-  // --- START OF THE FIX ---
-  // This logic robustly finds images for any submission type by using type guards.
+ 
   let storageIdsToFetch: Id<"_storage">[] | 'skip' = 'skip';
   
-  // Use type guards ('in' operator) to safely access properties that may not exist on all submission types.
   if ('imageIds' in submission && submission.imageIds && submission.imageIds.length > 0) {
-    // This handles `feedback` and new-style `complaints` / `serviceReports`.
-    // Within this block, TypeScript knows `submission.imageIds` is safe to access.
     storageIdsToFetch = submission.imageIds;
   } else if ('imageId' in submission && typeof submission.imageId === 'string' && submission.imageId) {
-    // This is a fallback for old-style submissions that only have the single `imageId`.
-    // Within this block, TypeScript knows `submission.imageId` is safe to access.
     storageIdsToFetch = [submission.imageId as Id<"_storage">];
   }
 
@@ -49,7 +43,6 @@ const SpecificDetails = ({ submission, onImageView }: { submission: EnrichedRepo
     api.files.getMultipleImageUrls,
     storageIdsToFetch !== 'skip' ? { storageIds: storageIdsToFetch } : 'skip'
   );
-  // --- END OF THE FIX ---
 
   const currentUser = useQuery(api.users.current);
   const editSolutionMutation = useMutation(api.complaints.editSubmissionSolution);
@@ -193,6 +186,8 @@ export default function SubmissionDetailsModal({ submission, onClose }: Submissi
               <DetailRow label="Submitter" value={submission.submitterName} />
               <DetailRow label="Branch Location" value={submission.locationName} />
               <DetailRow label="Model(s)" value={submission.machineName} />
+              {/* --- MODIFIED: Conditionally display the serial number --- */}
+              <DetailRow label="Serial Number" value={(submission as any).machineSerialNumber} />
               <DetailRow label="Date Submitted" value={new Date(submission._creationTime).toLocaleString()} />
               {submission.status && <DetailRow label="Status" value={<StatusBadge status={submission.status} />} />}
               <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '16px 0' }} />

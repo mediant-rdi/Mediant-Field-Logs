@@ -4,7 +4,7 @@ import { v } from 'convex/values';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { Id } from './_generated/dataModel';
 
-// --- MODIFIED: This mutation now accepts and stores IDs and an array of image IDs ---
+// --- MODIFIED: This mutation now accepts and stores IDs, an array of image IDs, and an optional serial number ---
 export const submitComplaint = mutation({
   args: {
     // Relational IDs
@@ -14,6 +14,8 @@ export const submitComplaint = mutation({
     // Denormalized names for display
     branchLocation: v.string(),
     modelType: v.string(),
+    // --- NEW: Optional serial number field ---
+    machineSerialNumber: v.optional(v.string()),
     
     // Other complaint fields
     problemType: v.union(v.literal('equipment-fault'), v.literal('poor-experience'), v.literal('other')),

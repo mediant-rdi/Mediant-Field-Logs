@@ -1,14 +1,15 @@
-// src/components/forms/ComplaintForm.tsx
+// src/app/dashboard/complaint/customer/page.tsx
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { FormEvent, ChangeEvent } from 'react';
 import Image from 'next/image';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../../../convex/_generated/api';
 import { Id, Doc } from '../../../../../convex/_generated/dataModel';
 
-// --- MODIFIED: New types for structured selections ---
+// --- Types and initial state ---
 type BranchSuggestion = Doc<'clientLocations'> & { displayText: string };
 type BranchSelection = { locationId: Id<'clientLocations'>; clientId: Id<'clients'>; text: string };
 type ModelSelection = { id: Id<'machines'>; text: string };
@@ -16,6 +17,7 @@ type ModelSelection = { id: Id<'machines'>; text: string };
 type FormData = {
   branch: BranchSelection | null;
   model: ModelSelection | null;
+  machineSerialNumber: string;
   problemType: '' | 'equipment-fault' | 'poor-experience' | 'other';
   fault_oldAge: boolean;
   fault_frequentBreakdowns: boolean;
@@ -33,6 +35,7 @@ type FormData = {
 const initialState: FormData = {
   branch: null,
   model: null,
+  machineSerialNumber: '',
   problemType: '',
   fault_oldAge: false,
   fault_frequentBreakdowns: false,
@@ -49,7 +52,7 @@ const initialState: FormData = {
 
 const MAX_IMAGES = 4;
 
-// --- NEW: Debounce hook for search inputs ---
+// --- Debounce Hook ---
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -63,19 +66,46 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// --- Success Dialog Component with React Portal ---
+const SuccessDialog = ({ isOpen, onClose, title, message }: { isOpen: boolean; onClose: () => void; title: string; message: string; }) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!isOpen || !mounted) {
+    return null;
+  }
+
+  return createPortal(
+    <div className="dialog-overlay" onClick={onClose}>
+      <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
+        <div className="dialog-icon">✓</div>
+        <h2 className="dialog-title">{title}</h2>
+        <p className="dialog-message">{message}</p>
+        <button className="dialog-button" onClick={onClose}>
+          Done
+        </button>
+      </div>
+    </div>,
+    document.getElementById('dialog-portal')!
+  );
+};
+
+// --- Main Complaint Form Component ---
 export default function ComplaintForm() {
-  // --- Refs (updated for camera) ---
+  // --- Refs, State, and Hooks ---
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modelTypeContainerRef = useRef<HTMLDivElement>(null);
   const branchLocationContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // --- Convex Hooks (unchanged) ---
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const submitComplaint = useMutation(api.complaints.submitComplaint);
 
-  // --- Form State (updated for selections and multiple files) ---
   const [formData, setFormData] = useState<FormData>(initialState);
   const [files, setFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -87,14 +117,14 @@ export default function ComplaintForm() {
   const [showBranchSuggestions, setShowBranchSuggestions] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
-  // --- Debounced Queries ---
   const debouncedModelType = useDebounce(modelSearchText, 300);
   const debouncedBranchLocation = useDebounce(branchSearchText, 300);
   const machineSuggestions = useQuery(api.machines.searchByName, debouncedModelType.length < 2 ? 'skip' : { searchText: debouncedModelType }) ?? [];
   const branchSuggestions: BranchSuggestion[] = useQuery(api.clients.searchLocations, debouncedBranchLocation.length < 2 ? 'skip' : { searchText: debouncedBranchLocation }) ?? [];
-
-  // --- Form Handlers (updated for new state) ---
+  
+  // --- Handlers ---
   const handleNonSelectionChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
@@ -118,8 +148,6 @@ export default function ComplaintForm() {
     setFormData((prev) => ({ ...prev, branch: { locationId: location._id, clientId: location.clientId, text: location.displayText } }));
     setBranchSearchText(''); setShowBranchSuggestions(false);
   };
-
-  // --- File & Camera Handlers (updated for multiple files) ---
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files ?? []);
     if (!selectedFiles.length) return;
@@ -158,7 +186,6 @@ export default function ComplaintForm() {
   };
   useEffect(() => { if (isCameraOpen && stream && videoRef.current) { videoRef.current.srcObject = stream; } return () => { if (stream) { stream.getTracks().forEach(track => track.stop()); } }; }, [isCameraOpen, stream]);
 
-  // --- Form Lifecycle (updated) ---
   const resetForm = () => { setFormData(initialState); setBranchSearchText(''); setModelSearchText(''); imagePreviews.forEach(URL.revokeObjectURL); setFiles([]); setImagePreviews([]); };
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>, type: 'model' | 'branch') => { if (!e.currentTarget.contains(e.relatedTarget)) { setTimeout(() => { if (type === 'model') setShowModelSuggestions(false); if (type === 'branch') setShowBranchSuggestions(false); }, 150); } };
   const handleProceedToReview = (e: FormEvent<HTMLFormElement>) => {
@@ -168,9 +195,14 @@ export default function ComplaintForm() {
     setIsReviewing(true);
   };
   const handleEdit = () => { setIsReviewing(false); };
-
-  // --- MODIFIED: Final submit handler sends new data structure ---
+  const handleCloseSuccessDialog = () => {
+    setShowSuccessDialog(false);
+    resetForm();
+    setIsReviewing(false);
+    setIsSubmitting(false);
+  };
   const handleFinalSubmit = async () => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       if (!formData.branch || !formData.model || formData.problemType === '') {
@@ -183,15 +215,13 @@ export default function ComplaintForm() {
         return storageId as Id<"_storage">;
       });
       const imageIds = await Promise.all(uploadPromises);
-      
       await submitComplaint({
-        // IDs and denormalized names
         clientId: formData.branch.clientId,
         locationId: formData.branch.locationId,
         machineId: formData.model.id,
         branchLocation: formData.branch.text,
         modelType: formData.model.text,
-        // Other complaint fields
+        machineSerialNumber: formData.machineSerialNumber || undefined,
         problemType: formData.problemType,
         fault_oldAge: formData.fault_oldAge,
         fault_frequentBreakdowns: formData.fault_frequentBreakdowns,
@@ -204,30 +234,35 @@ export default function ComplaintForm() {
         otherProblemDetails: formData.otherProblemDetails,
         complaintText: formData.complaintText,
         solution: formData.solution,
-        // Array of image IDs
         imageIds,
       });
-
-      alert('Complaint submitted successfully for approval!');
-      resetForm();
-      setIsReviewing(false);
+      setShowSuccessDialog(true);
     } catch (error) {
-      console.error("Failed to submit complaint:", error);
+      console.error("[ERROR] Submission failed:", error);
       alert("There was an error submitting your complaint. Please try again.");
-    } finally {
       setIsSubmitting(false);
     }
   };
   
-  // --- Rendering Logic (updated) ---
+  // --- JSX Rendering ---
   return (
     <div className="form-container">
+      <SuccessDialog
+        isOpen={showSuccessDialog}
+        onClose={handleCloseSuccessDialog}
+        title="Submission Successful"
+        message="Your complaint has been submitted for approval."
+      />
+
       {isReviewing ? (
         <div className="review-container">
           <h1>Review Your Complaint</h1>
           <p>Please review the details below before the final submission.</p>
           <div className="review-grid">
             <div className="review-item"><strong>Model Type:</strong><p>{formData.model?.text}</p></div>
+            {formData.machineSerialNumber && (
+              <div className="review-item"><strong>Machine Serial Number:</strong><p>{formData.machineSerialNumber}</p></div>
+            )}
             <div className="review-item"><strong>Branch Location:</strong><p>{formData.branch?.text}</p></div>
             <div className="review-item full-width"><strong>Problem Type:</strong><p style={{textTransform: 'capitalize'}}>{formData.problemType.replace('-', ' ')}</p></div>
             {formData.problemType === 'equipment-fault' && ( <div className="review-item full-width"><strong>Fault Details:</strong><ul> {formData.fault_oldAge && <li>Old Age</li>} {formData.fault_frequentBreakdowns && <li>Frequent Breakdowns</li>} {formData.fault_undoneRepairs && <li>Undone Previous Repairs</li>} </ul> </div> )}
@@ -282,6 +317,18 @@ export default function ComplaintForm() {
               )}
             </div>
 
+            <div className="form-group">
+              <label htmlFor="machineSerialNumber">Machine Serial Number (Optional)</label>
+              <input
+                type="text"
+                id="machineSerialNumber"
+                name="machineSerialNumber"
+                value={formData.machineSerialNumber}
+                onChange={handleNonSelectionChange}
+                placeholder="Enter serial number if known"
+              />
+            </div>
+
             <div className="form-group"><label htmlFor="problemType">Problem Type</label><select id="problemType" name="problemType" value={formData.problemType} onChange={handleNonSelectionChange} required><option value="" disabled>Choose complaint type...</option><option value="equipment-fault">Equipment Fault</option><option value="poor-experience">Poor Experience</option><option value="other">Other</option></select></div>
             {formData.problemType === 'equipment-fault' && ( <div className="conditional-group"><label>Fault Details (select all that apply)</label><div className="checkbox-grid"><div className="checkbox-group"><input type="checkbox" id="fault_oldAge" name="fault_oldAge" checked={formData.fault_oldAge} onChange={handleNonSelectionChange} /><label htmlFor="fault_oldAge">Old Age</label></div><div className="checkbox-group"><input type="checkbox" id="fault_frequentBreakdowns" name="fault_frequentBreakdowns" checked={formData.fault_frequentBreakdowns} onChange={handleNonSelectionChange} /><label htmlFor="fault_frequentBreakdowns">Frequent Breakdowns</label></div><div className="checkbox-group"><input type="checkbox" id="fault_undoneRepairs" name="fault_undoneRepairs" checked={formData.fault_undoneRepairs} onChange={handleNonSelectionChange} /><label htmlFor="fault_undoneRepairs">Undone Previous Repairs</label></div></div></div> )}
             {formData.problemType === 'poor-experience' && ( <div className="conditional-group"><label>Experience Details (select all that apply)</label><div className="checkbox-grid"><div className="checkbox-group"><input type="checkbox" id="experience_paperJamming" name="experience_paperJamming" checked={formData.experience_paperJamming} onChange={handleNonSelectionChange} /><label htmlFor="experience_paperJamming">Paper Jamming</label></div><div className="checkbox-group"><input type="checkbox" id="experience_noise" name="experience_noise" checked={formData.experience_noise} onChange={handleNonSelectionChange} /><label htmlFor="experience_noise">Noise</label></div><div className="checkbox-group"><input type="checkbox" id="experience_freezing" name="experience_freezing" checked={formData.experience_freezing} onChange={handleNonSelectionChange} /><label htmlFor="experience_freezing">Freezing</label></div><div className="checkbox-group"><input type="checkbox" id="experience_dust" name="experience_dust" checked={formData.experience_dust} onChange={handleNonSelectionChange} /><label htmlFor="experience_dust">Dust</label></div><div className="checkbox-group"><input type="checkbox" id="experience_buttonsSticking" name="experience_buttonsSticking" checked={formData.experience_buttonsSticking} onChange={handleNonSelectionChange} /><label htmlFor="experience_buttonsSticking">Buttons Sticking</label></div></div></div> )}
@@ -306,7 +353,6 @@ export default function ComplaintForm() {
       )}
 
       <style jsx>{`
-        /* --- All CSS is unchanged, only new styles are marked --- */
         .form-container { max-width: 800px; margin: 0 auto; padding: 16px; background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
         p { color: #4a5568; margin-bottom: 24px; font-size: 14px; }
@@ -348,8 +394,6 @@ export default function ComplaintForm() {
         .camera-feed { width: 100%; max-width: 400px; border-radius: 8px; background-color: #000; border: 1px solid #cbd5e0; }
         .file-upload-button.camera-capture { background-color: #3182ce; color: white; border-color: #3182ce; }
         .file-upload-button.camera-capture:hover { background-color: #2b6cb0; }
-        
-        /* --- NEW/MODIFIED STYLES --- */
         .selected-item { display: flex; align-items: center; justify-content: space-between; padding: 10px; background-color: #e2e8f0; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 16px; }
         .clear-selection-button { background-color: transparent; border: none; cursor: pointer; width: 20px; height: 20px; position: relative; opacity: 0.6; transition: opacity 0.2s; }
         .clear-selection-button:hover { opacity: 1; }
@@ -357,7 +401,7 @@ export default function ComplaintForm() {
         .clear-selection-button:before { transform: rotate(45deg); }
         .clear-selection-button:after { transform: rotate(-45deg); }
         .image-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; margin-top: 12px; }
-        .image-preview { position: relative; width: 100%; padding-top: 100%; /* 1:1 Aspect Ratio */ }
+        .image-preview { position: relative; width: 100%; padding-top: 100%; }
         .image-preview > :global(img) { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; object-fit: cover; border-radius: 8px; }
         .remove-image-button { position: absolute; top: -6px; right: -6px; background-color: rgba(0, 0, 0, 0.7); color: white; border: 2px solid white; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; line-height: 1; z-index: 1; }
         .remove-image-button:after { content: '×'; }
@@ -373,6 +417,92 @@ export default function ComplaintForm() {
           .review-item.full-width { grid-column: span 2; }
           .review-actions { flex-direction: row; justify-content: flex-end; gap: 16px; }
           .submit-button, .edit-button { width: auto; }
+        }
+      `}</style>
+      <style jsx global>{`
+        .dialog-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          -webkit-backdrop-filter: blur(4px);
+          backdrop-filter: blur(4px);
+        }
+
+        .dialog-content {
+          background: white;
+          padding: 24px;
+          border-radius: 12px;
+          text-align: center;
+          max-width: 90%;
+          width: 400px;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          animation: dialog-appear 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+        }
+
+        @keyframes dialog-appear {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .dialog-icon {
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          background-color: #22c55e; /* green-500 */
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 28px;
+          font-weight: bold;
+          margin-bottom: 16px;
+        }
+
+        .dialog-title {
+          font-size: 20px;
+          font-weight: 600;
+          color: #111827; /* gray-900 */
+          margin: 0 0 8px;
+        }
+
+        .dialog-message {
+          font-size: 16px;
+          color: #4b5563; /* gray-600 */
+          margin: 0 0 24px;
+          line-height: 1.5;
+        }
+
+        .dialog-button {
+          width: 100%;
+          padding: 10px;
+          border: none;
+          border-radius: 8px;
+          background-color: #3b82f6; /* blue-500 */
+          color: white;
+          font-size: 16px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .dialog-button:hover {
+          background-color: #2563eb; /* blue-600 */
         }
       `}</style>
     </div>

@@ -24,12 +24,12 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Mediant International Limited Field Logs App",
   description: "Field logs App",
-  manifest: "/manifest.webmanifest", // This links the manifest file for PWA functionality
+  manifest: "/manifest.webmanifest",
 };
 
 // 3. Added Viewport settings for a better mobile/PWA experience
 export const viewport: Viewport = {
-  themeColor: "#000000", // Sets the color of the browser UI (top bar)
+  themeColor: "#000000",
   initialScale: 1,
   width: "device-width",
 };
@@ -42,7 +42,6 @@ export default function RootLayout({
   return (
     <ConvexAuthNextjsServerProvider>
       <html lang="en">
-        {/* The body and providers remain unchanged */}
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >

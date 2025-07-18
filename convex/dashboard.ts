@@ -136,6 +136,8 @@ export const getFilteredSubmissions = query({
       let mainText: string;
       let locationName: string;
       let machineName: string;
+      // --- NEW: Define machineSerialNumber to be included in the enriched object ---
+      let machineSerialNumber: string | undefined;
 
       // Use `any` to safely access legacy fields that may not exist on the current schema type
       const anyDoc = doc as any;
@@ -150,14 +152,16 @@ export const getFilteredSubmissions = query({
         type = 'serviceReport';
         mainText = anyDoc.complaintText;
         locationName = anyDoc.branchLocation;
-        // Handle both new (`machineName`) and legacy (`modelTypes`) fields
         machineName = anyDoc.machineName ?? anyDoc.modelTypes;
+        // --- MODIFIED: Get the serial number ---
+        machineSerialNumber = anyDoc.machineSerialNumber;
       } else { // Fallback to Complaint
         type = 'complaint';
         mainText = anyDoc.complaintText;
         locationName = anyDoc.branchLocation;
-        // Complaints use `modelType`
         machineName = anyDoc.modelType;
+        // --- MODIFIED: Get the serial number ---
+        machineSerialNumber = anyDoc.machineSerialNumber;
       }
       
       return { 
@@ -165,7 +169,9 @@ export const getFilteredSubmissions = query({
         type, 
         mainText, 
         locationName, 
-        machineName, 
+        machineName,
+        // --- MODIFIED: Add serial number to the returned object ---
+        machineSerialNumber,
         submitterName 
       };
     }));

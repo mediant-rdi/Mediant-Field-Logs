@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { FormEvent, ChangeEvent } from 'react';
 import Image from 'next/image';
 import { useMutation, useQuery } from 'convex/react';
@@ -13,9 +14,11 @@ type BranchSuggestion = Doc<'clientLocations'> & { displayText: string };
 type BranchSelection = { locationId: Id<'clientLocations'>; clientId: Id<'clients'>; text: string };
 type ModelSelection = { id: Id<'machines'>; text: string };
 
+// --- MODIFIED: Added machineSerialNumber ---
 type CombinedFormData = {
   branch: BranchSelection | null;
   model: ModelSelection | null;
+  machineSerialNumber: string;
   problemType: '' | 'electrical' | 'mechanical' | 'software' | 'service-delay' | 'other';
   complaintText: string;
   solution: string;
@@ -26,9 +29,11 @@ type CombinedFormData = {
   otherText: string;
 };
 
+// --- MODIFIED: Added machineSerialNumber ---
 const initialState: CombinedFormData = {
   branch: null,
   model: null,
+  machineSerialNumber: '',
   problemType: '',
   complaintText: '',
   solution: '',
@@ -55,6 +60,35 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// --- NEW: Success Dialog Component with React Portal ---
+const SuccessDialog = ({ isOpen, onClose, title, message }: { isOpen: boolean; onClose: () => void; title: string; message: string; }) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!isOpen || !mounted) {
+    return null;
+  }
+
+  return createPortal(
+    <div className="dialog-overlay" onClick={onClose}>
+      <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
+        <div className="dialog-icon">✓</div>
+        <h2 className="dialog-title">{title}</h2>
+        <p className="dialog-message">{message}</p>
+        <button className="dialog-button" onClick={onClose}>
+          Done
+        </button>
+      </div>
+    </div>,
+    document.getElementById('dialog-portal')!
+  );
+};
+
+
 export default function ServiceDelayForm() {
   // --- Refs (updated for camera) ---
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,6 +113,7 @@ export default function ServiceDelayForm() {
   const [isReviewing, setIsReviewing] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false); // --- NEW: State for dialog
 
   // --- Debounced Queries ---
   const debouncedModelType = useDebounce(modelSearchText, 300);
@@ -160,6 +195,13 @@ export default function ServiceDelayForm() {
     setIsReviewing(true);
   };
   const handleEdit = () => { setIsReviewing(false); };
+  
+  // --- NEW: Handler to close the dialog and reset the form ---
+  const handleCloseSuccessDialog = () => {
+    setShowSuccessDialog(false);
+    resetForm();
+    setIsReviewing(false);
+  };
 
   // --- MODIFIED: Final submit handler sends new data structure ---
   const handleFinalSubmit = async () => {
@@ -177,13 +219,12 @@ export default function ServiceDelayForm() {
       const imageIds = await Promise.all(uploadPromises);
       
       await submitServiceReport({
-        // IDs and denormalized names
         clientId: formData.branch.clientId,
         locationId: formData.branch.locationId,
         machineId: formData.model.id,
         branchLocation: formData.branch.text,
         machineName: formData.model.text,
-        // Other service report fields
+        machineSerialNumber: formData.machineSerialNumber || undefined,
         complaintText: formData.complaintText,
         solution: formData.solution,
         problemType: formData.problemType,
@@ -192,13 +233,10 @@ export default function ServiceDelayForm() {
         delayedReporting: formData.delayedReporting,
         communicationBarrier: formData.communicationBarrier,
         otherText: formData.otherText,
-        // Array of image IDs
         imageIds,
       });
 
-      alert('Report submitted successfully for approval!');
-      resetForm();
-      setIsReviewing(false);
+      setShowSuccessDialog(true); // --- MODIFIED: Show dialog instead of alert
     } catch (error) {
       console.error("Failed to submit report:", error);
       alert("There was an error submitting your report. Please try again.");
@@ -209,12 +247,24 @@ export default function ServiceDelayForm() {
 
   return (
     <div className="form-container">
+      {/* --- NEW: Render the Success Dialog --- */}
+      <SuccessDialog
+        isOpen={showSuccessDialog}
+        onClose={handleCloseSuccessDialog}
+        title="Submission Successful"
+        message="Your report has been submitted for approval."
+      />
+
       {isReviewing ? (
         <div className="review-container">
           <h1>Review Your Submission</h1>
           <p>Please review the details below before the final submission.</p>
+          {/* --- MODIFIED: Added serial number to review screen --- */}
           <div className="review-grid">
             <div className="review-item"><strong>Model:</strong><p>{formData.model?.text}</p></div>
+            {formData.machineSerialNumber && (
+              <div className="review-item"><strong>Machine Serial Number:</strong><p>{formData.machineSerialNumber}</p></div>
+            )}
             <div className="review-item"><strong>Branch Location:</strong><p>{formData.branch?.text}</p></div>
             <div className="review-item full-width"><strong>Problem Type:</strong><p style={{textTransform: 'capitalize'}}>{formData.problemType.replace('-', ' ')}</p></div>
             {formData.problemType === 'service-delay' && ( <div className="review-item full-width"> <strong>Service Delay Details:</strong> <ul> {formData.backofficeAccess && <li>Delayed backoffice access</li>} {formData.spareDelay && <li>Spare delay</li>} {formData.delayedReporting && <li>Delayed reporting</li>} {formData.communicationBarrier && <li>Communication barrier</li>} </ul> </div> )}
@@ -243,6 +293,7 @@ export default function ServiceDelayForm() {
         <>
           <h1>Service Delay & Complaint Form</h1>
           <p>Fill out the details below for a new comprehensive report.</p>
+          {/* --- MODIFIED: Added serial number input field --- */}
           <form onSubmit={handleProceedToReview} className="report-form">
             <div className="form-group" ref={branchLocationContainerRef} onBlur={(e) => handleBlur(e, 'branch')}>
               <label htmlFor="branchLocationSearch">Branch Location</label>
@@ -266,6 +317,19 @@ export default function ServiceDelayForm() {
               {showModelSuggestions && modelSearchText && machineSuggestions.length > 0 && (
                 <ul className="suggestions-list">{machineSuggestions.map((m: Doc<"machines">) => (<li key={m._id} onClick={() => handleModelSuggestionClick(m)} onMouseDown={(e) => e.preventDefault()}>{m.name}</li>))}</ul>
               )}
+            </div>
+
+            {/* --- NEW: Machine Serial Number Input Field --- */}
+            <div className="form-group">
+              <label htmlFor="machineSerialNumber">Machine Serial Number (Optional)</label>
+              <input
+                type="text"
+                id="machineSerialNumber"
+                name="machineSerialNumber"
+                value={formData.machineSerialNumber}
+                onChange={handleNonSelectionChange}
+                placeholder="Enter serial number if known"
+              />
             </div>
             
             <div className="form-group">
@@ -376,6 +440,92 @@ export default function ServiceDelayForm() {
             .review-item.full-width { grid-column: span 2; }
             .review-actions { flex-direction: row; justify-content: flex-end; gap: 16px; }
             .submit-button, .edit-button { width: auto; }
+        }
+      `}</style>
+      <style jsx global>{`
+        .dialog-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          -webkit-backdrop-filter: blur(4px);
+          backdrop-filter: blur(4px);
+        }
+
+        .dialog-content {
+          background: white;
+          padding: 24px;
+          border-radius: 12px;
+          text-align: center;
+          max-width: 90%;
+          width: 400px;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          animation: dialog-appear 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+        }
+
+        @keyframes dialog-appear {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .dialog-icon {
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          background-color: #22c55e; /* green-500 */
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 28px;
+          font-weight: bold;
+          margin-bottom: 16px;
+        }
+
+        .dialog-title {
+          font-size: 20px;
+          font-weight: 600;
+          color: #111827; /* gray-900 */
+          margin: 0 0 8px;
+        }
+
+        .dialog-message {
+          font-size: 16px;
+          color: #4b5563; /* gray-600 */
+          margin: 0 0 24px;
+          line-height: 1.5;
+        }
+
+        .dialog-button {
+          width: 100%;
+          padding: 10px;
+          border: none;
+          border-radius: 8px;
+          background-color: #3b82f6; /* blue-500 */
+          color: white;
+          font-size: 16px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .dialog-button:hover {
+          background-color: #2563eb; /* blue-600 */
         }
       `}</style>
     </div>
