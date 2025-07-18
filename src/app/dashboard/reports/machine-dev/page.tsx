@@ -222,7 +222,7 @@ export default function MachineDevelopmentReportsPage() {
                   <th className="px-3 py-3 font-medium w-[25%]">File Name</th>
                   <th className="px-3 py-3 font-medium w-[25%]">Description</th>
                   <th className="px-3 py-3 font-medium w-[20%]">Uploaded By</th>
-                  {isAdmin && <th className="px-3 py-3 font-medium w-[10%] text-right">Actions</th>}
+                  <th className="px-3 py-3 font-medium w-[10%] text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -232,14 +232,14 @@ export default function MachineDevelopmentReportsPage() {
                     <td className="px-3 py-4 text-gray-700 truncate max-w-xs" title={report.fileName}>{report.fileName}</td>
                     <td className="px-3 py-4 text-gray-600 truncate max-w-md" title={report.description || undefined}>{report.description || 'N/A'}</td>
                     <td className="px-3 py-4 text-gray-600 truncate" title={report.uploaderName}>{report.uploaderName}</td>
-                    {isAdmin && (
-                      <td className="px-3 py-4 text-right">
-                        <div className="flex items-center justify-end gap-4">
-                          <Link href={report.fileUrl!} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">Download</Link>
+                    <td className="px-3 py-4 text-right">
+                      <div className="flex items-center justify-end gap-4">
+                        <Link href={report.fileUrl!} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">Download</Link>
+                        {isAdmin && (
                           <button className="text-sm text-red-600 hover:underline" onClick={() => setReportToDelete(report)}>Delete</button>
-                        </div>
-                      </td>
-                    )}
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

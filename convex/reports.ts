@@ -70,13 +70,8 @@ export const addReport = mutation({
 // --- GET REPORTS: Fetches all reports with their machine info, file URL, and uploader name ---
 export const getReports = query({
   handler: async (ctx) => {
-    // Any authenticated user can view the list of reports
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-        return []; // Return empty array if not logged in
-    }
-
-    const reports = await ctx.db.query("reports").order("desc").collect();
+    // This query is public. Both authenticated and unauthenticated users can view reports.
+     const reports = await ctx.db.query("reports").order("desc").collect();
 
     // Join report data with machine data, uploader name, and generate file URLs
     const reportsWithDetails = await Promise.all(
