@@ -187,7 +187,7 @@ export default function SubmissionDetailsModal({ submission, onClose }: Submissi
               <DetailRow label="Branch Location" value={submission.locationName} />
               <DetailRow label="Model(s)" value={submission.machineName} />
               {/* --- MODIFIED: Conditionally display the serial number --- */}
-              <DetailRow label="Serial Number" value={(submission as any).machineSerialNumber} />
+              <DetailRow label="Serial Number" value={(submission as { machineSerialNumber?: string }).machineSerialNumber} />
               <DetailRow label="Date Submitted" value={new Date(submission._creationTime).toLocaleString()} />
               {submission.status && <DetailRow label="Status" value={<StatusBadge status={submission.status} />} />}
               <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '16px 0' }} />
