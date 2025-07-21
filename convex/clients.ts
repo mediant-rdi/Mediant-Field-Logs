@@ -44,7 +44,6 @@ export const searchLocations = query({
       return [];
     }
 
-    // Search logic remains the same
     const [fullNameResults, nameResults] = await Promise.all([
       ctx.db
         .query("clientLocations")
@@ -69,21 +68,18 @@ export const searchLocations = query({
       }
     }
 
-    // --- THIS IS THE FIX ---
-    // Instead of creating a new object with only _id and displayText,
-    // we now spread the entire original `doc` and just add `displayText`.
-    // This preserves all fields, including the crucial `clientId`.
+    // Return the full document plus a displayText field for convenience
     return Array.from(uniqueResults.values())
       .slice(0, 10)
       .map(doc => ({
         ...doc, // Spread all fields from the original document
-        displayText: doc.fullName, // Add the convenient display text
+        displayText: doc.fullName,
       }));
   },
 });
 
 
-// --- MUTATIONS (Unchanged) ---
+// --- MUTATIONS ---
 
 /**
  * Creates a new client.
@@ -108,7 +104,7 @@ export const createClient = mutation({
 });
 
 /**
- * Creates a new client location (branch).
+ * Creates a new client location (branch), preventing duplicates.
  */
 export const createLocation = mutation({
   args: {
@@ -116,19 +112,36 @@ export const createLocation = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    if (args.name.trim().length === 0) {
+    // 1. Validate input
+    const trimmedName = args.name.trim();
+    if (trimmedName.length === 0) {
       throw new Error("Location name cannot be empty.");
     }
     const client = await ctx.db.get(args.clientId);
     if (!client) {
       throw new Error("Client not found. Cannot create location.");
     }
-    const fullName = `${client.name} - ${args.name}`;
-    const searchName = normalizeName(args.name);
+
+    // 2. Check for duplicates for this specific client
+    const searchName = normalizeName(trimmedName);
+    const existingLocation = await ctx.db
+      .query("clientLocations")
+      .withIndex("by_client_and_search", (q) => q.eq("clientId", args.clientId))
+      .filter((q) => q.eq(q.field("searchName"), searchName))
+      .first();
+
+    if (existingLocation) {
+      throw new Error(
+        "This location/branch name already exists for this client."
+      );
+    }
+
+    // 3. Create the new location if no duplicate is found
+    const fullName = `${client.name} - ${trimmedName}`;
     const searchFullName = normalizeName(fullName);
     const locationId = await ctx.db.insert("clientLocations", {
       clientId: args.clientId,
-      name: args.name,
+      name: trimmedName,
       fullName: fullName,
       searchName: searchName,
       searchFullName: searchFullName,
@@ -137,7 +150,7 @@ export const createLocation = mutation({
   },
 });
 
-// --- QUERIES (Unchanged) ---
+// --- QUERIES ---
 
 /**
  * Gets a list of all clients for populating dropdowns.

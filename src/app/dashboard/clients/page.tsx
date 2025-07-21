@@ -38,7 +38,14 @@ const TableSkeleton = () => (
 );
 
 // OPTIMIZATION: Created a memoized component for the mobile card view.
-const ClientCard = React.memo(function ClientCard({ client }: { client: Doc<'clients'> }) {
+// UPDATED: Now accepts `isAdmin` prop to conditionally show the "Add Branch" link.
+const ClientCard = React.memo(function ClientCard({
+  client,
+  isAdmin,
+}: {
+  client: Doc<'clients'>;
+  isAdmin: boolean;
+}) {
   return (
     <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col justify-between">
       <div>
@@ -46,11 +53,16 @@ const ClientCard = React.memo(function ClientCard({ client }: { client: Doc<'cli
         <div className="mt-2 text-sm text-gray-600">
           <span className="font-medium">Agreement:</span> {client.agreementType}
         </div>
-        <div className="mt-1 text-sm text-gray-500">
-          <span className="font-medium">Added:</span> {new Date(client._creationTime).toLocaleDateString()}
-        </div>
       </div>
-      <div className="mt-4 text-right">
+      <div className="mt-4 flex items-center justify-end gap-x-6">
+        {isAdmin && (
+          <Link
+            href={`/dashboard/clients/add?clientId=${client._id}`}
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            Add Branch
+          </Link>
+        )}
         <Link
           href={`/dashboard/clients/${client._id}/branches`}
           className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
@@ -63,21 +75,35 @@ const ClientCard = React.memo(function ClientCard({ client }: { client: Doc<'cli
 });
 
 // OPTIMIZATION: Created a memoized component for the desktop table row.
-const ClientRow = React.memo(function ClientRow({ client }: { client: Doc<'clients'> }) {
+// UPDATED: Now accepts `isAdmin` prop to conditionally show the "Add Branch" link.
+const ClientRow = React.memo(function ClientRow({
+  client,
+  isAdmin,
+}: {
+  client: Doc<'clients'>;
+  isAdmin: boolean;
+}) {
   return (
     <tr>
       <td className="px-4 py-3 font-medium text-gray-900">{client.name}</td>
       <td className="px-4 py-3 text-gray-600">{client.agreementType}</td>
-      <td className="px-4 py-3 text-gray-600">
-        {new Date(client._creationTime).toLocaleDateString()}
-      </td>
       <td className="px-4 py-3 text-right">
-        <Link
-          href={`/dashboard/clients/${client._id}/branches`}
-          className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-        >
-          View Branches
-        </Link>
+        <div className="flex items-center justify-end gap-x-6">
+          {isAdmin && (
+            <Link
+              href={`/dashboard/clients/add?clientId=${client._id}`}
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+            >
+              Add Branch
+            </Link>
+          )}
+          <Link
+            href={`/dashboard/clients/${client._id}/branches`}
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            View Branches
+          </Link>
+        </div>
       </td>
     </tr>
   );
@@ -131,8 +157,9 @@ function ClientsDataTable({
 
   return (
     <>
+      {/* UPDATED: Pass `isAdmin` prop to ClientCard */}
       <div className="space-y-4 md:hidden">
-        {clients.map((client) => <ClientCard key={client._id} client={client} />)}
+        {clients.map((client) => <ClientCard key={client._id} client={client} isAdmin={isAdmin} />)}
       </div>
       <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full text-left text-sm">
@@ -140,12 +167,12 @@ function ClientsDataTable({
             <tr>
               <th className="px-4 py-3 font-medium">Client Name</th>
               <th className="px-4 py-3 font-medium">Agreement Type</th>
-              <th className="px-4 py-3 font-medium">Date Added</th>
               <th className="px-4 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {clients.map((client) => <ClientRow key={client._id} client={client} />)}
+            {/* UPDATED: Pass `isAdmin` prop to ClientRow */}
+            {clients.map((client) => <ClientRow key={client._id} client={client} isAdmin={isAdmin} />)}
           </tbody>
         </table>
       </div>

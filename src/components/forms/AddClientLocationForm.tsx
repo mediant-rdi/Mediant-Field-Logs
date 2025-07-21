@@ -3,23 +3,24 @@
 
 import { useState, FormEvent } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api"; // Adjust path if needed
-import { Id } from "../../../convex/_generated/dataModel"; // Import the Id type
+import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 
 interface AddClientLocationFormProps {
   onComplete: () => void;
+  initialClientId?: Id<"clients"> | string | null; // Accept string from URL params
 }
 
-export default function AddClientLocationForm({ onComplete }: AddClientLocationFormProps) {
-  const [clientId, setClientId] = useState<Id<"clients"> | "">("");
+export default function AddClientLocationForm({ onComplete, initialClientId }: AddClientLocationFormProps) {
+  // Pre-select the client if an initial ID is provided
+  const [clientId, setClientId] = useState<Id<"clients"> | "">(
+    (initialClientId as Id<"clients">) || ""
+  );
   const [name, setName] = useState(""); // This is the "Branch Name"
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 1. Fetch the list of clients directly from the Convex backend
   const clients = useQuery(api.clients.listClients);
-  
-  // 2. Get the mutation function for creating a location
   const createLocation = useMutation(api.clients.createLocation);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -32,21 +33,20 @@ export default function AddClientLocationForm({ onComplete }: AddClientLocationF
     setError("");
 
     try {
-      // 3. Call the Convex mutation with the selected client's ID and the new location name
       await createLocation({ 
         clientId: clientId as Id<"clients">, 
         name,
       });
 
-      // On success, reset the form and call the onComplete callback
       onComplete();
-      setClientId("");
+      // Only reset the client ID if it wasn't pre-selected
+      if (!initialClientId) {
+          setClientId("");
+      }
       setName("");
     } catch (err: unknown) {
-      // Type-safe error handling
       let errorMessage = "An unknown error occurred. Please try again.";
       if (err instanceof Error) {
-        // Convex errors might include a 'data' field. We safely check for it.
         errorMessage = (err as { data?: string }).data || err.message;
       }
       setError("Failed to create location. " + errorMessage);
@@ -72,9 +72,8 @@ export default function AddClientLocationForm({ onComplete }: AddClientLocationF
           value={clientId}
           onChange={(e) => setClientId(e.target.value as Id<"clients">)}
           required
-          // Disable the dropdown while clients are loading
-          disabled={clients === undefined}
-          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          disabled={clients === undefined || !!initialClientId} // Also disable if pre-selected
+          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
         >
           <option value="" className="text-gray-500">
             {clients === undefined ? "Loading clients..." : "-- Select a Client --"}
@@ -107,7 +106,6 @@ export default function AddClientLocationForm({ onComplete }: AddClientLocationF
       
       <button 
         type="submit" 
-        // The button is disabled if submitting, or if there are no clients to select
         disabled={isSubmitting || !clients || clients.length === 0}
         className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors duration-150"
       >
