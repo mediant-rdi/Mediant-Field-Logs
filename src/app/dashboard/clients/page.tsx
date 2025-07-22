@@ -39,6 +39,7 @@ const TableSkeleton = () => (
 
 // OPTIMIZATION: Created a memoized component for the mobile card view.
 // UPDATED: Now accepts `isAdmin` prop to conditionally show the "Add Branch" link.
+// REMOVED: "Agreement Type" display.
 const ClientCard = React.memo(function ClientCard({
   client,
   isAdmin,
@@ -50,9 +51,7 @@ const ClientCard = React.memo(function ClientCard({
     <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col justify-between">
       <div>
         <div className="font-semibold text-gray-900">{client.name}</div>
-        <div className="mt-2 text-sm text-gray-600">
-          <span className="font-medium">Agreement:</span> {client.agreementType}
-        </div>
+        {/* The Agreement Type display has been removed from here. */}
       </div>
       <div className="mt-4 flex items-center justify-end gap-x-6">
         {isAdmin && (
@@ -76,6 +75,7 @@ const ClientCard = React.memo(function ClientCard({
 
 // OPTIMIZATION: Created a memoized component for the desktop table row.
 // UPDATED: Now accepts `isAdmin` prop to conditionally show the "Add Branch" link.
+// REMOVED: "Agreement Type" column.
 const ClientRow = React.memo(function ClientRow({
   client,
   isAdmin,
@@ -86,7 +86,7 @@ const ClientRow = React.memo(function ClientRow({
   return (
     <tr>
       <td className="px-4 py-3 font-medium text-gray-900">{client.name}</td>
-      <td className="px-4 py-3 text-gray-600">{client.agreementType}</td>
+      {/* The Agreement Type <td> has been removed from here. */}
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-x-6">
           {isAdmin && (
@@ -166,7 +166,7 @@ function ClientsDataTable({
           <thead className="border-b border-gray-200 text-gray-500">
             <tr>
               <th className="px-4 py-3 font-medium">Client Name</th>
-              <th className="px-4 py-3 font-medium">Agreement Type</th>
+              {/* REMOVED: "Agreement Type" table header. */}
               <th className="px-4 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
