@@ -77,22 +77,25 @@ export default defineSchema({
     uploadedBy: v.id("users"),
   }).index("by_machineId", ["machineId"]),
 
+  // --- NEW: `manuals` table added ---
+  manuals: defineTable({
+    description: v.string(),
+    machineId: v.id("machines"),
+    fileStorageId: v.id("_storage"),
+    fileName: v.string(),
+    fileType: v.string(),
+    uploadedBy: v.id("users"),
+  }).index("by_machineId", ["machineId"]),
+
   // --- MODIFIED: `serviceReports` table is updated ---
   serviceReports: defineTable({
     submittedBy: v.id("users"),
-
-    // Store IDs for robust, relational data.
     clientId: v.id('clients'),
     locationId: v.id('clientLocations'),
     machineId: v.id('machines'),
-
-    // Keep denormalized names for easy display and backward compatibility.
-    // Rename `modelTypes` to `machineName` for consistency.
     branchLocation: v.string(),
     machineName: v.string(),
-    // --- NEW: Optional field for the machine's serial number ---
     machineSerialNumber: v.optional(v.string()),
-
     complaintText: v.string(),
     solution: v.string(),
     problemType: v.union(v.literal('electrical'), v.literal('mechanical'), v.literal('software'), v.literal('service-delay'), v.literal('other')),
@@ -101,12 +104,7 @@ export default defineSchema({
     delayedReporting: v.boolean(),
     communicationBarrier: v.boolean(),
     otherText: v.optional(v.string()),
-
-    // Store an array of image storage IDs, allowing for multiple uploads.
-    // The old `imageId` field is now deprecated for new submissions.
-    // We make this optional to support old documents without this field.
     imageIds: v.optional(v.array(v.id('_storage'))),
-    
     status: approvalStatus,
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
@@ -119,25 +117,18 @@ export default defineSchema({
       searchField: "complaintText",
     })
     .index("by_branchLocation", ["branchLocation"])
-    // Add new indexes for efficient querying by new relational IDs
     .index("by_client", ["clientId"])
     .index("by_location", ["locationId"])
     .index("by_machine", ["machineId"]),
 
   complaints: defineTable({
     submittedBy: v.id("users"),
-    
-    // Store IDs for robust, relational data.
     clientId: v.id('clients'),
     locationId: v.id('clientLocations'),
     machineId: v.id('machines'),
-
-    // Keep denormalized names for easy display and backward compatibility.
     branchLocation: v.string(), 
     modelType: v.string(), 
-    // --- NEW: Optional field for the machine's serial number ---
     machineSerialNumber: v.optional(v.string()),
-
     complaintText: v.string(),
     solution: v.string(),
     problemType: v.union(v.literal('equipment-fault'), v.literal('poor-experience'), v.literal('other')),
@@ -150,9 +141,7 @@ export default defineSchema({
     experience_dust: v.boolean(),
     experience_buttonsSticking: v.boolean(),
     otherProblemDetails: v.string(),
-    
     imageIds: v.optional(v.array(v.id('_storage'))),
-    
     status: approvalStatus,
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
@@ -172,14 +161,10 @@ export default defineSchema({
   feedback: defineTable({
     clientId: v.id('clients'),
     machineId: v.id('machines'),
-    
     clientName: v.string(),
     machineName: v.string(),
-
     feedbackDetails: v.string(),
-    
     imageIds: v.array(v.id('_storage')),
-    
     submittedBy: v.id("users"),
   })
   .index("by_client", ["clientId"])

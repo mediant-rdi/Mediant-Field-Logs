@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Logic for setting active item and page title (unchanged)
+  // Logic for setting active item and page title
   useEffect(() => {
     if (pathname.startsWith('/dashboard/reports/add')) {
         setActiveItem('admin-add-report');
@@ -54,9 +54,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     } else if (pathname.startsWith('/dashboard/machines/add')) {
         setActiveItem('admin-add-machine');
         setPageTitle('Add New Machine');
+    } else if (pathname.startsWith('/dashboard/manuals/add')) { // New rule for adding manuals
+        setActiveItem('admin-add-manual');
+        setPageTitle('Add Machine Manual');
     } else if (pathname.startsWith('/dashboard/machines')) {
         setActiveItem('machines');
         setPageTitle('Product Management');
+    } else if (pathname.startsWith('/dashboard/manuals')) { // New rule for viewing manuals
+        setActiveItem('manuals-view');
+        setPageTitle('Machine Manuals');
     } else if (pathname === '/dashboard') {
         setActiveItem('dashboard');
         setPageTitle('Dashboard');
@@ -69,6 +75,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       case 'dashboard': router.push('/dashboard'); break;
       case 'clients-view': router.push('/dashboard/clients'); break;
       case 'machines': router.push('/dashboard/machines'); break;
+      case 'manuals-view': router.push('/dashboard/manuals'); break; // New navigation case
       case 'reports-machine-dev': router.push('/dashboard/reports/machine-dev'); break;
       case 'feedback-form': router.push('/dashboard/feedback'); break;
       case 'complaint-customer': router.push('/dashboard/complaint/customer'); break;
@@ -77,6 +84,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       case 'admin-add-user': router.push('/dashboard/users/add'); break;
       case 'admin-add-client': router.push('/dashboard/clients/add'); break;
       case 'admin-add-machine': router.push('/dashboard/machines/add'); break;
+      case 'admin-add-manual': router.push('/dashboard/manuals/add'); break; // New navigation case
       case 'admin-add-report': router.push('/dashboard/reports/add'); break;
       default: console.warn(`Navigation for "${itemId}" is not defined.`); break;
     }

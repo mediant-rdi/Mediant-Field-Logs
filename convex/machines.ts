@@ -48,6 +48,30 @@ export const getAll = query({
   },
 });
 
+// --- NEW QUERY: Get machines for select/dropdown options ---
+/**
+ * Retrieves a list of all machines for use in a select dropdown.
+ * Only returns the ID and name for efficiency.
+ * Ordered by name alphabetically.
+ */
+export const getMachineOptions = query({
+  handler: async (ctx) => {
+    // This query is for authenticated users populating forms.
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+        // Or return empty array if you want to allow unauthenticated access to the form page
+        throw new Error("You must be logged in to see machine options.");
+    }
+    
+    const machines = await ctx.db.query("machines").withIndex("by_name").order("asc").collect();
+    return machines.map((machine) => ({
+      _id: machine._id,
+      name: machine.name,
+    }));
+  },
+});
+
+
 // --- Search for machines by name for autocomplete ---
 export const searchByName = query({
   args: {

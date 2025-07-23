@@ -23,6 +23,7 @@ import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
 import type * as machines from "../machines.js";
+import type * as manuals from "../manuals.js";
 import type * as notifications from "../notifications.js";
 import type * as passwordResets from "../passwordResets.js";
 import type * as reports from "../reports.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   invitations: typeof invitations;
   machines: typeof machines;
+  manuals: typeof manuals;
   notifications: typeof notifications;
   passwordResets: typeof passwordResets;
   reports: typeof reports;

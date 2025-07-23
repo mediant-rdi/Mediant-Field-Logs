@@ -16,13 +16,12 @@ import {
   Server,
   ClipboardList,
   Shield,
-  
+  BookOpen, // Added for manuals
   ChevronDown
 } from "lucide-react";
 
 
 // All possible menu items with new, semantic icons.
-// --- MODIFIED: Removed the 'Settings' item from this array ---
 const baseMenuItems = [
   { id: 'dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
   { id: 'feedback-form', name: 'Customer Feedback', icon: <MessageSquareHeart size={20} />, },
@@ -37,6 +36,7 @@ const baseMenuItems = [
   },
   { id: 'clients-view', name: 'View Clients', icon: <Users size={20} />, },
   { id: 'machines', name: 'View Products', icon: <Server size={20} />, },
+  { id: 'manuals-view', name: 'Machine Manuals', icon: <BookOpen size={20} /> }, // New menu item for all users
   { id: 'reports-machine-dev', name: 'Machine Reports', icon: <ClipboardList size={20} />, },
   { 
     id: 'admin', 
@@ -47,6 +47,7 @@ const baseMenuItems = [
       { id: 'admin-add-user', name: 'Add User' },
       { id: 'admin-add-client', name: 'Add Client / Location' },
       { id: 'admin-add-machine', 'name': 'Add Machine' },
+      { id: 'admin-add-manual', name: 'Add Manual' }, // New admin-only sub-item
       { id: 'admin-add-report', name: 'Add Report' }
     ]
   },
