@@ -6,11 +6,10 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { type FunctionReturnType } from "convex/server";
-import { Trash2, Download, AlertTriangle, Search, X, Eye, FileText } from "lucide-react";
+import { Trash2, Download, AlertTriangle, Search, X, Eye, FileText, Loader2 } from "lucide-react";
 import type { InputHTMLAttributes } from 'react';
 
-// --- TYPE DEFINITION: Changed from ReportType to ManualType ---
-// Assumes you have a `manuals.getManuals` query in your Convex backend.
+// --- TYPE DEFINITION: Note that `fileUrl` will no longer be part of this type from the initial fetch. ---
 type ManualType = FunctionReturnType<typeof api.manuals.getManuals>[number];
 
 // --- MODERN SEARCH BAR COMPONENT (Unchanged) ---
@@ -72,7 +71,7 @@ const Modal = ({ children, onClose }: { children: React.ReactNode; onClose: () =
   </div>
 );
 
-// --- DELETE CONFIRMATION UI: Changed props from `report` to `manual` ---
+// --- DELETE CONFIRMATION UI (Unchanged) ---
 const DeleteConfirmation = ({ 
   manual, 
   onConfirm, 
@@ -156,18 +155,24 @@ const DescriptionViewer = ({
   </>
 );
 
-// --- FILE PREVIEWER COMPONENT: Changed props from `report` to `manual` ---
+// --- MODIFIED: FILE PREVIEWER COMPONENT ---
+// Now fetches its own URL, showing a loading state.
 const FilePreviewer = ({ manual, onClose }: { manual: ManualType; onClose: () => void }) => {
+  // Use the new `getManualUrl` query to fetch the URL just-in-time.
+  const fileUrl = useQuery(api.manuals.getManualUrl, { storageId: manual.fileStorageId });
+  
   const isPdf = manual.fileType === 'application/pdf';
   const isDocx = manual.fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
   let previewUrl = '';
-  if (isPdf && manual.fileUrl) {
-    previewUrl = manual.fileUrl;
-  } else if (isDocx && manual.fileUrl) {
-    previewUrl = `https://docs.google.com/gview?url=${encodeURIComponent(manual.fileUrl)}&embedded=true`;
+  if (fileUrl) { // Only construct the preview URL if the fileUrl has been fetched
+    if (isPdf) {
+      previewUrl = fileUrl;
+    } else if (isDocx) {
+      previewUrl = `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`;
+    }
   }
-  
+
   return (
     <div
       className="fixed inset-0 bg-black/75 flex flex-col items-center justify-center z-50 p-2 sm:p-4"
@@ -183,7 +188,13 @@ const FilePreviewer = ({ manual, onClose }: { manual: ManualType; onClose: () =>
             <X className="h-6 w-6" />
           </button>
         </div>
-        {previewUrl ? (
+        {/* Show a loading indicator while the URL is being fetched */}
+        {fileUrl === undefined ? (
+           <div className="flex-grow flex flex-col items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+            <p className="text-gray-600 mt-4">Preparing preview...</p>
+          </div>
+        ) : previewUrl ? (
           <iframe src={previewUrl} className="w-full h-full border-0" title="File Preview" />
         ) : (
           <div className="flex-grow flex items-center justify-center">
@@ -195,20 +206,52 @@ const FilePreviewer = ({ manual, onClose }: { manual: ManualType; onClose: () =>
   );
 };
 
+// --- NEW: DOWNLOAD BUTTON COMPONENT ---
+// A button that fetches the URL on click and then opens it.
+const DownloadButton = ({ manual, children, className }: { manual: ManualType; children: React.ReactNode; className?: string }) => {
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        setIsDownloading(true);
+        try {
+            // Fetch the manual URL on demand
+            // Use fetch to call the Convex query directly
+            const response = await fetch(`/api/manuals/getManualUrl?storageId=${manual.fileStorageId}`);
+            const url = await response.json();
+            if (url) {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            } else {
+                alert("Could not retrieve download link.");
+            }
+        } catch (error) {
+            console.error("Download failed:", error);
+            alert("An error occurred while preparing the download.");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+    
+    return (
+        <button onClick={handleDownload} disabled={isDownloading} className={className}>
+            {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : children}
+        </button>
+    );
+};
+
 export default function MachineManualsPage() {
-  // --- DATA LOGIC: Updated to use `manuals` API ---
+  // --- DATA LOGIC: Unchanged, but now receives lighter data (no file URLs) ---
   const manuals = useQuery(api.manuals.getManuals);
   const user = useQuery(api.users.current);
   const removeManual = useMutation(api.manuals.remove);
 
-  // --- STATE: Renamed for clarity ---
+  // --- STATE: Unchanged ---
   const [searchQuery, setSearchQuery] = useState("");
   const [manualToDelete, setManualToDelete] = useState<ManualType | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [manualToPreview, setManualToPreview] = useState<ManualType | null>(null);
   const [manualToViewDescription, setManualToViewDescription] = useState<ManualType | null>(null);
 
-  // --- FILTERING LOGIC: Updated to use `manuals` ---
+  // --- FILTERING LOGIC: Unchanged ---
   const filteredManuals = useMemo(() => {
     if (!manuals) return [];
     const normalizeText = (str: string) => str.toLowerCase().replace(/[\s-]/g, '');
@@ -223,7 +266,7 @@ export default function MachineManualsPage() {
     });
   }, [manuals, searchQuery]);
 
-  // --- DELETE LOGIC: Updated for manuals ---
+  // --- DELETE LOGIC: Unchanged ---
   const handleConfirmDelete = async () => {
     if (!manualToDelete) return;
     setIsDeleting(true);
@@ -247,7 +290,7 @@ export default function MachineManualsPage() {
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
-      {/* --- HEADER: Updated title and link --- */}
+      {/* --- HEADER: Unchanged --- */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <h1 className="text-xl sm:text-2xl font-semibold">Machine Manuals</h1>
         {isAdmin && (
@@ -275,7 +318,7 @@ export default function MachineManualsPage() {
          <p className="text-center py-5 text-gray-500">No manuals match your search criteria.</p>
       ) : (
         <>
-          {/* --- MOBILE VIEW: Updated to map over `filteredManuals` --- */}
+          {/* --- MOBILE VIEW: Updated to use DownloadButton --- */}
           <div className="space-y-4 md:hidden">
             {filteredManuals.map((manual) => {
               const isDescriptionLong = (manual.description?.length ?? 0) > DESCRIPTION_TRUNCATE_LIMIT;
@@ -300,14 +343,16 @@ export default function MachineManualsPage() {
                   {isPreviewable(manual.fileType) && (
                     <button onClick={() => setManualToPreview(manual)} className="text-sm font-medium text-green-600 hover:text-green-800 flex items-center gap-1"><Eye className="h-4 w-4" /> View</button>
                   )}
-                  <Link href={manual.fileUrl!} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"><Download className="h-4 w-4" /> Download</Link>
+                  <DownloadButton manual={manual} className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                    <Download className="h-4 w-4" /> Download
+                  </DownloadButton>
                   {isAdmin && (<button className="text-sm font-medium text-red-600 hover:text-red-800 flex items-center gap-1" onClick={() => setManualToDelete(manual)}><Trash2 className="h-4 w-4" /> Delete</button>)}
                 </div>
               </div>
             )})}
           </div>
 
-          {/* --- DESKTOP VIEW: Updated to map over `filteredManuals` --- */}
+          {/* --- DESKTOP VIEW: Updated to use DownloadButton --- */}
           <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-gray-200 text-gray-500">
@@ -344,7 +389,7 @@ export default function MachineManualsPage() {
                         {isPreviewable(manual.fileType) && (
                            <button onClick={() => setManualToPreview(manual)} className="text-sm text-green-600 hover:underline">View</button>
                         )}
-                        <Link href={manual.fileUrl!} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">Download</Link>
+                        <DownloadButton manual={manual} className="text-sm text-blue-600 hover:underline">Download</DownloadButton>
                         {isAdmin && (
                           <button className="text-sm text-red-600 hover:underline" onClick={() => setManualToDelete(manual)}>Delete</button>
                         )}
@@ -358,7 +403,7 @@ export default function MachineManualsPage() {
         </>
       )}
       
-      {/* --- MODALS: Updated to use `manual` state variables --- */}
+      {/* --- MODALS: Unchanged, but now work with the new components --- */}
       {manualToDelete && (
         <Modal onClose={() => setManualToDelete(null)}>
           <DeleteConfirmation 
