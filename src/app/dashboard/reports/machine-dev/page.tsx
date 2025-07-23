@@ -6,17 +6,16 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { type FunctionReturnType } from "convex/server";
-import { Trash2, Download, AlertTriangle, Search, X } from "lucide-react";
+import { Trash2, Download, AlertTriangle, Search, X, Eye, FileText } from "lucide-react";
 import type { InputHTMLAttributes } from 'react';
 
 type ReportType = FunctionReturnType<typeof api.reports.getReports>[number];
 
-// --- MODERN SEARCH BAR COMPONENT (FIXED) ---
+// --- MODERN SEARCH BAR COMPONENT (No changes) ---
 interface SearchBarProps extends InputHTMLAttributes<HTMLInputElement> {
   value: string;
   onClear: () => void;
 }
-
 const SearchBar = ({ value, onChange, onClear, className, ...props }: SearchBarProps) => {
   return (
     <div className={`relative w-full max-w-md ${className || ''}`}>
@@ -24,7 +23,6 @@ const SearchBar = ({ value, onChange, onClear, className, ...props }: SearchBarP
         <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
       </div>
       <input
-        // FIX: Changed type to "text" to prevent browser's default 'X' from appearing
         type="text" 
         className="block w-full rounded-md border-gray-300 py-2 pl-10 pr-10 text-sm placeholder-gray-500 shadow-sm focus:border-blue-500 focus:ring-blue-500"
         value={value}
@@ -46,9 +44,8 @@ const SearchBar = ({ value, onChange, onClear, className, ...props }: SearchBarP
     </div>
   );
 };
-// --- END OF SEARCH BAR COMPONENT ---
 
-// A responsive loading skeleton component
+// --- RESPONSIVE LOADING SKELETON (No changes) ---
 const TableSkeleton = () => (
   <div className="animate-pulse mt-6">
     {[...Array(4)].map((_, i) => (
@@ -57,7 +54,7 @@ const TableSkeleton = () => (
   </div>
 );
 
-// A responsive modal component
+// --- RESPONSIVE MODAL COMPONENT (No changes) ---
 const Modal = ({ children, onClose }: { children: React.ReactNode; onClose: () => void }) => (
   <div 
     className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -72,7 +69,7 @@ const Modal = ({ children, onClose }: { children: React.ReactNode; onClose: () =
   </div>
 );
 
-// Delete confirmation UI
+// --- DELETE CONFIRMATION UI (No changes) ---
 const DeleteConfirmation = ({ 
   report, 
   onConfirm, 
@@ -119,6 +116,83 @@ const DeleteConfirmation = ({
   </>
 );
 
+// --- DESCRIPTION VIEWER COMPONENT (No changes) ---
+const DescriptionViewer = ({
+  title,
+  description,
+  onClose
+}: {
+  title: string;
+  description: string;
+  onClose: () => void;
+}) => (
+  <>
+    <div className="sm:flex sm:items-start">
+       <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+        <FileText className="h-6 w-6 text-blue-600" aria-hidden="true" />
+      </div>
+      <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+        <h3 className="text-lg font-medium leading-6 text-gray-900">Full Description</h3>
+        <p className="text-sm font-semibold text-gray-700 mt-1">{title}</p>
+        <div className="mt-2 max-h-60 overflow-y-auto pr-2">
+          <p className="text-sm text-gray-500 whitespace-pre-wrap">
+            {description}
+          </p>
+        </div>
+      </div>
+    </div>
+    <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+      <button
+        type="button"
+        className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+        onClick={onClose}
+      >
+        Close
+      </button>
+    </div>
+  </>
+);
+
+// --- FILE PREVIEWER COMPONENT (No changes) ---
+const FilePreviewer = ({ report, onClose }: { report: ReportType; onClose: () => void }) => {
+  const isPdf = report.fileType === 'application/pdf';
+  const isDocx = report.fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+  let previewUrl = '';
+  if (isPdf && report.fileUrl) {
+    previewUrl = report.fileUrl;
+  } else if (isDocx && report.fileUrl) {
+    // Use Google's viewer for DOCX files
+    previewUrl = `https://docs.google.com/gview?url=${encodeURIComponent(report.fileUrl)}&embedded=true`;
+  }
+  
+  return (
+    <div
+      className="fixed inset-0 bg-black/75 flex flex-col items-center justify-center z-50 p-2 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white p-2 sm:p-4 rounded-lg shadow-xl w-full h-full max-w-5xl flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-2 pb-2 border-b flex-shrink-0">
+          <h3 className="font-medium text-gray-800 truncate pr-4">{report.fileName}</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-800">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+        {previewUrl ? (
+          <iframe src={previewUrl} className="w-full h-full border-0" title="File Preview" />
+        ) : (
+          <div className="flex-grow flex items-center justify-center">
+            <p className="text-gray-600">Preview is not available for this file type.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 
 export default function MachineDevelopmentReportsPage() {
   const reports = useQuery(api.reports.getReports);
@@ -128,20 +202,18 @@ export default function MachineDevelopmentReportsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [reportToDelete, setReportToDelete] = useState<ReportType | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [reportToPreview, setReportToPreview] = useState<ReportType | null>(null);
+  const [reportToViewDescription, setReportToViewDescription] = useState<ReportType | null>(null);
 
   const filteredReports = useMemo(() => {
     if (!reports) return [];
-    
-    // Helper to make search less strict (ignores case, spaces, hyphens)
     const normalizeText = (str: string) => str.toLowerCase().replace(/[\s-]/g, '');
-    
     const normalizedQuery = normalizeText(searchQuery.trim());
     if (!normalizedQuery) return reports;
 
     return reports.filter(report => {
         const normalizedFileName = normalizeText(report.fileName);
         const normalizedMachineName = normalizeText(report.machineName || "");
-        
         return normalizedFileName.includes(normalizedQuery) || 
                normalizedMachineName.includes(normalizedQuery);
     });
@@ -160,6 +232,10 @@ export default function MachineDevelopmentReportsPage() {
       setIsDeleting(false);
     }
   };
+  
+  const DESCRIPTION_TRUNCATE_LIMIT = 100;
+  const isPreviewable = (fileType: string) =>
+    ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(fileType);
 
   const isLoading = reports === undefined || user === undefined;
   const isAdmin = user?.isAdmin;
@@ -193,9 +269,11 @@ export default function MachineDevelopmentReportsPage() {
          <p className="text-center py-5 text-gray-500">No reports match your search criteria.</p>
       ) : (
         <>
-          {/* Mobile View: Cards */}
+          {/* Mobile View: Cards (No changes) */}
           <div className="space-y-4 md:hidden">
-            {filteredReports.map((report) => (
+            {filteredReports.map((report) => {
+              const isDescriptionLong = (report.description?.length ?? 0) > DESCRIPTION_TRUNCATE_LIMIT;
+              return (
               <div key={report._id} className="bg-gray-50 p-4 border rounded-lg shadow-sm space-y-3">
                 <div className="flex justify-between items-start gap-4">
                   <p className="font-semibold text-gray-900 truncate min-w-0" title={report.fileName}>{report.fileName}</p>
@@ -203,14 +281,24 @@ export default function MachineDevelopmentReportsPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-700">{report.machineName}</p>
                   <p className="text-sm text-gray-500">Uploaded by {report.uploaderName}</p>
-                  <p className="text-sm text-gray-600 line-clamp-2 mt-1">{report.description || 'N/A'}</p>
+                  <div className="text-sm text-gray-600 mt-1">
+                    <p className="line-clamp-3">{report.description || 'N/A'}</p>
+                    {isDescriptionLong && (
+                      <button onClick={() => setReportToViewDescription(report)} className="text-blue-600 hover:underline text-sm font-semibold">
+                        View More
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex gap-4 pt-2 border-t border-gray-200">
+                <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2 border-t border-gray-200">
+                  {isPreviewable(report.fileType) && (
+                    <button onClick={() => setReportToPreview(report)} className="text-sm font-medium text-green-600 hover:text-green-800 flex items-center gap-1"><Eye className="h-4 w-4" /> View</button>
+                  )}
                   <Link href={report.fileUrl!} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"><Download className="h-4 w-4" /> Download</Link>
                   {isAdmin && (<button className="text-sm font-medium text-red-600 hover:text-red-800 flex items-center gap-1" onClick={() => setReportToDelete(report)}><Trash2 className="h-4 w-4" /> Delete</button>)}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
 
           {/* Desktop View: Table */}
@@ -221,19 +309,36 @@ export default function MachineDevelopmentReportsPage() {
                   <th className="px-3 py-3 font-medium w-[20%]">Machine Name</th>
                   <th className="px-3 py-3 font-medium w-[25%]">File Name</th>
                   <th className="px-3 py-3 font-medium w-[25%]">Description</th>
-                  <th className="px-3 py-3 font-medium w-[20%]">Uploaded By</th>
-                  <th className="px-3 py-3 font-medium w-[10%] text-right">Actions</th>
+                  <th className="px-3 py-3 font-medium w-[15%]">Uploaded By</th>
+                  <th className="px-3 py-3 font-medium w-[15%] text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredReports.map((report) => (
+                {filteredReports.map((report) => {
+                  const isDescriptionLong = (report.description?.length ?? 0) > DESCRIPTION_TRUNCATE_LIMIT;
+                  return (
                   <tr key={report._id}>
-                    <td className="px-3 py-4 font-medium text-gray-800">{report.machineName}</td>
-                    <td className="px-3 py-4 text-gray-700 truncate max-w-xs" title={report.fileName}>{report.fileName}</td>
-                    <td className="px-3 py-4 text-gray-600 truncate max-w-md" title={report.description || undefined}>{report.description || 'N/A'}</td>
-                    <td className="px-3 py-4 text-gray-600 truncate" title={report.uploaderName}>{report.uploaderName}</td>
-                    <td className="px-3 py-4 text-right">
-                      <div className="flex items-center justify-end gap-4">
+                    <td className="px-3 py-4 font-medium text-gray-800 align-top">{report.machineName}</td>
+                    <td className="px-3 py-4 text-gray-700 truncate max-w-xs align-top" title={report.fileName}>{report.fileName}</td>
+                    {/* --- FIX: Added `break-words` to the className to prevent overflow --- */}
+                    <td className="px-3 py-4 text-gray-600 max-w-md align-top break-words">
+                      {isDescriptionLong ? (
+                        <span>
+                          {report.description.substring(0, DESCRIPTION_TRUNCATE_LIMIT)}...
+                          <button onClick={() => setReportToViewDescription(report)} className="text-blue-600 hover:underline ml-1 font-semibold">
+                            View More
+                          </button>
+                        </span>
+                      ) : (
+                        report.description || 'N/A'
+                      )}
+                    </td>
+                    <td className="px-3 py-4 text-gray-600 truncate align-top" title={report.uploaderName}>{report.uploaderName}</td>
+                    <td className="px-3 py-4 text-right align-top">
+                      <div className="flex items-center justify-end gap-x-4">
+                        {isPreviewable(report.fileType) && (
+                           <button onClick={() => setReportToPreview(report)} className="text-sm text-green-600 hover:underline">View</button>
+                        )}
                         <Link href={report.fileUrl!} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">Download</Link>
                         {isAdmin && (
                           <button className="text-sm text-red-600 hover:underline" onClick={() => setReportToDelete(report)}>Delete</button>
@@ -241,13 +346,14 @@ export default function MachineDevelopmentReportsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
         </>
       )}
       
+      {/* Modals (No changes) */}
       {reportToDelete && (
         <Modal onClose={() => setReportToDelete(null)}>
           <DeleteConfirmation 
@@ -257,6 +363,23 @@ export default function MachineDevelopmentReportsPage() {
             isDeleting={isDeleting}
           />
         </Modal>
+      )}
+
+      {reportToViewDescription && (
+        <Modal onClose={() => setReportToViewDescription(null)}>
+          <DescriptionViewer 
+            title={reportToViewDescription.fileName}
+            description={reportToViewDescription.description}
+            onClose={() => setReportToViewDescription(null)}
+          />
+        </Modal>
+      )}
+
+      {reportToPreview && (
+        <FilePreviewer
+          report={reportToPreview}
+          onClose={() => setReportToPreview(null)}
+        />
       )}
     </div>
   );
