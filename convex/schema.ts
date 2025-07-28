@@ -2,7 +2,8 @@
 import { authTables } from '@convex-dev/auth/server';
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
-import { machineCategory } from './shared'; // <-- IMPORTANT: Import the new source of truth
+import { machineCategory } from './shared';
+import { feedbackStatus } from './feedback';
 
 const approvalStatus = v.union(
   v.literal('pending'),
@@ -19,6 +20,7 @@ const agreementType = v.union(
 export default defineSchema({
   ...authTables,
   
+  // ... other tables are unchanged ...
   authAccounts: defineTable({
     userId: v.id("users"),
     provider: v.string(),
@@ -62,7 +64,7 @@ export default defineSchema({
   machines: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
-    category: machineCategory, // <-- Use the imported definition
+    category: machineCategory,
   })
     .index('by_name', ['name'])
     .searchIndex('by_name_search', { searchField: 'name' })
@@ -77,7 +79,6 @@ export default defineSchema({
     uploadedBy: v.id("users"),
   }).index("by_machineId", ["machineId"]),
 
-  // --- NEW: `manuals` table added ---
   manuals: defineTable({
     description: v.string(),
     machineId: v.id("machines"),
@@ -87,7 +88,6 @@ export default defineSchema({
     uploadedBy: v.id("users"),
   }).index("by_machineId", ["machineId"]),
 
-  // --- MODIFIED: `serviceReports` table is updated ---
   serviceReports: defineTable({
     submittedBy: v.id("users"),
     clientId: v.id('clients'),
@@ -159,13 +159,17 @@ export default defineSchema({
     .index("by_machine", ["machineId"]),
     
   feedback: defineTable({
-    clientId: v.id('clients'),
+    clientId: v.optional(v.id('clients')),
+    clientName: v.optional(v.string()),
     machineId: v.id('machines'),
-    clientName: v.string(),
     machineName: v.string(),
     feedbackDetails: v.string(),
     imageIds: v.array(v.id('_storage')),
     submittedBy: v.id("users"),
+    status: feedbackStatus,
+    feedbackSource: v.union(v.literal('customer'), v.literal('engineer')),
+    // --- NEW: Field to store resolution details ---
+    actionTaken: v.optional(v.string()),
   })
   .index("by_client", ["clientId"])
   .index("by_machine", ["machineId"])

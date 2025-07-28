@@ -24,7 +24,7 @@ import {
 // All possible menu items with new, semantic icons.
 const baseMenuItems = [
   { id: 'dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-  { id: 'feedback-form', name: 'Customer Feedback', icon: <MessageSquareHeart size={20} />, },
+  { id: 'feedback-form', name: 'Feedback', icon: <MessageSquareHeart size={20} />, },
   { 
     id: 'complaint', 
     name: 'Complaint Logging', 

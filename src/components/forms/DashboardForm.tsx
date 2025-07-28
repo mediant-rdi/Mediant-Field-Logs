@@ -15,46 +15,75 @@ import {
   Settings,
   User,
   MapPin,
-  Tag
+  Tag,
+  ThumbsUp,
+  Briefcase
 } from 'lucide-react';
 
-// --- UNIFIED TYPES (Corrected) ---
-// This is the definitive, accurate type for all submissions.
 export type EnrichedReport = (
   | (Doc<'serviceReports'> & { type: 'serviceReport' })
   | (Doc<'complaints'> & { type: 'complaint' })
-  | (Doc<'feedback'> & { type: 'feedback' })
+  | (Doc<'feedback'> & { 
+      type: 'feedback', 
+      status: 'pending' | 'can_be_implemented' | 'cannot_be_implemented' | 'waiting' | 'in_progress' | 'resolved' 
+    })
 ) & {
-  // These fields are GUARANTEED to exist by our dashboard.ts query
   submitterName: string;
   locationName: string;
   machineName: string;
   mainText: string;
-
-  // --- FIX: Make status optional, as 'feedback' doesn't have it ---
-  status?: 'pending' | 'approved' | 'rejected';
+  status?: 'pending' | 'approved' | 'rejected' | 'can_be_implemented' | 'cannot_be_implemented' | 'waiting' | 'in_progress' | 'resolved';
+  feedbackSource?: 'customer' | 'engineer';
 };
 
 export type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
+export type FeedbackStatusFilter = 'all' | 'waiting' | 'in_progress' | 'resolved' | 'cannot_be_implemented';
 
 type DashboardFormProps = {
   submissions: EnrichedReport[];
   isAdmin: boolean;
   currentStatusFilter?: StatusFilter;
   onStatusFilterChange?: (filter: StatusFilter) => void;
-  isFilterable?: boolean;
+  currentFeedbackStatusFilter?: FeedbackStatusFilter;
+  onFeedbackStatusFilterChange?: (filter: FeedbackStatusFilter) => void;
+  isComplaintFilterable?: boolean;
+  isFeedbackFilterable?: boolean;
   onViewSubmission: (submission: EnrichedReport) => void;
+  activeTab: 'complaints' | 'feedback' | 'serviceReports' | 'needsReview' | null;
 };
 
-// --- Components (Unchanged) ---
-export const StatusBadge = ({ status }: { status: 'pending' | 'approved' | 'rejected' }) => {
-  const config = {
+// --- Other components are unchanged ---
+export const StatusBadge = ({ status }: { status: EnrichedReport['status'] }) => {
+  if (!status) return null;
+  const config: { [key: string]: { icon: React.ComponentType<{ className?: string }>; bg: string; text: string; border: string; iconColor: string; } } = {
     pending: { icon: Clock, bg: 'bg-gradient-to-r from-amber-50 to-yellow-50', text: 'text-amber-700', border: 'border-amber-200', iconColor: 'text-amber-500' },
     approved: { icon: CheckCircle, bg: 'bg-gradient-to-r from-emerald-50 to-green-50', text: 'text-emerald-700', border: 'border-emerald-200', iconColor: 'text-emerald-500' },
-    rejected: { icon: XCircle, bg: 'bg-gradient-to-r from-red-50 to-rose-50', text: 'text-red-700', border: 'border-red-200', iconColor: 'text-red-500' }
+    rejected: { icon: XCircle, bg: 'bg-gradient-to-r from-red-50 to-rose-50', text: 'text-red-700', border: 'border-red-200', iconColor: 'text-red-500' },
+    cannot_be_implemented: { icon: XCircle, bg: 'bg-gradient-to-r from-slate-50 to-gray-50', text: 'text-slate-700', border: 'border-slate-200', iconColor: 'text-slate-500' },
+    waiting: { icon: Clock, bg: 'bg-gradient-to-r from-amber-50 to-yellow-50', text: 'text-amber-700', border: 'border-amber-200', iconColor: 'text-amber-500' },
+    in_progress: { icon: Settings, bg: 'bg-gradient-to-r from-violet-50 to-purple-50', text: 'text-violet-700', border: 'border-violet-200', iconColor: 'text-violet-500' },
+    resolved: { icon: CheckCircle, bg: 'bg-gradient-to-r from-emerald-50 to-green-50', text: 'text-emerald-700', border: 'border-emerald-200', iconColor: 'text-emerald-500' },
   };
-  const { icon: Icon, bg, text, border, iconColor } = config[status];
-  return ( <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${bg} ${text} ${border}`}><Icon className={`w-3 h-3 ${iconColor}`} />{status.charAt(0).toUpperCase() + status.slice(1)}</span> );
+  const currentConfig = config[status] || config.pending;
+  const { icon: Icon, bg, text, border, iconColor } = currentConfig;
+  const label = status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  return ( <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${bg} ${text} ${border}`}><Icon className={`w-3 h-3 ${iconColor}`} />{label}</span> );
+};
+
+const FeedbackStatusDisplay = ({ status }: { status: EnrichedReport['status'] }) => {
+  const isImplementable = ['waiting', 'in_progress', 'resolved'].includes(status || '');
+  if (isImplementable) {
+    return (
+      <div className="flex flex-col items-end gap-2">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border bg-gradient-to-r from-sky-50 to-cyan-50 text-sky-700 border-sky-200">
+          <ThumbsUp className="w-3 h-3 text-sky-500" />
+          Can be Implemented
+        </span>
+        <StatusBadge status={status} />
+      </div>
+    );
+  }
+  return <StatusBadge status={status} />;
 };
 
 const TypeIcon = ({ type }: { type: string }) => {
@@ -69,13 +98,50 @@ const ProblemTypeBadge = ({ type }: { type: string }) => {
   return ( <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700"><Tag className="w-3 h-3" />{typeLabels[type as keyof typeof typeLabels] || type}</span> );
 };
 
+// --- MODIFIED: The label text is now more descriptive ---
+const SourceTag = ({ source }: { source: 'customer' | 'engineer' }) => {
+  const config = {
+    customer: { label: 'Customer Feedback', icon: User, bg: 'bg-blue-50', text: 'text-blue-700' },
+    engineer: { label: 'Engineer Feedback', icon: Briefcase, bg: 'bg-slate-100', text: 'text-slate-700' },
+  };
+  const current = config[source];
+  const { icon: Icon } = current;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${current.bg} ${current.text}`}>
+      <Icon className="w-3 h-3" />
+      {current.label}
+    </span>
+  );
+};
+
+
 const StatusFilterComponent = ({ value, onChange }: { value: StatusFilter; onChange: (filter: StatusFilter) => void }) => {
-  const options: { value: StatusFilter; label: string; count?: number }[] = [ { value: 'all', label: 'All Reports' }, { value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', 'label': 'Rejected' } ];
+  const options: { value: StatusFilter; label: string; }[] = [ { value: 'all', label: 'All' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', 'label': 'Rejected' } ];
   return ( <div className="flex items-center gap-2"><div className="flex flex-wrap bg-gray-100 rounded-lg p-1">{options.map(option => ( <button key={option.value} onClick={() => onChange(option.value)} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${ value === option.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }`}>{option.label}</button>))}</div></div> );
 };
 
-// --- Main Component ---
-export const DashboardForm = ({ submissions, isAdmin, currentStatusFilter = 'all', onStatusFilterChange, isFilterable, onViewSubmission }: DashboardFormProps) => {
+const FeedbackStatusFilterComponent = ({ value, onChange }: { value: FeedbackStatusFilter; onChange: (filter: FeedbackStatusFilter) => void }) => {
+  const options: { value: FeedbackStatusFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'waiting', label: 'Waiting' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'resolved', label: 'Resolved' },
+    { value: 'cannot_be_implemented', label: 'Cannot Implement' },
+  ];
+  return ( <div className="flex items-center gap-2"><div className="flex flex-wrap bg-gray-100 rounded-lg p-1">{options.map(option => ( <button key={option.value} onClick={() => onChange(option.value)} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${ value === option.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }`}>{option.label.replace(/_/g, ' ')}</button>))}</div></div> );
+};
+
+export const DashboardForm = ({ 
+  submissions, 
+  isAdmin, 
+  currentStatusFilter = 'all', 
+  onStatusFilterChange, 
+  currentFeedbackStatusFilter = 'all',
+  onFeedbackStatusFilterChange,
+  isComplaintFilterable,
+  isFeedbackFilterable,
+  onViewSubmission,
+}: DashboardFormProps) => {
   const updateServiceReport = useMutation(api.serviceReports.updateServiceReportStatus);
   const updateComplaint = useMutation(api.complaints.updateComplaintStatus);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -89,10 +155,17 @@ export const DashboardForm = ({ submissions, isAdmin, currentStatusFilter = 'all
 
   return (
     <div className="space-y-6">
-      {isFilterable && isAdmin && onStatusFilterChange && (
+      {isAdmin && (
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex items-center gap-3"><span className="text-sm font-medium text-gray-700">Filter by status:</span><StatusFilterComponent value={currentStatusFilter} onChange={onStatusFilterChange} /></div>
-          <div className="text-sm text-gray-500">{submissions.length} report{submissions.length !== 1 ? 's' : ''} found</div>
+          {isComplaintFilterable && onStatusFilterChange && (
+            <div className="flex items-center gap-3"><span className="text-sm font-medium text-gray-700">Filter by status:</span><StatusFilterComponent value={currentStatusFilter} onChange={onStatusFilterChange} /></div>
+          )}
+          {isFeedbackFilterable && onFeedbackStatusFilterChange && (
+            <div className="flex items-center gap-3"><span className="text-sm font-medium text-gray-700">Filter by status:</span><FeedbackStatusFilterComponent value={currentFeedbackStatusFilter} onChange={onFeedbackStatusFilterChange} /></div>
+          )}
+          {(isComplaintFilterable || isFeedbackFilterable) && (
+            <div className="text-sm text-gray-500">{submissions.length} item{submissions.length !== 1 ? 's' : ''} found</div>
+          )}
         </div>
       )}
       {submissions.length > 0 ? (
@@ -107,13 +180,18 @@ export const DashboardForm = ({ submissions, isAdmin, currentStatusFilter = 'all
                     <p className="text-xs text-gray-500">{new Date(report._creationTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                   </div>
                 </div>
-                {/* This check is now safe because 'status' is optional */}
-                {report.status && <StatusBadge status={report.status} />}
+                {report.type === 'feedback' ? (
+                  <FeedbackStatusDisplay status={report.status} />
+                ) : (
+                  report.status && <StatusBadge status={report.status} />
+                )}
               </div>
               <div className="space-y-3 mb-4">
                 <p className="text-gray-900 text-sm leading-relaxed line-clamp-3">{report.mainText}</p>
-                {/* This check is safe because 'problemType' is only on these types */}
-                {(report.type === 'serviceReport' || report.type === 'complaint') && ( <ProblemTypeBadge type={report.problemType} /> )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {(report.type === 'serviceReport' || report.type === 'complaint') && ( <ProblemTypeBadge type={report.problemType} /> )}
+                  {report.type === 'feedback' && report.feedbackSource && ( <SourceTag source={report.feedbackSource} /> )}
+                </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500">
                   <div className="flex items-center gap-1.5"><User className="w-3 h-3" />{report.submitterName}</div>
                   <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3" />{report.locationName}</div>

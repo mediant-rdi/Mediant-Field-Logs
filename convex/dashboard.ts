@@ -5,7 +5,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { normalizeName } from "./clients";
 
-// getDashboardStats remains the same.
+// getDashboardStats function remains unchanged...
 export const getDashboardStats = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
@@ -19,6 +19,7 @@ export const getDashboardStats = query({
     
     const pendingServiceReportsPromise = ctx.db.query("serviceReports").withIndex("by_status", (q) => q.eq("status", "pending")).collect();
     const pendingComplaintsPromise = ctx.db.query("complaints").withIndex("by_status", (q) => q.eq("status", "pending")).collect();
+    const pendingFeedbackPromise = ctx.db.query("feedback").filter(q => q.eq(q.field("status"), "pending")).collect();
     
     const serviceReportsTodayPromise = ctx.db.query("serviceReports").filter(q => q.gt(q.field("_creationTime"), startOfToday.getTime())).collect();
     const complaintsTodayPromise = ctx.db.query("complaints").filter(q => q.gt(q.field("_creationTime"), startOfToday.getTime())).collect();
@@ -26,35 +27,35 @@ export const getDashboardStats = query({
 
     const [
       pendingServiceReports, 
-      pendingComplaints, 
+      pendingComplaints,
+      pendingFeedback, 
       serviceReportsToday,
       complaintsToday,
       feedbackToday
     ] = await Promise.all([
       pendingServiceReportsPromise, 
       pendingComplaintsPromise,
+      pendingFeedbackPromise,
       serviceReportsTodayPromise,
       complaintsTodayPromise,
       feedbackTodayPromise
     ]);
 
-    const pendingCount = pendingServiceReports.length + pendingComplaints.length;
+    const pendingCount = pendingServiceReports.length + pendingComplaints.length + pendingFeedback.length;
     const submissionsTodayCount = serviceReportsToday.length + complaintsToday.length + feedbackToday.length;
 
     return { pendingCount, submissionsTodayCount, isAdmin: true };
   },
 });
 
-/**
- * A powerful, server-filtered query for all dashboard lists.
- */
 export const getFilteredSubmissions = query({
   args: {
     tab: v.optional(v.union(v.literal('needsReview'), v.literal('serviceReports'), v.literal('complaints'), v.literal('feedback'), v.null())),
-    statusFilter: v.optional(v.string()),
     searchQuery: v.optional(v.string()),
+    statusFilter: v.optional(v.union(v.literal('all'), v.literal('pending'), v.literal('approved'), v.literal('rejected'))),
+    feedbackStatusFilter: v.optional(v.union(v.literal('all'), v.literal('waiting'), v.literal('in_progress'), v.literal('resolved'), v.literal('cannot_be_implemented'))),
   },
-  handler: async (ctx, { tab, statusFilter, searchQuery }) => {
+  handler: async (ctx, { tab, statusFilter, feedbackStatusFilter, searchQuery }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return { submissions: [], isAdmin: false };
 
@@ -63,6 +64,7 @@ export const getFilteredSubmissions = query({
 
     let documents: (Doc<"serviceReports"> | Doc<"complaints"> | Doc<"feedback">)[] = [];
     
+    // Search logic and initial document fetching remains the same...
     const nonAdminQuery = (q: any) => q.or(q.eq(q.field("submittedBy"), userId), q.eq(q.field("status"), "approved"));
     
     if (searchQuery && searchQuery.length > 0) {
@@ -105,7 +107,8 @@ export const getFilteredSubmissions = query({
               if(isAdmin) {
                   const pendingServiceReports = await ctx.db.query("serviceReports").withIndex("by_status", (q) => q.eq("status", "pending")).order("desc").collect();
                   const pendingComplaints = await ctx.db.query("complaints").withIndex("by_status", (q) => q.eq("status", "pending")).order("desc").collect();
-                  documents = [...pendingServiceReports, ...pendingComplaints];
+                  const pendingFeedback = await ctx.db.query("feedback").filter(q => q.eq(q.field("status"), "pending")).order("desc").collect();
+                  documents = [...pendingServiceReports, ...pendingComplaints, ...pendingFeedback];
               }
               break;
           case 'serviceReports':
@@ -115,19 +118,28 @@ export const getFilteredSubmissions = query({
               documents = await (isAdmin ? ctx.db.query("complaints") : ctx.db.query("complaints").filter(nonAdminQuery)).order("desc").collect();
               break;
           case 'feedback':
-              documents = isAdmin ? await ctx.db.query("feedback").order("desc").collect() : [];
+              documents = isAdmin 
+                ? await ctx.db.query("feedback")
+                    .filter(q => q.neq(q.field("status"), "pending"))
+                    .order("desc").collect() 
+                : [];
               break;
           default:
               return { submissions: [], isAdmin };
       }
     }
     
+    // Filtering logic remains the same...
     let filteredDocs = documents;
-    if(isAdmin && statusFilter && statusFilter !== 'all' && tab !== 'needsReview' && !searchQuery) {
+    if (isAdmin && !searchQuery) {
+      if (tab === 'feedback' && feedbackStatusFilter && feedbackStatusFilter !== 'all') {
+        filteredDocs = documents.filter(doc => 'status' in doc && doc.status === feedbackStatusFilter);
+      } else if ((tab === 'serviceReports' || tab === 'complaints') && statusFilter && statusFilter !== 'all') {
         filteredDocs = documents.filter(doc => 'status' in doc && doc.status === statusFilter);
+      }
     }
     
-    // --- START OF CORRECTED ENRICHMENT LOGIC ---
+    // --- MODIFIED: Enrichment logic now includes `feedbackSource` ---
     const allSubmissions = await Promise.all(filteredDocs.map(async (doc) => {
       const submitter = 'submittedBy' in doc && doc.submittedBy ? await ctx.db.get(doc.submittedBy) : null;
       const submitterName = submitter?.name ?? "Unknown User";
@@ -136,31 +148,28 @@ export const getFilteredSubmissions = query({
       let mainText: string;
       let locationName: string;
       let machineName: string;
-      // --- NEW: Define machineSerialNumber to be included in the enriched object ---
       let machineSerialNumber: string | undefined;
+      let feedbackSource: 'customer' | 'engineer' | undefined; // Declare variable
 
-      // Use `any` to safely access legacy fields that may not exist on the current schema type
       const anyDoc = doc as any;
 
-      // Determine document type using a unique field as a guard
       if ('feedbackDetails' in anyDoc) {
         type = 'feedback';
         mainText = anyDoc.feedbackDetails;
         locationName = anyDoc.clientName;
         machineName = anyDoc.machineName;
-      } else if ('backofficeAccess' in anyDoc) { // `backofficeAccess` is unique to Service Reports
+        feedbackSource = anyDoc.feedbackSource; // Assign from document
+      } else if ('backofficeAccess' in anyDoc) {
         type = 'serviceReport';
         mainText = anyDoc.complaintText;
         locationName = anyDoc.branchLocation;
         machineName = anyDoc.machineName ?? anyDoc.modelTypes;
-        // --- MODIFIED: Get the serial number ---
         machineSerialNumber = anyDoc.machineSerialNumber;
-      } else { // Fallback to Complaint
+      } else {
         type = 'complaint';
         mainText = anyDoc.complaintText;
         locationName = anyDoc.branchLocation;
         machineName = anyDoc.modelType;
-        // --- MODIFIED: Get the serial number ---
         machineSerialNumber = anyDoc.machineSerialNumber;
       }
       
@@ -170,12 +179,11 @@ export const getFilteredSubmissions = query({
         mainText, 
         locationName, 
         machineName,
-        // --- MODIFIED: Add serial number to the returned object ---
         machineSerialNumber,
-        submitterName 
+        submitterName,
+        feedbackSource // Include in returned object
       };
     }));
-    // --- END OF CORRECTED ENRICHMENT LOGIC ---
 
     allSubmissions.sort((a, b) => b._creationTime - a._creationTime);
     return { submissions: allSubmissions, isAdmin };

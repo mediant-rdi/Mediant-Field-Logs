@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
-import { DashboardForm, EnrichedReport } from '@/components/forms/DashboardForm';
+import { DashboardForm, EnrichedReport, StatusFilter, FeedbackStatusFilter } from '@/components/forms/DashboardForm';
 import dynamic from 'next/dynamic';
 import { 
   AlertCircle, 
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import Fuse from 'fuse.js';
 
-// --- Debounce hook (unchanged) ---
+// Debounce hook remains the same.
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -30,7 +30,7 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// --- Other components (Modal, Cards, Skeletons) are unchanged ---
+// Other components (Modal, Cards, Skeletons) remain the same.
 const SubmissionDetailsModal = dynamic(() => import('@/components/modals/SubmissionDetailsModal'), { ssr: false });
 type DashboardStatsType = { isAdmin: boolean; pendingCount: number; submissionsTodayCount: number };
 const SummaryCard = ({ title, count, icon: Icon, color, trend, onClick }: { title: string; count?: number; icon: React.ComponentType<{ className?: string }>; color: string; trend?: { value: number; label: string }; onClick?: () => void; }) => (
@@ -41,7 +41,6 @@ const SummaryCard = ({ title, count, icon: Icon, color, trend, onClick }: { titl
 const StatsSkeleton = () => <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">{[...Array(2)].map((_, i) => <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse"><div className="flex items-center justify-between"><div className="space-y-2"><div className="h-4 bg-gray-200 rounded w-24"></div><div className="h-8 bg-gray-200 rounded w-16"></div></div><div className="w-12 h-12 bg-gray-200 rounded-full"></div></div></div>)}</div>;
 const TableSkeleton = () => <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{[...Array(6)].map((_, i) => <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse"><div className="flex items-center justify-between mb-4"><div className="flex items-center gap-3"><div className="w-8 h-8 bg-gray-200 rounded-lg"></div><div className="space-y-2"><div className="h-4 bg-gray-200 rounded w-20"></div><div className="h-3 bg-gray-200 rounded w-16"></div></div></div><div className="h-6 bg-gray-200 rounded-full w-16"></div></div><div className="space-y-2 mb-4"><div className="h-4 bg-gray-200 rounded w-full"></div><div className="h-4 bg-gray-200 rounded w-3/4"></div></div><div className="h-8 bg-gray-200 rounded w-24"></div></div>)}</div>;
 
-type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
 export type TabType = 'complaints' | 'feedback' | 'serviceReports' | 'needsReview' | null;
 
 const DashboardStats = React.memo(function DashboardStats({ stats, onReviewClick }: { stats: DashboardStatsType | undefined; onReviewClick: () => void; }) {
@@ -51,7 +50,6 @@ const DashboardStats = React.memo(function DashboardStats({ stats, onReviewClick
   return (<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">{cards.map((card, index) => (<SummaryCard key={index} {...card} />))}</div>);
 });
 
-// --- NEW: A reusable dropdown component for category selection ---
 type DropdownOption = { key: TabType; label: string; icon: React.ComponentType<{className?: string}> };
 const CategoryDropdown = ({ options, selected, onSelect }: { options: DropdownOption[]; selected: TabType; onSelect: (key: TabType) => void; }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -60,9 +58,7 @@ const CategoryDropdown = ({ options, selected, onSelect }: { options: DropdownOp
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -79,10 +75,7 @@ const CategoryDropdown = ({ options, selected, onSelect }: { options: DropdownOp
           <div className="py-1">
             {options.map(({ key, label, icon: Icon }) => (
               <button key={key} onClick={() => { onSelect(key!); setIsOpen(false); }} className="w-full text-left flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900">
-                <div className="flex items-center gap-2">
-                  <Icon className="w-4 h-4 text-gray-500" />
-                  {label}
-                </div>
+                <div className="flex items-center gap-2"><Icon className="w-4 h-4 text-gray-500" />{label}</div>
                 {selected === key && <Check className="w-4 h-4 text-blue-600" />}
               </button>
             ))}
@@ -96,17 +89,23 @@ const CategoryDropdown = ({ options, selected, onSelect }: { options: DropdownOp
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<TabType>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedSubmission, setSelectedSubmission] = useState<EnrichedReport | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // --- MODIFIED: State for both types of filters ---
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [feedbackStatusFilter, setFeedbackStatusFilter] = useState<FeedbackStatusFilter>('all');
+
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const statsData = useQuery(api.dashboard.getDashboardStats);
   const isAdmin = statsData?.isAdmin;
 
+  // --- MODIFIED: Conditionally pass the correct filter to the backend ---
   const submissionsData = useQuery(api.dashboard.getFilteredSubmissions, {
     tab: activeTab,
-    statusFilter: activeTab === 'needsReview' ? 'pending' : statusFilter,
+    statusFilter: activeTab === 'complaints' || activeTab === 'serviceReports' ? statusFilter : undefined,
+    feedbackStatusFilter: activeTab === 'feedback' ? feedbackStatusFilter : undefined,
     searchQuery: debouncedSearchQuery,
   });
 
@@ -130,8 +129,12 @@ export default function DashboardPage() {
     }
   }, [isAdmin, activeTab, debouncedSearchQuery]);
 
+  // --- MODIFIED: Reset both filters when tab changes ---
   useEffect(() => {
-    if(!debouncedSearchQuery) { setStatusFilter('all'); }
+    if(!debouncedSearchQuery) { 
+      setStatusFilter('all'); 
+      setFeedbackStatusFilter('all');
+    }
   }, [activeTab, debouncedSearchQuery]);
   
   useEffect(() => {
@@ -161,6 +164,10 @@ export default function DashboardPage() {
     {key: 'complaints' as TabType, icon: MessageSquare, label: 'Customer Complaints'}
   ];
   
+  // --- MODIFIED: Determine which filter should be shown ---
+  const isComplaintFilterable = !searchQuery && (activeTab === 'complaints' || activeTab === 'serviceReports');
+  const isFeedbackFilterable = !searchQuery && activeTab === 'feedback';
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -175,9 +182,7 @@ export default function DashboardPage() {
           <div className="border-b border-gray-200 bg-gray-50 p-4">
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
               
-              {/* --- START OF REFACTORED UI --- */}
               {isAdmin ? (
-                // ADMIN VIEW: "Needs Review" button + Dropdown + Search
                 <div className="w-full flex flex-col sm:flex-row gap-2 items-center">
                   <button onClick={handleReviewClick} className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all w-full sm:w-auto justify-center ${activeTab === 'needsReview' ? 'bg-blue-600 text-white hover:bg-blue-700 border border-transparent' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}>
                     <AlertCircle className="w-4 h-4" />
@@ -196,9 +201,8 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ) : (
-                // NON-ADMIN VIEW: Simple Tabs + Search
                 <div className="w-full flex flex-col md:flex-row gap-4 items-center">
-                  <div className="flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  <div className="flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
                     {nonAdminTabs.map((tab) => (
                       <button key={tab.key} onClick={() => handleTabClick(tab.key)} className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-all ${activeTab === tab.key ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}>
                           <tab.icon className="w-4 h-4" />
@@ -213,7 +217,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
-              {/* --- END OF REFACTORED UI --- */}
             </div>
           </div>
 
@@ -221,7 +224,19 @@ export default function DashboardPage() {
             {submissionsData === undefined ? (
               <TableSkeleton />
             ) : (
-              <DashboardForm submissions={displaySubmissions} isAdmin={!!isAdmin} currentStatusFilter={statusFilter} onStatusFilterChange={setStatusFilter} isFilterable={!searchQuery && activeTab !== 'needsReview' && activeTab !== 'feedback'} onViewSubmission={handleViewSubmission} />
+              // --- MODIFIED: Pass all filter states and handlers to the form ---
+              <DashboardForm 
+                submissions={displaySubmissions} 
+                isAdmin={!!isAdmin} 
+                currentStatusFilter={statusFilter} 
+                onStatusFilterChange={setStatusFilter}
+                currentFeedbackStatusFilter={feedbackStatusFilter}
+                onFeedbackStatusFilterChange={setFeedbackStatusFilter}
+                isComplaintFilterable={isComplaintFilterable}
+                isFeedbackFilterable={isFeedbackFilterable}
+                onViewSubmission={handleViewSubmission}
+                activeTab={activeTab}
+              />
             )}
           </div>
         </main>

@@ -9,7 +9,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 import { Id, Doc } from '../../../../convex/_generated/dataModel';
 
-// --- TypeScript types and initial state ---
+// --- MODIFIED: TypeScript types and initial state ---
 type BranchSuggestion = Doc<'clientLocations'> & { displayText: string };
 type BranchSelection = { locationId: Id<'clientLocations'>; clientId: Id<'clients'>; text: string };
 type ModelSelection = { id: Id<'machines'>; text: string };
@@ -18,12 +18,14 @@ type FeedbackFormData = {
   branch: BranchSelection | null;
   model: ModelSelection | null;
   feedbackDetails: string;
+  feedbackSource: 'customer' | 'engineer' | ''; // NEW: Add feedback source
 };
 
 const initialState: FeedbackFormData = {
   branch: null,
   model: null,
   feedbackDetails: '',
+  feedbackSource: '', // NEW: Add to initial state
 };
 
 const MAX_IMAGES = 4;
@@ -42,28 +44,18 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// --- NEW: Success Dialog Component with React Portal ---
+// --- Success Dialog Component (unchanged) ---
 const SuccessDialog = ({ isOpen, onClose, title, message }: { isOpen: boolean; onClose: () => void; title: string; message: string; }) => {
   const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
-
-  if (!isOpen || !mounted) {
-    return null;
-  }
-
+  useEffect(() => { setMounted(true); return () => setMounted(false); }, []);
+  if (!isOpen || !mounted) return null;
   return createPortal(
     <div className="dialog-overlay" onClick={onClose}>
       <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-icon">✓</div>
         <h2 className="dialog-title">{title}</h2>
         <p className="dialog-message">{message}</p>
-        <button className="dialog-button" onClick={onClose}>
-          Done
-        </button>
+        <button className="dialog-button" onClick={onClose}>Done</button>
       </div>
     </div>,
     document.getElementById('dialog-portal')!
@@ -82,7 +74,7 @@ export default function CustomerFeedbackForm() {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const submitFeedback = useMutation(api.feedback.submitFeedback);
 
-  // --- Form State (unchanged) ---
+  // --- Form State (updated) ---
   const [formData, setFormData] = useState<FeedbackFormData>(initialState);
   const [files, setFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -94,33 +86,30 @@ export default function CustomerFeedbackForm() {
   const [showBranchSuggestions, setShowBranchSuggestions] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false); // --- NEW: State for dialog
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
-  // --- Debounced Queries ---
+  // --- Debounced Queries (unchanged) ---
   const debouncedModelType = useDebounce(modelSearchText, 300);
   const debouncedBranchLocation = useDebounce(branchSearchText, 300);
   const machineSuggestions = useQuery(api.machines.searchByName, debouncedModelType.length < 2 ? 'skip' : { searchText: debouncedModelType }) ?? [];
   const branchSuggestions: BranchSuggestion[] = useQuery(api.clients.searchLocations, debouncedBranchLocation.length < 2 ? 'skip' : { searchText: debouncedBranchLocation }) ?? [];
 
-  // --- Input Handlers (unchanged) ---
+  // --- Input Handlers (updated) ---
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => { const { name, value } = e.target; if (name === 'modelTypeSearch') { setModelSearchText(value); setShowModelSuggestions(true); } if (name === 'branchLocationSearch') { setBranchSearchText(value); setShowBranchSuggestions(true); } };
   const handleDetailsChange = (e: ChangeEvent<HTMLTextAreaElement>) => { setFormData((prev) => ({ ...prev, feedbackDetails: e.target.value })); };
   const handleClearSelection = (type: 'model' | 'branch') => { setFormData((prev) => ({ ...prev, [type]: null })); if (type === 'model') setModelSearchText(''); if (type === 'branch') setBranchSearchText(''); };
   const handleModelSuggestionClick = (machine: Doc<'machines'>) => { setFormData((prev) => ({ ...prev, model: { id: machine._id, text: machine.name } })); setModelSearchText(''); setShowModelSuggestions(false); };
+  const handleBranchSuggestionClick = (location: BranchSuggestion) => { setFormData((prev) => ({ ...prev, branch: { locationId: location._id, clientId: location.clientId, text: location.displayText } })); setBranchSearchText(''); setShowBranchSuggestions(false); };
   
-  const handleBranchSuggestionClick = (location: BranchSuggestion) => {
-    setFormData((prev) => ({ 
-      ...prev, 
-      branch: { 
-        locationId: location._id, 
-        clientId: location.clientId,
-        text: location.displayText 
-      } 
-    }));
+  // --- NEW: Handler for the feedback source dropdown ---
+  const handleFeedbackSourceChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const newSource = e.target.value as 'customer' | 'engineer';
+    // When source changes, reset the branch location data
+    setFormData(prev => ({ ...prev, feedbackSource: newSource, branch: null }));
     setBranchSearchText('');
     setShowBranchSuggestions(false);
   };
-
+  
   // --- File & Camera Handlers (unchanged) ---
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => { const selectedFiles = Array.from(e.target.files ?? []); if (!selectedFiles.length) return; const totalFiles = files.length + selectedFiles.length; if (totalFiles > MAX_IMAGES) { alert(`You can only upload a maximum of ${MAX_IMAGES} images.`); return; } const newFiles = [...files, ...selectedFiles]; const newPreviews = [...imagePreviews, ...selectedFiles.map(file => URL.createObjectURL(file))]; setFiles(newFiles); setImagePreviews(newPreviews); stopCamera(); };
   const handleRemoveFile = (index: number) => { URL.revokeObjectURL(imagePreviews[index]); setFiles(files.filter((_, i) => i !== index)); setImagePreviews(imagePreviews.filter((_, i) => i !== index)); if (fileInputRef.current) { fileInputRef.current.value = ''; } };
@@ -129,26 +118,37 @@ export default function CustomerFeedbackForm() {
   const capturePhoto = () => { if (videoRef.current && canvasRef.current) { const canvas = canvasRef.current; const video = videoRef.current; const context = canvas.getContext('2d'); if (!context) return; canvas.width = video.videoWidth; canvas.height = video.videoHeight; context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight); canvas.toBlob((blob) => { if (blob) { if (files.length >= MAX_IMAGES) { alert(`You can only upload a maximum of ${MAX_IMAGES} images.`); } else { const capturedFile = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' }); setFiles(prev => [...prev, capturedFile]); setImagePreviews(prev => [...prev, URL.createObjectURL(blob)]); } stopCamera(); } }, 'image/jpeg'); } };
   useEffect(() => { if (isCameraOpen && stream && videoRef.current) { videoRef.current.srcObject = stream; } return () => { if (stream) { stream.getTracks().forEach(track => track.stop()); } }; }, [isCameraOpen, stream]);
 
-  // --- Form Lifecycle (updated for dialog) ---
+  // --- Form Lifecycle (updated for new logic) ---
   const resetForm = () => { setFormData(initialState); setBranchSearchText(''); setModelSearchText(''); imagePreviews.forEach(URL.revokeObjectURL); setFiles([]); setImagePreviews([]); };
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>, type: 'model' | 'branch') => { if (!e.currentTarget.contains(e.relatedTarget)) { setTimeout(() => { if (type === 'model') setShowModelSuggestions(false); if (type === 'branch') setShowBranchSuggestions(false); }, 150); } };
-  const handleProceedToReview = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); if (!formData.branch || !formData.model) { alert("Please select a branch and a model type from the suggestions."); return; } setIsReviewing(true); };
   const handleEdit = () => { setIsReviewing(false); };
+  const handleCloseSuccessDialog = () => { setShowSuccessDialog(false); resetForm(); setIsReviewing(false); };
   
-  // --- NEW: Handler to close the dialog and reset the form ---
-  const handleCloseSuccessDialog = () => {
-    setShowSuccessDialog(false);
-    resetForm();
-    setIsReviewing(false);
+  // --- MODIFIED: Validation logic is updated ---
+  const handleProceedToReview = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!formData.model || !formData.feedbackSource) {
+      alert("Please select a model type and a feedback source.");
+      return;
+    }
+    if (formData.feedbackSource === 'customer' && !formData.branch) {
+      alert("Please select a branch location for customer feedback.");
+      return;
+    }
+    setIsReviewing(true);
   };
 
-  // --- MODIFIED: The submission handler now shows the dialog ---
+  // --- MODIFIED: The submission handler now sends the new data structure ---
   const handleFinalSubmit = async () => {
     setIsSubmitting(true);
     try {
-      if (!formData.branch || !formData.model) {
-        throw new Error("Branch and Model must be selected.");
+      if (!formData.model || !formData.feedbackSource) {
+        throw new Error("Model and Feedback Source must be selected.");
       }
+      if (formData.feedbackSource === 'customer' && !formData.branch) {
+        throw new Error("Branch must be selected for customer feedback.");
+      }
+
       const uploadPromises = files.map(async (file) => {
         const uploadUrl = await generateUploadUrl();
         const result = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": file.type }, body: file });
@@ -158,15 +158,16 @@ export default function CustomerFeedbackForm() {
       const imageIds = await Promise.all(uploadPromises);
       
       await submitFeedback({
-        clientId: formData.branch.clientId,
+        clientId: formData.branch?.clientId,
+        clientName: formData.branch?.text,
         machineId: formData.model.id,
-        clientName: formData.branch.text,
         machineName: formData.model.text,
         feedbackDetails: formData.feedbackDetails,
         imageIds,
+        feedbackSource: formData.feedbackSource,
       });
 
-      setShowSuccessDialog(true); // --- MODIFIED: Show dialog instead of alert
+      setShowSuccessDialog(true);
     } catch (error) {
       console.error("Failed to submit feedback:", error);
       alert("There was an error submitting your feedback. Please try again.");
@@ -175,10 +176,9 @@ export default function CustomerFeedbackForm() {
     }
   };
 
-  // --- Rendering Logic (updated with dialog) ---
+  // --- Rendering Logic (updated with new form structure) ---
   return (
     <div className="form-container">
-      {/* --- NEW: Render the Success Dialog --- */}
       <SuccessDialog
         isOpen={showSuccessDialog}
         onClose={handleCloseSuccessDialog}
@@ -189,18 +189,20 @@ export default function CustomerFeedbackForm() {
       {isReviewing ? (
         <div className="review-container">
           <h1>Review Your Feedback</h1>
-          <p>Please review your feedback details below before the final submission.</p>
+          <p>Please review your details before the final submission.</p>
           <div className="review-grid">
-            <div className="review-item"><strong>Branch Location:</strong><p>{formData.branch?.text}</p></div>
+            {/* --- MODIFIED: Conditionally show branch, and show feedback source --- */}
             <div className="review-item"><strong>Model Type:</strong><p>{formData.model?.text}</p></div>
+            <div className="review-item"><strong>Feedback Source:</strong><p>{formData.feedbackSource === 'customer' ? 'Customer Feedback' : 'Engineer Feedback'}</p></div>
+            {formData.feedbackSource === 'customer' && formData.branch && (
+              <div className="review-item full-width"><strong>Branch Location:</strong><p>{formData.branch.text}</p></div>
+            )}
             <div className="review-item full-width"><strong>Feedback Details:</strong><p>{formData.feedbackDetails}</p></div>
             {imagePreviews.length > 0 && (
               <div className="review-item full-width">
                 <strong>Attached Pictures ({imagePreviews.length}/{MAX_IMAGES}):</strong>
                 <div className="review-image-grid">
-                  {imagePreviews.map((src, index) => (
-                    <Image key={index} src={src} alt={`Feedback preview ${index + 1}`} width={100} height={100} style={{ objectFit: 'cover', borderRadius: '8px' }}/>
-                  ))}
+                  {imagePreviews.map((src, index) => ( <Image key={index} src={src} alt={`Feedback preview ${index + 1}`} width={100} height={100} style={{ objectFit: 'cover', borderRadius: '8px' }}/> ))}
                 </div>
               </div>
             )}
@@ -214,28 +216,10 @@ export default function CustomerFeedbackForm() {
         </div>
       ) : (
         <>
-          <h1>Customer Feedback & Recommendation</h1>
+          <h1>Feedback & Value Addition Recommendation</h1>
           <p>Please share your experience or suggestions with us.</p>
           <form onSubmit={handleProceedToReview} className="report-form">
-            <div className="form-group" ref={branchLocationContainerRef} onBlur={(e) => handleBlur(e, 'branch')}>
-              <label htmlFor="branchLocationSearch">Branch Location</label>
-              {formData.branch ? (
-                <div className="selected-item">
-                  <span>{formData.branch.text}</span>
-                  <button type="button" onClick={() => handleClearSelection('branch')} className="clear-selection-button" aria-label="Clear selection"></button>
-                </div>
-              ) : (
-                <input type="text" id="branchLocationSearch" name="branchLocationSearch" value={branchSearchText} onChange={handleSearchChange} required={!formData.branch} autoComplete="off" onFocus={() => setShowBranchSuggestions(true)} placeholder="Search for a branch..." />
-              )}
-              {showBranchSuggestions && branchSearchText && branchSuggestions.length > 0 && (
-                <ul className="suggestions-list">
-                  {branchSuggestions.map((suggestion) => (
-                    <li key={suggestion._id} onClick={() => handleBranchSuggestionClick(suggestion)} onMouseDown={(e) => e.preventDefault()}>{suggestion.displayText}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
+            {/* --- MODIFIED: Form fields are reordered --- */}
             <div className="form-group" ref={modelTypeContainerRef} onBlur={(e) => handleBlur(e, 'model')}>
               <label htmlFor="modelTypeSearch">Model Type</label>
               {formData.model ? (
@@ -255,8 +239,40 @@ export default function CustomerFeedbackForm() {
               )}
             </div>
             
+            {/* --- NEW: Feedback source dropdown --- */}
             <div className="form-group">
-              <label htmlFor="feedbackDetails">Feedback, Complaint, or Recommendation</label>
+              <label htmlFor="feedbackSource">Feedback Source</label>
+              <select id="feedbackSource" name="feedbackSource" value={formData.feedbackSource} onChange={handleFeedbackSourceChange} required>
+                <option value="" disabled>Select a source...</option>
+                <option value="customer">Customer Feedback</option>
+                <option value="engineer">Engineer Feedback</option>
+              </select>
+            </div>
+
+            {/* --- NEW: Conditional Branch Location field --- */}
+            {formData.feedbackSource === 'customer' && (
+              <div className="form-group" ref={branchLocationContainerRef} onBlur={(e) => handleBlur(e, 'branch')}>
+                <label htmlFor="branchLocationSearch">Branch Location</label>
+                {formData.branch ? (
+                  <div className="selected-item">
+                    <span>{formData.branch.text}</span>
+                    <button type="button" onClick={() => handleClearSelection('branch')} className="clear-selection-button" aria-label="Clear selection"></button>
+                  </div>
+                ) : (
+                  <input type="text" id="branchLocationSearch" name="branchLocationSearch" value={branchSearchText} onChange={handleSearchChange} required={!formData.branch} autoComplete="off" onFocus={() => setShowBranchSuggestions(true)} placeholder="Search for a branch..." />
+                )}
+                {showBranchSuggestions && branchSearchText && branchSuggestions.length > 0 && (
+                  <ul className="suggestions-list">
+                    {branchSuggestions.map((suggestion) => (
+                      <li key={suggestion._id} onClick={() => handleBranchSuggestionClick(suggestion)} onMouseDown={(e) => e.preventDefault()}>{suggestion.displayText}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            
+            <div className="form-group">
+              <label htmlFor="feedbackDetails">Feedback or Value Addition Recommendation</label>
               <textarea id="feedbackDetails" name="feedbackDetails" value={formData.feedbackDetails} onChange={handleDetailsChange} rows={5} placeholder="Please provide your detailed feedback here..." required />
             </div>
 
@@ -300,15 +316,16 @@ export default function CustomerFeedbackForm() {
       )}
 
       <style jsx>{`
-        /* --- All CSS is unchanged --- */
+        /* --- CSS updated with select style --- */
         .form-container { max-width: 800px; margin: 0 auto; padding: 16px; background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
         p { color: #4a5568; margin-bottom: 24px; font-size: 14px; }
         .report-form { display: flex; flex-direction: column; gap: 20px; }
         .form-group { display: flex; flex-direction: column; position: relative; }
         .form-group > label { margin-bottom: 8px; font-weight: 500; font-size: 14px; }
-        input[type="text"], textarea { padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 16px; width: 100%; box-sizing: border-box; }
-        input[type="text"]:focus, textarea:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2); }
+        input[type="text"], textarea, select { padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 16px; width: 100%; box-sizing: border-box; background-color: white; appearance: none; }
+        input[type="text"]:focus, textarea:focus, select:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2); }
+        select { background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="%234a5568" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 8 4 4 4-4"/></svg>'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.25em; padding-right: 2.5rem; }
         .file-input-label { font-weight: 500; }
         .file-input-wrapper { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
         .file-input-hidden { display: none; }
@@ -338,7 +355,7 @@ export default function CustomerFeedbackForm() {
         .clear-selection-button:before { transform: rotate(45deg); }
         .clear-selection-button:after { transform: rotate(-45deg); }
         .image-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; margin-top: 12px; }
-        .image-preview { position: relative; width: 100%; padding-top: 100%; /* 1:1 Aspect Ratio */ }
+        .image-preview { position: relative; width: 100%; padding-top: 100%; }
         .image-preview > :global(img) { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; object-fit: cover; border-radius: 8px; }
         .remove-image-button { position: absolute; top: -6px; right: -6px; background-color: rgba(0, 0, 0, 0.7); color: white; border: 2px solid white; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; line-height: 1; z-index: 1; }
         .remove-image-button:after { content: '×'; }
@@ -359,90 +376,14 @@ export default function CustomerFeedbackForm() {
         }
       `}</style>
       <style jsx global>{`
-        .dialog-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(0, 0, 0, 0.6);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          -webkit-backdrop-filter: blur(4px);
-          backdrop-filter: blur(4px);
-        }
-
-        .dialog-content {
-          background: white;
-          padding: 24px;
-          border-radius: 12px;
-          text-align: center;
-          max-width: 90%;
-          width: 400px;
-          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          animation: dialog-appear 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
-        }
-
-        @keyframes dialog-appear {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        .dialog-icon {
-          width: 50px;
-          height: 50px;
-          border-radius: 50%;
-          background-color: #22c55e; /* green-500 */
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 28px;
-          font-weight: bold;
-          margin-bottom: 16px;
-        }
-
-        .dialog-title {
-          font-size: 20px;
-          font-weight: 600;
-          color: #111827; /* gray-900 */
-          margin: 0 0 8px;
-        }
-
-        .dialog-message {
-          font-size: 16px;
-          color: #4b5563; /* gray-600 */
-          margin: 0 0 24px;
-          line-height: 1.5;
-        }
-
-        .dialog-button {
-          width: 100%;
-          padding: 10px;
-          border: none;
-          border-radius: 8px;
-          background-color: #3b82f6; /* blue-500 */
-          color: white;
-          font-size: 16px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-
-        .dialog-button:hover {
-          background-color: #2563eb; /* blue-600 */
-        }
+        .dialog-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+        .dialog-content { background: white; padding: 24px; border-radius: 12px; text-align: center; max-width: 90%; width: 400px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); display: flex; flex-direction: column; align-items: center; animation: dialog-appear 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) forwards; }
+        @keyframes dialog-appear { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .dialog-icon { width: 50px; height: 50px; border-radius: 50%; background-color: #22c55e; color: white; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; margin-bottom: 16px; }
+        .dialog-title { font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 8px; }
+        .dialog-message { font-size: 16px; color: #4b5563; margin: 0 0 24px; line-height: 1.5; }
+        .dialog-button { width: 100%; padding: 10px; border: none; border-radius: 8px; background-color: #3b82f6; color: white; font-size: 16px; font-weight: 500; cursor: pointer; transition: background-color 0.2s; }
+        .dialog-button:hover { background-color: #2563eb; }
       `}</style>
     </div>
   );
