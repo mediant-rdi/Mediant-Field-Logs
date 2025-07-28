@@ -5,7 +5,7 @@ import { MetadataRoute } from 'next'
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Mediant Field Logs', // Shortened for clarity
-    short_name: 'Mediant App', // A concise name for the homescreen
+    short_name: 'Field Logs', // A concise name for the homescreen
     description: 'A comprehensive field logging system by Mediant.',
     start_url: '/',
     display: 'standalone',
