@@ -168,7 +168,6 @@ export default defineSchema({
     submittedBy: v.id("users"),
     status: feedbackStatus,
     feedbackSource: v.union(v.literal('customer'), v.literal('engineer')),
-    // --- NEW: Field to store resolution details ---
     actionTaken: v.optional(v.string()),
   })
   .index("by_client", ["clientId"])
@@ -190,5 +189,9 @@ export default defineSchema({
   })
     .index("by_client_and_search", ["clientId", "searchName"])
     .index("by_full_search_name", ["searchFullName"])
-    .index("by_search_name", ["searchName"]),
+    .index("by_search_name", ["searchName"])
+    // --- NEW: Added a search index for full-text search on the original fullName ---
+    .searchIndex("by_full_name_text", {
+      searchField: "fullName",
+    }),
 });

@@ -27,7 +27,7 @@ export const normalizeName = (name: string): string => {
 
 // --- SEARCH QUERY (for locations autocomplete) ---
 /**
- * Searches for client locations by their full name OR branch name.
+ * Searches for client locations by their full name, branch name, or full-text search.
  */
 export const searchLocations = query({
   args: {
@@ -37,30 +37,45 @@ export const searchLocations = query({
     if (args.searchText.length < 2) {
       return [];
     }
-
+    
+    // Use the raw search text for the full-text search index
+    const rawQuery = args.searchText;
+    // Use the normalized query for the prefix string-matching indexes
     const normalizedQuery = normalizeName(args.searchText);
 
-    if (normalizedQuery.length === 0) {
+    if (normalizedQuery.length === 0 && rawQuery.length < 2) {
       return [];
     }
 
-    const [fullNameResults, nameResults] = await Promise.all([
+    // --- MODIFIED: Added a third search query for full-text search ---
+    const [fullNameResults, nameResults, textSearchResults] = await Promise.all([
+      // 1. Prefix search on the normalized full name (e.g., "ncba town")
       ctx.db
         .query("clientLocations")
         .withIndex("by_full_search_name", (q) =>
           q.gte("searchFullName", normalizedQuery).lt("searchFullName", normalizedQuery + "\uffff")
         )
         .take(10),
+      // 2. Prefix search on the normalized branch name (e.g., "town")
       ctx.db
         .query("clientLocations")
         .withIndex("by_search_name", (q) =>
           q.gte("searchName", normalizedQuery).lt("searchName", normalizedQuery + "\uffff")
         )
         .take(10),
+      // 3. Full-text search on the original fullName (e.g., "NCBA Bank - Town")
+      ctx.db
+        .query("clientLocations")
+        .withSearchIndex("by_full_name_text", (q) => 
+          q.search("fullName", rawQuery)
+        )
+        .take(10)
     ]);
 
-    const combinedResults = [...fullNameResults, ...nameResults];
+    // --- MODIFIED: Combine all three result sets ---
+    const combinedResults = [...textSearchResults, ...fullNameResults, ...nameResults];
 
+    // De-duplicate the results, preferring the order (text search first)
     const uniqueResults = new Map<Id<"clientLocations">, Doc<"clientLocations">>();
     for (const doc of combinedResults) {
       if (!uniqueResults.has(doc._id)) {
