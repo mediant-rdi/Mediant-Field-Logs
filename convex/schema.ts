@@ -40,7 +40,10 @@ export default defineSchema({
     isAnonymous: v.optional(v.boolean()),
     isAdmin: v.optional(v.boolean()),
     accountActivated: v.optional(v.boolean()),
-  }).index('by_email', ['email']),
+  })
+    .index('by_email', ['email'])
+    // --- NEW: Search index for user names ---
+    .searchIndex("by_name_search", { searchField: "name" }),
 
   invitations: defineTable({
     token: v.string(),
@@ -119,7 +122,11 @@ export default defineSchema({
     .index("by_branchLocation", ["branchLocation"])
     .index("by_client", ["clientId"])
     .index("by_location", ["locationId"])
-    .index("by_machine", ["machineId"]),
+    .index("by_machine", ["machineId"])
+    // --- NEW: Search indexes for dashboard search ---
+    .searchIndex("search_branchLocation", { searchField: "branchLocation" })
+    .searchIndex("search_machineName", { searchField: "machineName" })
+    .searchIndex("search_machineSerialNumber", { searchField: "machineSerialNumber" }),
 
   complaints: defineTable({
     submittedBy: v.id("users"),
@@ -156,7 +163,11 @@ export default defineSchema({
     .index("by_branchLocation", ["branchLocation"])
     .index("by_client", ["clientId"])
     .index("by_location", ["locationId"])
-    .index("by_machine", ["machineId"]),
+    .index("by_machine", ["machineId"])
+    // --- NEW: Search indexes for dashboard search ---
+    .searchIndex("search_branchLocation", { searchField: "branchLocation" })
+    .searchIndex("search_modelType", { searchField: "modelType" })
+    .searchIndex("search_machineSerialNumber", { searchField: "machineSerialNumber" }),
     
   feedback: defineTable({
     clientId: v.optional(v.id('clients')),
@@ -190,7 +201,6 @@ export default defineSchema({
     .index("by_client_and_search", ["clientId", "searchName"])
     .index("by_full_search_name", ["searchFullName"])
     .index("by_search_name", ["searchName"])
-    // --- NEW: Added a search index for full-text search on the original fullName ---
     .searchIndex("by_full_name_text", {
       searchField: "fullName",
     }),

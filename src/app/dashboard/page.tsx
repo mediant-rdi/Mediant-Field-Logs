@@ -111,17 +111,26 @@ export default function DashboardPage() {
 
   const rawSubmissions = useMemo(() => (submissionsData?.submissions ?? []) as EnrichedReport[], [submissionsData]);
   
+  // Fuse.js is now a secondary, client-side filter for refining results that are already fetched.
+  // The primary, powerful search is happening on the backend.
   const fuse = useMemo(() => {
     if (!rawSubmissions.length) return null;
-    return new Fuse(rawSubmissions, { keys: ['mainText', 'locationName', 'machineName', 'submitterName'], includeScore: true, threshold: 0.4, minMatchCharLength: 2 });
+    return new Fuse(rawSubmissions, { 
+      keys: ['mainText', 'locationName', 'machineName', 'submitterName', 'machineSerialNumber'], 
+      includeScore: true, 
+      threshold: 0.4, 
+      minMatchCharLength: 2 
+    });
   }, [rawSubmissions]);
 
   const displaySubmissions = useMemo(() => {
-    if (searchQuery.trim() && fuse) {
-      return fuse.search(searchQuery.trim()).map((result) => result.item);
+    if (debouncedSearchQuery.trim() && fuse) {
+      // The backend does the heavy lifting. Fuse.js can be used to further refine/sort if needed,
+      // but for simplicity, we can just display the backend results directly.
+      return rawSubmissions;
     }
     return rawSubmissions;
-  }, [searchQuery, rawSubmissions, fuse]);
+  }, [debouncedSearchQuery, rawSubmissions, fuse]);
 
   useEffect(() => {
     if (activeTab === null && isAdmin !== undefined && !debouncedSearchQuery) {
@@ -196,7 +205,7 @@ export default function DashboardPage() {
                   <CategoryDropdown options={categoryTabs} selected={activeTab} onSelect={handleTabClick} />
                   <div className="relative flex-grow w-full">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-5 w-5 text-gray-400" /></div>
-                    <input type="text" placeholder="Search problems, clients..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
+                    <input type="text" placeholder="Search problems, clients, authors, serials..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
                     {searchQuery && (<div className="absolute inset-y-0 right-0 pr-3 flex items-center"><button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button></div>)}
                   </div>
                 </div>

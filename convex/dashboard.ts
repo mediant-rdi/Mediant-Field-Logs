@@ -3,7 +3,6 @@ import { query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
-import { normalizeName } from "./clients";
 
 // getDashboardStats function remains unchanged...
 export const getDashboardStats = query({
@@ -64,43 +63,66 @@ export const getFilteredSubmissions = query({
 
     let documents: (Doc<"serviceReports"> | Doc<"complaints"> | Doc<"feedback">)[] = [];
     
-    // Search logic and initial document fetching remains the same...
     const nonAdminQuery = (q: any) => q.or(q.eq(q.field("submittedBy"), userId), q.eq(q.field("status"), "approved"));
     
     if (searchQuery && searchQuery.length > 0) {
-      const baseServiceReportTextSearch = ctx.db.query("serviceReports").withSearchIndex("search_complaint_text", (q) => q.search("complaintText", searchQuery));
-      const baseComplaintTextSearch = ctx.db.query("complaints").withSearchIndex("search_complaint_text", (q) => q.search("complaintText", searchQuery));
-      const serviceReportTextPromise = (isAdmin ? baseServiceReportTextSearch : baseServiceReportTextSearch.filter(nonAdminQuery)).collect();
-      const complaintTextPromise = (isAdmin ? baseComplaintTextSearch : baseComplaintTextSearch.filter(nonAdminQuery)).collect();
-      
-      const normalizedQuery = normalizeName(searchQuery);
-      const matchingLocations = await ctx.db.query("clientLocations").withIndex("by_full_search_name", (q) => q.gte("searchFullName", normalizedQuery).lt("searchFullName", normalizedQuery + "\uffff")).collect();
-      const locationFullNames = matchingLocations.map(loc => loc.fullName);
-      
-      let serviceReportLocationPromise: Promise<Doc<"serviceReports">[]> = Promise.resolve([]);
-      let complaintLocationPromise: Promise<Doc<"complaints">[]> = Promise.resolve([]);
+      // --- MODIFIED: Comprehensive search across multiple fields and tables ---
+      const searchPromises: Promise<(Doc<"serviceReports"> | Doc<"complaints">)[]>[] = [];
 
-      if (locationFullNames.length > 0) {
-        const serviceReportPromises = locationFullNames.map(name => {
-            const baseQuery = ctx.db.query("serviceReports").withIndex("by_branchLocation", q => q.eq("branchLocation", name));
-            return (isAdmin ? baseQuery : baseQuery.filter(nonAdminQuery)).collect();
-        });
-        const complaintPromises = locationFullNames.map(name => {
-            const baseQuery = ctx.db.query("complaints").withIndex("by_branchLocation", q => q.eq("branchLocation", name));
-            return (isAdmin ? baseQuery : baseQuery.filter(nonAdminQuery)).collect();
-        });
-        serviceReportLocationPromise = Promise.all(serviceReportPromises).then(results => results.flat());
-        complaintLocationPromise = Promise.all(complaintPromises).then(results => results.flat());
+      // 1. Search by Author (Submitter Name)
+      const matchingUsers = await ctx.db
+        .query("users")
+        .withSearchIndex("by_name_search", (q) => q.search("name", searchQuery))
+        .collect();
+      const userIds = matchingUsers.map((u) => u._id);
+
+      if (userIds.length > 0) {
+        for (const id of userIds) {
+          const srAuthorQuery = ctx.db.query("serviceReports").withIndex("by_submittedBy", (q) => q.eq("submittedBy", id));
+          searchPromises.push((isAdmin ? srAuthorQuery : srAuthorQuery.filter(nonAdminQuery)).collect());
+
+          const cAuthorQuery = ctx.db.query("complaints").withIndex("by_submittedBy", (q) => q.eq("submittedBy", id));
+          searchPromises.push((isAdmin ? cAuthorQuery : cAuthorQuery.filter(nonAdminQuery)).collect());
+        }
       }
+
+      // 2. Search Service Reports by various text fields
+      const srSearchTasks = [
+        { index: "search_complaint_text" as const, field: "complaintText" as const },
+        { index: "search_branchLocation" as const, field: "branchLocation" as const },
+        { index: "search_machineName" as const, field: "machineName" as const },
+        { index: "search_machineSerialNumber" as const, field: "machineSerialNumber" as const },
+      ];
+      for (const task of srSearchTasks) {
+        const baseQuery = ctx.db.query("serviceReports").withSearchIndex(task.index, (q) => q.search(task.field, searchQuery));
+        searchPromises.push((isAdmin ? baseQuery : baseQuery.filter(nonAdminQuery)).collect());
+      }
+
+      // 3. Search Complaints by various text fields
+      const cSearchTasks = [
+        { index: "search_complaint_text" as const, field: "complaintText" as const },
+        { index: "search_branchLocation" as const, field: "branchLocation" as const },
+        { index: "search_modelType" as const, field: "modelType" as const },
+        { index: "search_machineSerialNumber" as const, field: "machineSerialNumber" as const },
+      ];
+      for (const task of cSearchTasks) {
+        const baseQuery = ctx.db.query("complaints").withSearchIndex(task.index, (q) => q.search(task.field, searchQuery));
+        searchPromises.push((isAdmin ? baseQuery : baseQuery.filter(nonAdminQuery)).collect());
+      }
+
+      // Execute all search queries in parallel
+      const allResults = await Promise.all(searchPromises);
+      const combinedResults = allResults.flat();
       
-      const [ serviceReportTextResults, complaintTextResults, serviceReportLocationResults, complaintLocationResults ] = await Promise.all([ serviceReportTextPromise, complaintTextPromise, serviceReportLocationPromise, complaintLocationPromise ]);
-      const combinedResults = [ ...serviceReportTextResults, ...complaintTextResults, ...serviceReportLocationResults, ...complaintLocationResults ];
-      
+      // De-duplicate the results
       const uniqueResults = new Map<Id<"serviceReports" | "complaints">, Doc<"serviceReports"> | Doc<"complaints">>();
       for (const doc of combinedResults) {
-        if (!uniqueResults.has(doc._id)) { uniqueResults.set(doc._id, doc); }
+        if (!uniqueResults.has(doc._id)) { 
+          uniqueResults.set(doc._id, doc);
+        }
       }
       documents = Array.from(uniqueResults.values());
+      // End of new search logic
     } else {
       switch(tab) {
           case 'needsReview':
@@ -139,7 +161,7 @@ export const getFilteredSubmissions = query({
       }
     }
     
-    // --- MODIFIED: Enrichment logic now includes `feedbackSource` ---
+    // Enrichment logic remains the same...
     const allSubmissions = await Promise.all(filteredDocs.map(async (doc) => {
       const submitter = 'submittedBy' in doc && doc.submittedBy ? await ctx.db.get(doc.submittedBy) : null;
       const submitterName = submitter?.name ?? "Unknown User";
@@ -149,7 +171,7 @@ export const getFilteredSubmissions = query({
       let locationName: string;
       let machineName: string;
       let machineSerialNumber: string | undefined;
-      let feedbackSource: 'customer' | 'engineer' | undefined; // Declare variable
+      let feedbackSource: 'customer' | 'engineer' | undefined;
 
       const anyDoc = doc as any;
 
@@ -158,7 +180,7 @@ export const getFilteredSubmissions = query({
         mainText = anyDoc.feedbackDetails;
         locationName = anyDoc.clientName;
         machineName = anyDoc.machineName;
-        feedbackSource = anyDoc.feedbackSource; // Assign from document
+        feedbackSource = anyDoc.feedbackSource;
       } else if ('backofficeAccess' in anyDoc) {
         type = 'serviceReport';
         mainText = anyDoc.complaintText;
@@ -181,7 +203,7 @@ export const getFilteredSubmissions = query({
         machineName,
         machineSerialNumber,
         submitterName,
-        feedbackSource // Include in returned object
+        feedbackSource
       };
     }));
 
