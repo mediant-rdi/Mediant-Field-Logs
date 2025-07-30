@@ -4,7 +4,7 @@ import { v } from 'convex/values';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { Id } from './_generated/dataModel';
 
-// --- MODIFIED: This mutation now accepts and stores IDs, an array of image IDs, and an optional serial number ---
+// --- (This mutation is unchanged) ---
 export const submitServiceReport = mutation({
   args: {
     // Relational IDs
@@ -58,7 +58,7 @@ export const submitServiceReport = mutation({
 });
 
 
-// --- THIS FUNCTION IS NOW UPDATED FOR NOTIFICATIONS ---
+// --- MODIFIED: This mutation now handles the secondary resolutionStatus ---
 export const updateServiceReportStatus = mutation({
   args: {
     serviceReportId: v.id("serviceReports"),
@@ -77,21 +77,26 @@ export const updateServiceReportStatus = mutation({
       throw new Error("You are not authorized to perform this action.");
     }
 
-    // Prepare the update payload
-    const updatePayload: {
-      status: "approved" | "rejected";
-      approvedBy: Id<"users">;
-      approvedAt: number;
-      viewedBySubmitter?: false; // This property is optional
-    } = {
+    // --- Prepare the update payload, mirroring the logic from complaints ---
+    const updatePayload = {
       status: status,
       approvedBy: user._id, 
       approvedAt: Date.now(),
+      viewedBySubmitter: undefined as boolean | undefined,
+      resolutionStatus: undefined as 'waiting' | null | undefined,
     };
 
-    // If the submission is approved, mark it as unread for the submitter
+    // Clean up temporary properties for type safety
+    delete updatePayload.viewedBySubmitter;
+    delete updatePayload.resolutionStatus;
+
+    // If the submission is approved, mark it as unread and set initial resolution status
     if (status === 'approved') {
       updatePayload.viewedBySubmitter = false;
+      updatePayload.resolutionStatus = 'waiting';
+    } else {
+      // On rejection, explicitly clear any resolution status.
+      updatePayload.resolutionStatus = null;
     }
 
     await ctx.db.patch(serviceReportId, updatePayload);

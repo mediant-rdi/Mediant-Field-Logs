@@ -11,6 +11,13 @@ const approvalStatus = v.union(
   v.literal('rejected')
 );
 
+// --- Secondary status for approved items ---
+const resolutionStatus = v.union(
+  v.literal('waiting'),
+  v.literal('in_progress'),
+  v.literal('resolved')
+);
+
 const agreementType = v.union(
   v.literal('LEASE'),
   v.literal('COMPREHENSIVE'),
@@ -42,7 +49,6 @@ export default defineSchema({
     accountActivated: v.optional(v.boolean()),
   })
     .index('by_email', ['email'])
-    // --- NEW: Search index for user names ---
     .searchIndex("by_name_search", { searchField: "name" }),
 
   invitations: defineTable({
@@ -112,6 +118,8 @@ export default defineSchema({
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
     viewedBySubmitter: v.optional(v.boolean()),
+    // --- MODIFIED: Allow null for clearing the field ---
+    resolutionStatus: v.optional(v.union(resolutionStatus, v.null())),
   })
     .index("by_status", ["status"])
     .index("by_submittedBy", ["submittedBy"])
@@ -123,7 +131,6 @@ export default defineSchema({
     .index("by_client", ["clientId"])
     .index("by_location", ["locationId"])
     .index("by_machine", ["machineId"])
-    // --- NEW: Search indexes for dashboard search ---
     .searchIndex("search_branchLocation", { searchField: "branchLocation" })
     .searchIndex("search_machineName", { searchField: "machineName" })
     .searchIndex("search_machineSerialNumber", { searchField: "machineSerialNumber" }),
@@ -153,6 +160,8 @@ export default defineSchema({
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
     viewedBySubmitter: v.optional(v.boolean()),
+    // --- MODIFIED: Allow null for clearing the field ---
+    resolutionStatus: v.optional(v.union(resolutionStatus, v.null())),
   })
     .index("by_status", ["status"])
     .index("by_submittedBy", ["submittedBy"])
@@ -164,7 +173,6 @@ export default defineSchema({
     .index("by_client", ["clientId"])
     .index("by_location", ["locationId"])
     .index("by_machine", ["machineId"])
-    // --- NEW: Search indexes for dashboard search ---
     .searchIndex("search_branchLocation", { searchField: "branchLocation" })
     .searchIndex("search_modelType", { searchField: "modelType" })
     .searchIndex("search_machineSerialNumber", { searchField: "machineSerialNumber" }),

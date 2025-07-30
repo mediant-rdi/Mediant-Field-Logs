@@ -33,6 +33,7 @@ export type EnrichedReport = (
   machineName: string;
   mainText: string;
   status?: 'pending' | 'approved' | 'rejected' | 'can_be_implemented' | 'cannot_be_implemented' | 'waiting' | 'in_progress' | 'resolved';
+  resolutionStatus?: 'waiting' | 'in_progress' | 'resolved' | null;
   feedbackSource?: 'customer' | 'engineer';
 };
 
@@ -86,6 +87,15 @@ const FeedbackStatusDisplay = ({ status }: { status: EnrichedReport['status'] })
   return <StatusBadge status={status} />;
 };
 
+const ApprovedStatusDisplay = ({ resolutionStatus }: { resolutionStatus?: 'waiting' | 'in_progress' | 'resolved' | null }) => {
+  return (
+    <div className="flex flex-col items-end gap-2">
+      <StatusBadge status="approved" />
+      {resolutionStatus && <StatusBadge status={resolutionStatus} />}
+    </div>
+  );
+};
+
 const TypeIcon = ({ type }: { type: string }) => {
   const icons = { serviceReport: { icon: Settings, color: 'text-blue-500', bg: 'bg-blue-50' }, complaint: { icon: MessageSquare, color: 'text-red-500', bg: 'bg-red-50' }, feedback: { icon: FileText, color: 'text-green-500', bg: 'bg-green-50' } };
   const config = icons[type as keyof typeof icons] || icons.serviceReport;
@@ -98,7 +108,6 @@ const ProblemTypeBadge = ({ type }: { type: string }) => {
   return ( <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700"><Tag className="w-3 h-3" />{typeLabels[type as keyof typeof typeLabels] || type}</span> );
 };
 
-// --- MODIFIED: The label text is now more descriptive ---
 const SourceTag = ({ source }: { source: 'customer' | 'engineer' }) => {
   const config = {
     customer: { label: 'Customer Feedback', icon: User, bg: 'bg-blue-50', text: 'text-blue-700' },
@@ -142,15 +151,25 @@ export const DashboardForm = ({
   isFeedbackFilterable,
   onViewSubmission,
 }: DashboardFormProps) => {
+  // --- MODIFIED: Use both mutation hooks ---
   const updateServiceReport = useMutation(api.serviceReports.updateServiceReportStatus);
   const updateComplaint = useMutation(api.complaints.updateComplaintStatus);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  // --- MODIFIED: Handle both 'serviceReport' and 'complaint' types ---
   const handleStatusUpdate = async (id: Id<'serviceReports'> | Id<'complaints'>, status: 'approved' | 'rejected', type: 'serviceReport' | 'complaint') => {
     setUpdatingId(id);
     try {
-      if (type === 'serviceReport') { await updateServiceReport({ serviceReportId: id as Id<'serviceReports'>, status }); } else if (type === 'complaint') { await updateComplaint({ complaintId: id as Id<'complaints'>, status }); }
-    } catch (error) { console.error(`Failed to update ${type} status:`, error); } finally { setUpdatingId(null); }
+      if (type === 'serviceReport') {
+        await updateServiceReport({ serviceReportId: id as Id<'serviceReports'>, status });
+      } else if (type === 'complaint') {
+        await updateComplaint({ complaintId: id as Id<'complaints'>, status });
+      }
+    } catch (error) {
+      console.error(`Failed to update ${type} status:`, error);
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   return (
@@ -182,6 +201,8 @@ export const DashboardForm = ({
                 </div>
                 {report.type === 'feedback' ? (
                   <FeedbackStatusDisplay status={report.status} />
+                ) : report.status === 'approved' ? (
+                  <ApprovedStatusDisplay resolutionStatus={report.resolutionStatus} />
                 ) : (
                   report.status && <StatusBadge status={report.status} />
                 )}
@@ -201,6 +222,7 @@ export const DashboardForm = ({
             </div>
             <div className="mt-auto pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center gap-3">
               <button onClick={() => onViewSubmission(report)} className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" />View Details</button>
+              {/* This part correctly renders the buttons for both types */}
               {isAdmin && report.status === 'pending' && (report.type === 'serviceReport' || report.type === 'complaint') && ( <div className="flex items-center gap-2 w-full sm:w-auto"><button onClick={() => handleStatusUpdate(report._id, 'approved', report.type)} disabled={updatingId === report._id} className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-colors disabled:opacity-50"><CheckCircle className="w-3 h-3" />Approve</button><button onClick={() => handleStatusUpdate(report._id, 'rejected', report.type)} disabled={updatingId === report._id} className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors disabled:opacity-50"><XCircle className="w-3 h-3" />Reject</button></div> )}
             </div>
           </div> 

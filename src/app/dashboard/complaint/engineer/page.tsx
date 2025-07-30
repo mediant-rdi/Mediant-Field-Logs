@@ -123,9 +123,19 @@ export default function ServiceDelayForm() {
 
   // --- Form Handlers (updated for new state) ---
   const handleNonSelectionChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
+    const { name, type } = e.target;
     const isCheckbox = type === 'checkbox';
-    setFormData((prev) => ({ ...prev, [name]: isCheckbox ? (e.target as HTMLInputElement).checked : value }));
+    
+    let value: string | boolean = isCheckbox 
+      ? (e.target as HTMLInputElement).checked 
+      : (e.target as HTMLInputElement).value;
+
+    if (name === 'machineSerialNumber' && typeof value === 'string') {
+      // This regex replaces any character that is not a digit with an empty string.
+      value = value.replace(/\D/g, '');
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -319,11 +329,13 @@ export default function ServiceDelayForm() {
               )}
             </div>
 
-            {/* --- NEW: Machine Serial Number Input Field --- */}
+            {/* --- MODIFIED: Machine Serial Number Input Field --- */}
             <div className="form-group">
               <label htmlFor="machineSerialNumber">Machine Serial Number (Optional)</label>
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 id="machineSerialNumber"
                 name="machineSerialNumber"
                 value={formData.machineSerialNumber}
@@ -382,8 +394,8 @@ export default function ServiceDelayForm() {
         .report-form { display: flex; flex-direction: column; gap: 20px; }
         .form-group { display: flex; flex-direction: column; position: relative; }
         .form-group > label { margin-bottom: 8px; font-weight: 500; font-size: 14px; }
-        input[type="text"], textarea, select { padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 16px; width: 100%; box-sizing: border-box; }
-        input[type="text"]:focus, textarea:focus, select:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2); }
+        input[type="text"], input[type="tel"], textarea, select { padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 16px; width: 100%; box-sizing: border-box; }
+        input[type="text"]:focus, input[type="tel"]:focus, textarea:focus, select:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2); }
         .suggestions-list { position: absolute; top: 100%; left: 0; right: 0; background-color: white; border: 1px solid #cbd5e0; border-top: none; border-radius: 0 0 6px 6px; list-style-type: none; margin: 0; padding: 0; z-index: 10; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .suggestions-list li { padding: 10px 12px; cursor: pointer; font-size: 14px; }
         .suggestions-list li:hover { background-color: #f7fafc; }

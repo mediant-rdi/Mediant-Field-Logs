@@ -158,6 +158,78 @@ const FeedbackStatusManager = ({ submission, onClose }: { submission: EnrichedRe
   )
 };
 
+// --- MODIFIED: Pass `onClose` and use it for auto-closing ---
+const ResolutionStatusManager = ({ submission, onClose }: { submission: EnrichedReport; onClose: () => void; }) => {
+  const updateStatusMutation = useMutation(api.complaints.updateResolutionStatus);
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  type ResolutionStatus = 'waiting' | 'in_progress' | 'resolved';
+
+  const handleUpdate = async (newStatus: ResolutionStatus) => {
+    if (submission.type !== 'complaint' && submission.type !== 'serviceReport') return;
+    setIsUpdating(true);
+    try {
+      await updateStatusMutation({
+        submissionId: submission._id,
+        submissionType: submission.type,
+        newStatus: newStatus,
+      });
+      // --- ADDED: Close the modal on successful update ---
+      onClose();
+    } catch (error) {
+      console.error("Failed to update resolution status:", error);
+      alert("Error updating status. Please try again.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const buttonBaseStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+    flex: 1, padding: '8px 12px', fontSize: '14px', fontWeight: 500,
+    borderRadius: '6px', border: '1px solid', cursor: 'pointer', transition: 'all 0.2s',
+  };
+
+  const renderActions = () => {
+    const disabled = isUpdating;
+    const buttonWithLoading = (label: string) => (disabled ? 'Updating...' : label);
+
+    switch (submission.resolutionStatus) {
+      case 'waiting':
+        return (
+          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+            <button style={{ ...buttonBaseStyle, borderColor: '#818cf8', color: '#4c1d95', backgroundColor: '#e0e7ff', opacity: disabled ? 0.6 : 1 }} onClick={() => handleUpdate('in_progress')} disabled={disabled} >
+              <Settings size={16} /> {buttonWithLoading('Start Progress')}
+            </button>
+            <button style={{ ...buttonBaseStyle, borderColor: '#34d399', color: '#047857', backgroundColor: '#d1fae5', opacity: disabled ? 0.6 : 1 }} onClick={() => handleUpdate('resolved')} disabled={disabled} >
+              <CheckCircle size={16} /> {buttonWithLoading('Mark as Resolved')}
+            </button>
+          </div>
+        );
+      case 'in_progress':
+        return (
+          <div style={{ display: 'flex', marginTop: '4px' }}>
+            <button style={{ ...buttonBaseStyle, borderColor: '#34d399', color: '#047857', backgroundColor: '#d1fae5', opacity: disabled ? 0.6 : 1 }} onClick={() => handleUpdate('resolved')} disabled={disabled} >
+              <CheckCircle size={16} /> {buttonWithLoading('Mark as Resolved')}
+            </button>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  if (submission.resolutionStatus === 'resolved') return null;
+
+  return (
+    <DetailRow
+      label="Manage Resolution"
+      value={renderActions()}
+    />
+  );
+};
+
+
 const SpecificDetails = ({ submission, onImageView, onClose }: { submission: EnrichedReport, onImageView: (url: string) => void, onClose: () => void }) => {
   let storageIdsToFetch: Id<"_storage">[] | 'skip' = 'skip';
   
@@ -179,11 +251,12 @@ const SpecificDetails = ({ submission, onImageView, onClose }: { submission: Enr
         <>
           <DetailRow label="Problem Type" value={submission.problemType} />
           <DetailRow label="Complaint Details" value={submission.complaintText} />
+          {/* --- MODIFIED: Pass the onClose prop down to the manager component --- */}
+          {isAdmin && submission.status === 'approved' && <ResolutionStatusManager submission={submission} onClose={onClose} />}
         </>
       );
       break;
     case 'feedback':
-      // --- MODIFIED: Added a display text for the feedback source ---
       const sourceText = submission.feedbackSource === 'customer' 
         ? 'Customer Feedback' 
         : submission.feedbackSource === 'engineer' 
@@ -192,7 +265,6 @@ const SpecificDetails = ({ submission, onImageView, onClose }: { submission: Enr
 
       specificContent = (
         <>
-          {/* --- MODIFIED: Added DetailRow for the feedback source --- */}
           <DetailRow label="Feedback Source" value={sourceText} />
           <DetailRow label="Feedback Details" value={submission.feedbackDetails} />
           {submission.status === 'resolved' && submission.actionTaken && (
@@ -253,7 +325,21 @@ export default function SubmissionDetailsModal({ submission, onClose }: Submissi
               <DetailRow label="Model(s)" value={submission.machineName} />
               <DetailRow label="Serial Number" value={(submission as { machineSerialNumber?: string }).machineSerialNumber} />
               <DetailRow label="Date Submitted" value={new Date(submission._creationTime).toLocaleString()} />
-              {submission.status && <DetailRow label="Status" value={<StatusBadge status={submission.status} />} />}
+              
+              {submission.status && (
+                <DetailRow
+                  label="Status"
+                  value={
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                      <StatusBadge status={submission.status} />
+                      {submission.status === 'approved' && submission.resolutionStatus && (
+                        <StatusBadge status={submission.resolutionStatus} />
+                      )}
+                    </div>
+                  }
+                />
+              )}
+
               <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '16px 0' }} />
               <SpecificDetails submission={submission} onImageView={handleImageView} onClose={onClose} />
             </div>

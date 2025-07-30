@@ -126,9 +126,19 @@ export default function ComplaintForm() {
   
   // --- Handlers ---
   const handleNonSelectionChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
+    const { name, type } = e.target;
     const isCheckbox = type === 'checkbox';
-    setFormData((prev) => ({ ...prev, [name]: isCheckbox ? (e.target as HTMLInputElement).checked : value }));
+
+    let value: string | boolean = isCheckbox 
+      ? (e.target as HTMLInputElement).checked 
+      : (e.target as HTMLInputElement).value;
+
+    if (name === 'machineSerialNumber' && typeof value === 'string') {
+      // This regex replaces any character that is not a digit with an empty string.
+      value = value.replace(/\D/g, '');
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -320,7 +330,9 @@ export default function ComplaintForm() {
             <div className="form-group">
               <label htmlFor="machineSerialNumber">Machine Serial Number (Optional)</label>
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 id="machineSerialNumber"
                 name="machineSerialNumber"
                 value={formData.machineSerialNumber}
@@ -359,8 +371,8 @@ export default function ComplaintForm() {
         .report-form { display: flex; flex-direction: column; gap: 20px; }
         .form-group { display: flex; flex-direction: column; position: relative; }
         .form-group > label { margin-bottom: 8px; font-weight: 500; font-size: 14px; }
-        input[type="text"], textarea, select { padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 16px; width: 100%; box-sizing: border-box; }
-        input[type="text"]:focus, textarea:focus, select:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2); }
+        input[type="text"], input[type="tel"], textarea, select { padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 16px; width: 100%; box-sizing: border-box; }
+        input[type="text"]:focus, input[type="tel"]:focus, textarea:focus, select:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2); }
         .conditional-group { background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin-top: -10px; }
         .conditional-group > label { font-weight: 500; margin-bottom: 12px; display: block; }
         .checkbox-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }

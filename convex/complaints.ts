@@ -4,7 +4,7 @@ import { v } from 'convex/values';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { Id } from './_generated/dataModel';
 
-// --- MODIFIED: This mutation now accepts and stores IDs, an array of image IDs, and an optional serial number ---
+// ... submitComplaint and other mutations are unchanged ...
 export const submitComplaint = mutation({
   args: {
     // Relational IDs
@@ -53,7 +53,7 @@ export const submitComplaint = mutation({
   },
 });
 
-// --- UPDATED: Mutation to update complaint status ---
+
 export const updateComplaintStatus = mutation({
   args: {
     complaintId: v.id("complaints"),
@@ -70,21 +70,27 @@ export const updateComplaintStatus = mutation({
       throw new Error("You are not authorized to perform this action.");
     }
 
-    // Prepare the update payload
-    const updatePayload: {
-      status: "approved" | "rejected";
-      approvedBy: Id<"users">;
-      approvedAt: number;
-      viewedBySubmitter?: false; // This property is optional
-    } = {
+    // --- MODIFIED: Removed the explicit type annotation. TypeScript will infer it. ---
+    const updatePayload = {
       status: status,
       approvedBy: user._id, 
       approvedAt: Date.now(),
+      resolutionStatus: undefined as 'waiting' | null | undefined, // Add temp type to help construct object
+      viewedBySubmitter: undefined as boolean | undefined,
     };
 
-    // If the submission is approved, mark it as unread for the submitter
+    // This makes the object structure explicit before conditional logic
+    delete updatePayload.resolutionStatus;
+    delete updatePayload.viewedBySubmitter;
+
+
+    // If the submission is approved, mark it as unread and set initial resolution status
     if (status === 'approved') {
       updatePayload.viewedBySubmitter = false;
+      updatePayload.resolutionStatus = 'waiting';
+    } else {
+      // On rejection, explicitly clear any resolution status.
+      updatePayload.resolutionStatus = null;
     }
 
     await ctx.db.patch(complaintId, updatePayload);
@@ -93,7 +99,8 @@ export const updateComplaintStatus = mutation({
   },
 });
 
-// --- NEW: Mutation to edit a submission's solution ---
+// ... other mutations ...
+
 export const editSubmissionSolution = mutation({
   args: {
     // Use v.string() to accept IDs from either 'complaints' or 'serviceReports' tables
@@ -122,5 +129,46 @@ export const editSubmissionSolution = mutation({
     }
     
     console.log(`Solution for ${submissionType} ${submissionId} has been updated.`);
+  },
+});
+
+export const updateResolutionStatus = mutation({
+  args: {
+    submissionId: v.string(), 
+    submissionType: v.union(v.literal("complaint"), v.literal("serviceReport")),
+    newStatus: v.union(v.literal('waiting'), v.literal('in_progress'), v.literal('resolved')),
+  },
+  handler: async (ctx, { submissionId, submissionType, newStatus }) => {
+    // 1. Verify user is an admin
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("You must be logged in to perform this action.");
+    }
+    const user = await ctx.db.get(userId);
+    if (!user || !user.isAdmin) {
+      throw new Error("You are not authorized to perform this action.");
+    }
+
+    // 2. Ensure the submission is 'approved'
+    let submission;
+    if (submissionType === "complaint") {
+        submission = await ctx.db.get(submissionId as Id<"complaints">);
+    } else {
+        submission = await ctx.db.get(submissionId as Id<"serviceReports">);
+    }
+
+    if (!submission) throw new Error("Submission not found.");
+    if (submission.status !== 'approved') {
+        throw new Error("Cannot update resolution status for a non-approved submission.");
+    }
+
+    // 3. Patch the correct table
+    if (submissionType === "complaint") {
+      await ctx.db.patch(submissionId as Id<"complaints">, { resolutionStatus: newStatus });
+    } else if (submissionType === "serviceReport") {
+      await ctx.db.patch(submissionId as Id<"serviceReports">, { resolutionStatus: newStatus });
+    }
+    
+    console.log(`Resolution status for ${submissionType} ${submissionId} updated to ${newStatus}.`);
   },
 });
