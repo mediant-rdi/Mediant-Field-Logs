@@ -129,14 +129,9 @@ export default function ComplaintForm() {
     const { name, type } = e.target;
     const isCheckbox = type === 'checkbox';
 
-    let value: string | boolean = isCheckbox 
+    const value = isCheckbox 
       ? (e.target as HTMLInputElement).checked 
       : (e.target as HTMLInputElement).value;
-
-    if (name === 'machineSerialNumber' && typeof value === 'string') {
-      // This regex replaces any character that is not a digit with an empty string.
-      value = value.replace(/\D/g, '');
-    }
 
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -330,9 +325,7 @@ export default function ComplaintForm() {
             <div className="form-group">
               <label htmlFor="machineSerialNumber">Machine Serial Number (Optional)</label>
               <input
-                type="tel"
-                inputMode="numeric"
-                pattern="[0-9]*"
+                type="text"
                 id="machineSerialNumber"
                 name="machineSerialNumber"
                 value={formData.machineSerialNumber}
