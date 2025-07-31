@@ -158,7 +158,74 @@ const FeedbackStatusManager = ({ submission, onClose }: { submission: EnrichedRe
   )
 };
 
-// --- MODIFIED: Pass `onClose` and use it for auto-closing ---
+const OtherActionsManager = ({ submission, onClose }: { submission: EnrichedReport; onClose: () => void; }) => {
+  const [text, setText] = useState((submission as { otherActionsProvided?: string }).otherActionsProvided || '');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const updateActionsMutation = useMutation(api.complaints.updateOtherActionsProvided);
+  const originalText = (submission as { otherActionsProvided?: string }).otherActionsProvided || '';
+
+  const handleSave = async () => {
+    if (submission.type !== 'complaint' && submission.type !== 'serviceReport') return;
+    setIsUpdating(true);
+    try {
+      await updateActionsMutation({
+        submissionId: submission._id,
+        submissionType: submission.type,
+        otherActions: text,
+      });
+      onClose(); // --- MODIFIED: Close modal on success
+    } catch (error) {
+      console.error("Failed to update other actions:", error);
+      alert("Error updating actions. Please try again.");
+      setIsUpdating(false); // Only set to false on error, success closes modal
+    }
+  };
+  
+  const buttonBaseStyle: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+    padding: '6px 10px', fontSize: '13px', fontWeight: 500,
+    borderRadius: '6px', border: '1px solid', cursor: 'pointer', transition: 'all 0.2s'
+  };
+
+  return (
+    <div style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+      <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>Update Other Actions</p>
+      <div style={{ marginTop: '4px' }}>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Describe any other actions taken..."
+          rows={3}
+          style={{ 
+            width: '100%', 
+            padding: '8px', 
+            border: '1px solid #d1d5db', 
+            borderRadius: '6px', 
+            fontSize: '14px', 
+            boxSizing: 'border-box', 
+            marginBottom: '8px'
+          }}
+        />
+        <button
+          onClick={handleSave}
+          disabled={isUpdating || text === originalText}
+          style={{
+              ...buttonBaseStyle,
+              borderColor: '#3b82f6',
+              color: 'white',
+              backgroundColor: '#3b82f6',
+              opacity: (isUpdating || text === originalText) ? 0.6 : 1,
+              cursor: (isUpdating || text === originalText) ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {isUpdating ? 'Saving...' : 'Save & Close'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+
 const ResolutionStatusManager = ({ submission, onClose }: { submission: EnrichedReport; onClose: () => void; }) => {
   const updateStatusMutation = useMutation(api.complaints.updateResolutionStatus);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -174,7 +241,6 @@ const ResolutionStatusManager = ({ submission, onClose }: { submission: Enriched
         submissionType: submission.type,
         newStatus: newStatus,
       });
-      // --- ADDED: Close the modal on successful update ---
       onClose();
     } catch (error) {
       console.error("Failed to update resolution status:", error);
@@ -251,7 +317,17 @@ const SpecificDetails = ({ submission, onImageView, onClose }: { submission: Enr
         <>
           <DetailRow label="Problem Type" value={submission.problemType} />
           <DetailRow label="Complaint Details" value={submission.complaintText} />
-          {/* --- MODIFIED: Pass the onClose prop down to the manager component --- */}
+          <DetailRow label="Solution Provided" value={(submission as { solution?: string }).solution} />
+          
+          {/* --- MODIFIED: Always display saved actions if they exist --- */}
+          <DetailRow label="Other Actions Provided" value={(submission as { otherActionsProvided?: string }).otherActionsProvided} />
+          
+          {/* --- MODIFIED: Show the editor only for admins when in progress --- */}
+          {isAdmin && submission.resolutionStatus === 'in_progress' && (
+            <OtherActionsManager submission={submission} onClose={onClose} />
+          )}
+
+          {/* --- MODIFIED: Resolution manager is now the last item --- */}
           {isAdmin && submission.status === 'approved' && <ResolutionStatusManager submission={submission} onClose={onClose} />}
         </>
       );

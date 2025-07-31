@@ -172,3 +172,46 @@ export const updateResolutionStatus = mutation({
     console.log(`Resolution status for ${submissionType} ${submissionId} updated to ${newStatus}.`);
   },
 });
+
+export const updateOtherActionsProvided = mutation({
+  args: {
+    submissionId: v.string(),
+    submissionType: v.union(v.literal("complaint"), v.literal("serviceReport")),
+    otherActions: v.string(),
+  },
+  handler: async (ctx, { submissionId, submissionType, otherActions }) => {
+    // 1. Verify user is an admin
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("You must be logged in to perform this action.");
+    }
+    const user = await ctx.db.get(userId);
+    if (!user || !user.isAdmin) {
+      throw new Error("You are not authorized to perform this action.");
+    }
+
+    // 2. Ensure the submission is 'in_progress'
+    let submission;
+    if (submissionType === "complaint") {
+      submission = await ctx.db.get(submissionId as Id<"complaints">);
+    } else if (submissionType === "serviceReport") {
+      submission = await ctx.db.get(submissionId as Id<"serviceReports">);
+    } else {
+        throw new Error("Invalid submission type provided.");
+    }
+
+    if (!submission) throw new Error("Submission not found.");
+    if (submission.resolutionStatus !== 'in_progress') {
+      throw new Error("Cannot add actions for a submission that is not 'in progress'.");
+    }
+
+    // 3. Patch the correct table
+    if (submissionType === "complaint") {
+      await ctx.db.patch(submissionId as Id<"complaints">, { otherActionsProvided: otherActions });
+    } else if (submissionType === "serviceReport") {
+      await ctx.db.patch(submissionId as Id<"serviceReports">, { otherActionsProvided: otherActions });
+    }
+
+    console.log(`Other actions for ${submissionType} ${submissionId} have been updated.`);
+  },
+});

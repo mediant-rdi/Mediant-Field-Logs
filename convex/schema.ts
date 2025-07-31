@@ -120,6 +120,8 @@ export default defineSchema({
     viewedBySubmitter: v.optional(v.boolean()),
     // --- MODIFIED: Allow null for clearing the field ---
     resolutionStatus: v.optional(v.union(resolutionStatus, v.null())),
+    // --- NEW: Optional field for actions during 'in_progress' status ---
+    otherActionsProvided: v.optional(v.string()),
   })
     .index("by_status", ["status"])
     .index("by_submittedBy", ["submittedBy"])
@@ -162,6 +164,8 @@ export default defineSchema({
     viewedBySubmitter: v.optional(v.boolean()),
     // --- MODIFIED: Allow null for clearing the field ---
     resolutionStatus: v.optional(v.union(resolutionStatus, v.null())),
+    // --- NEW: Optional field for actions during 'in_progress' status ---
+    otherActionsProvided: v.optional(v.string()),
   })
     .index("by_status", ["status"])
     .index("by_submittedBy", ["submittedBy"])
