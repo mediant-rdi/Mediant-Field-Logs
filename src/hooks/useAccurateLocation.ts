@@ -29,23 +29,24 @@ export function useAccurateLocation() {
         return;
       }
 
-      let watchId: number;
-      let timeoutId: NodeJS.Timeout;
+      // Use a single 'const' object to hold the IDs. This resolves the lint error
+      // as the object reference is constant, even though its properties are assigned later.
+      const watcherIds: { watchId?: number; timeoutId?: NodeJS.Timeout } = {};
 
       const clearWatchers = () => {
-        if (watchId) navigator.geolocation.clearWatch(watchId);
-        if (timeoutId) clearTimeout(timeoutId);
+        if (watcherIds.watchId) navigator.geolocation.clearWatch(watcherIds.watchId);
+        if (watcherIds.timeoutId) clearTimeout(watcherIds.timeoutId);
         setIsGettingLocation(false);
       };
 
       // Set a timeout that will fail the process if it takes too long.
-      timeoutId = setTimeout(() => {
+      watcherIds.timeoutId = setTimeout(() => {
         clearWatchers();
         reject(new Error(`Could not get a location with required accuracy (${REQUIRED_ACCURACY}m) within 40 seconds. Please try again in an open area with a clear sky.`));
       }, LOCATION_TIMEOUT);
 
       // Start watching for position updates.
-      watchId = navigator.geolocation.watchPosition(
+      watcherIds.watchId = navigator.geolocation.watchPosition(
         // Success callback for EACH position update
         (position) => {
           console.log(`Received position update with accuracy: ${position.coords.accuracy}m`);

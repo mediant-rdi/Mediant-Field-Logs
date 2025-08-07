@@ -5,9 +5,8 @@ import { api } from '../../../../../convex/_generated/api';
 import { Id } from '../../../../../convex/_generated/dataModel';
 import { useParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import Link from 'next/link';
 // --- ADD Clock ICON ---
-import { ArrowLeft, Loader2, MapPin, AlertTriangle, Briefcase, User, Calendar, Flag, Clock } from 'lucide-react';
+import { ArrowLeft, Loader2, MapPin, AlertTriangle, User, Calendar, Flag, Clock } from 'lucide-react';
 
 // Helper to create a Google Maps link
 const getGoogleMapsLink = (lat?: number, lon?: number) => {

@@ -14,7 +14,8 @@ interface HeaderProps {
 }
 
 interface Notification {
-    _id: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    _id: any; // Using 'any' is intentional here due to mixed data types from the query
     _creationTime: number;
     title: string;
     text: string;
@@ -47,7 +48,7 @@ export default function Header({ onMenuClick, pageTitle }: HeaderProps) {
   const markAsRead = useMutation(api.notifications.markAllAsRead);
 
   useEffect(() => {
-    let wasOpen = notificationsOpen;
+    const wasOpen = notificationsOpen; // Correctly changed 'let' to 'const'
     const clickOutsideHandler = (event: MouseEvent) => {
       if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
         setNotificationsOpen(false);

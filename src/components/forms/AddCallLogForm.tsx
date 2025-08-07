@@ -64,9 +64,22 @@ export function AddCallLogForm() {
       });
       // UPDATED: On success, redirect to the call logs list page.
       router.push('/dashboard/call-logs');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to create call log:', err);
-      setError(err.data?.message || 'An unexpected error occurred.');
+      let errorMessage = 'An unexpected error occurred.';
+
+      // Prioritize the specific error structure that might come from a Convex mutation
+      if (typeof err === 'object' && err !== null && 'data' in err) {
+        const data = (err as { data: unknown }).data;
+        if (typeof data === 'object' && data !== null && 'message' in data && typeof (data as { message: unknown }).message === 'string') {
+          errorMessage = (data as { message: string }).message;
+        }
+      } else if (err instanceof Error) {
+        // Fallback to standard Error message
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

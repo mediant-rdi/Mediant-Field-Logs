@@ -64,9 +64,13 @@ export function EngineerAssignmentsDashboard() {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       });
-    } catch (error: any) {
+    } catch (error) {
       // Show a clear error and stop the process
-      alert(error.message);
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert('An unknown error occurred.');
+      }
     } finally {
       // Always reset the processing state for this job ID.
       setProcessingId(null);

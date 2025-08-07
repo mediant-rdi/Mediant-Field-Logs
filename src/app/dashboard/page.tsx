@@ -75,9 +75,13 @@ const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCall
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       });
-    } catch (error: any) {
+    } catch (error) {
       // Show a clear error and stop the process.
-      alert(error.message);
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert('An unknown error occurred.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -140,8 +144,12 @@ const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLo
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       });
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error) {
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert('An unknown error occurred.');
+      }
     } finally {
       setIsSubmitting(false);
     }
