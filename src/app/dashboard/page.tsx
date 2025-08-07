@@ -343,7 +343,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               {isAdmin && (
-                <Link href="/dashboard/call-logs/add" className="bg-indigo-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors flex-shrink-0">
+                <Link href="/dashboard/call-logs/add" className="hidden md:inline-flex bg-indigo-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors flex-shrink-0">
                   + Add New Log
                 </Link>
               )}
