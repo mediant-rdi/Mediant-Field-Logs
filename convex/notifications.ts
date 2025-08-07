@@ -1,8 +1,10 @@
 // convex/notifications.ts
 import { mutation, query } from './_generated/server';
 import { getAuthUserId } from '@convex-dev/auth/server';
+import { Id } from './_generated/dataModel';
+import { asyncMap } from 'convex-helpers';
 
-// Get a list of unread approved submissions for the current user.
+// Get a list of unread notifications for the current user.
 export const getUnreadNotifications = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
@@ -10,35 +12,69 @@ export const getUnreadNotifications = query({
       return [];
     }
 
-    // Get unread service reports
+    // Get unread service reports for submitter
     const serviceReports = await ctx.db
       .query('serviceReports')
       .withIndex('by_submitter_and_viewed', q => 
         q.eq('submittedBy', userId).eq('status', 'approved').eq('viewedBySubmitter', false)
       )
-      .order('desc')
       .collect();
     
-    // Get unread complaints
+    // Get unread complaints for submitter
     const complaints = await ctx.db
       .query('complaints')
       .withIndex('by_submitter_and_viewed', q => 
         q.eq('submittedBy', userId).eq('status', 'approved').eq('viewedBySubmitter', false)
       )
-      .order('desc')
+      .collect();
+      
+    // --- CORRECTED: Get unread call log assignments for engineer ---
+    // Use the new composite index to find jobs that are for this user AND have "Pending" status.
+    const callLogAssignments = await ctx.db
+      .query("callLogs")
+      .withIndex("by_engineer_and_status", (q) => 
+        q.eq("engineerIds", userId as any).eq("status", "Pending")
+      )
       .collect();
 
-    // Combine and sort by creation time
-    const allNotifications = [...serviceReports, ...complaints].sort(
+    // Then, filter in-memory to find the ones the user hasn't viewed yet.
+    const unviewedAssignments = callLogAssignments.filter(log => 
+        !log.viewedByEngineers?.includes(userId)
+    );
+
+    const reportNotifications = serviceReports.map(n => ({
+        _id: n._id,
+        _creationTime: n._creationTime,
+        title: 'Your Service Report was approved!',
+        text: n.complaintText,
+        type: 'Service Report'
+    }));
+
+    const complaintNotifications = complaints.map(n => ({
+        _id: n._id,
+        _creationTime: n._creationTime,
+        title: 'Your Complaint was approved!',
+        text: n.complaintText,
+        type: 'Complaint'
+    }));
+    
+    // Use the filtered `unviewedAssignments` array
+    const assignmentNotifications = await asyncMap(unviewedAssignments, async (log) => {
+        const location = await ctx.db.get(log.locationId);
+        return {
+            _id: log._id,
+            _creationTime: log._creationTime,
+            title: 'New Assignment',
+            text: `Job at ${location?.fullName ?? "Unknown Location"}: ${log.issue}`,
+            type: 'Assignment'
+        };
+    });
+
+    const allNotifications = [...reportNotifications, ...complaintNotifications, ...assignmentNotifications].sort(
       (a, b) => b._creationTime - a._creationTime
     );
 
-    return allNotifications.map(n => ({
-        _id: n._id,
-        _creationTime: n._creationTime,
-        text: n.complaintText, // Assuming this is the main text
-        type: 'complaintText' in n ? 'Complaint' : 'Service Report'
-    }));
+    return allNotifications;
   },
 });
 
@@ -50,6 +86,7 @@ export const markAllAsRead = mutation({
       return;
     }
 
+    // This logic for service reports and complaints is correct.
     const unreadServiceReports = await ctx.db
       .query('serviceReports')
       .withIndex('by_submitter_and_viewed', q => q.eq('submittedBy', userId))
@@ -61,10 +98,28 @@ export const markAllAsRead = mutation({
       .withIndex('by_submitter_and_viewed', q => q.eq('submittedBy', userId))
       .filter(q => q.eq(q.field('viewedBySubmitter'), false))
       .collect();
+      
+    // --- CORRECTED: Find unread call logs for the engineer ---
+    // Use the simpler 'by_engineer' index since we don't care about the status here.
+    // We want to mark *any* unread assignment as read, regardless of its status.
+    const allLogsAssignedToUser = await ctx.db
+      .query("callLogs")
+      .withIndex("by_engineer", (q) => q.eq("engineerIds", userId as any))
+      .collect();
+
+    // Filter in-memory to find the ones the user hasn't actually viewed.
+    const unreadCallLogs = allLogsAssignedToUser.filter(log => 
+        !log.viewedByEngineers?.includes(userId)
+    );
     
     const updates = [
       ...unreadServiceReports.map(r => ctx.db.patch(r._id, { viewedBySubmitter: true })),
-      ...unreadComplaints.map(c => ctx.db.patch(c._id, { viewedBySubmitter: true }))
+      ...unreadComplaints.map(c => ctx.db.patch(c._id, { viewedBySubmitter: true })),
+      // Add the user's ID to the `viewedByEngineers` array for each unread log.
+      ...unreadCallLogs.map(log => {
+        const currentViewers = log.viewedByEngineers ?? [];
+        return ctx.db.patch(log._id, { viewedByEngineers: [...currentViewers, userId] });
+      })
     ];
 
     await Promise.all(updates);

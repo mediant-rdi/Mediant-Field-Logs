@@ -42,6 +42,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     } else if (pathname.startsWith('/dashboard/complaint/engineer')) {
       setActiveItem('complaint-engineer');
       setPageTitle('Engineer Complaint');
+    } else if (pathname.startsWith('/dashboard/call-logs')) { // New rule for Call Logs
+      setActiveItem('call-logs');
+      setPageTitle('Call Logs');
     } else if (pathname === '/dashboard/feedback') { 
         setActiveItem('feedback-form');
         setPageTitle('Customer Feedback & Recommendation');
@@ -54,13 +57,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     } else if (pathname.startsWith('/dashboard/machines/add')) {
         setActiveItem('admin-add-machine');
         setPageTitle('Add New Machine');
-    } else if (pathname.startsWith('/dashboard/manuals/add')) { // New rule for adding manuals
+    } else if (pathname.startsWith('/dashboard/manuals/add')) {
         setActiveItem('admin-add-manual');
         setPageTitle('Add Machine Manual');
     } else if (pathname.startsWith('/dashboard/machines')) {
         setActiveItem('machines');
         setPageTitle('Product Management');
-    } else if (pathname.startsWith('/dashboard/manuals')) { // New rule for viewing manuals
+    } else if (pathname.startsWith('/dashboard/manuals')) { 
         setActiveItem('manuals-view');
         setPageTitle('Machine Manuals');
     } else if (pathname === '/dashboard') {
@@ -75,16 +78,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       case 'dashboard': router.push('/dashboard'); break;
       case 'clients-view': router.push('/dashboard/clients'); break;
       case 'machines': router.push('/dashboard/machines'); break;
-      case 'manuals-view': router.push('/dashboard/manuals'); break; // New navigation case
+      case 'manuals-view': router.push('/dashboard/manuals'); break;
       case 'reports-machine-dev': router.push('/dashboard/reports/machine-dev'); break;
       case 'feedback-form': router.push('/dashboard/feedback'); break;
       case 'complaint-customer': router.push('/dashboard/complaint/customer'); break;
       case 'complaint-engineer': router.push('/dashboard/complaint/engineer'); break;
+      case 'call-logs': router.push('/dashboard/call-logs'); break; // New navigation case
       case 'admin-view-users': router.push('/dashboard/users'); break;
       case 'admin-add-user': router.push('/dashboard/users/add'); break;
       case 'admin-add-client': router.push('/dashboard/clients/add'); break;
       case 'admin-add-machine': router.push('/dashboard/machines/add'); break;
-      case 'admin-add-manual': router.push('/dashboard/manuals/add'); break; // New navigation case
+      case 'admin-add-manual': router.push('/dashboard/manuals/add'); break; 
       case 'admin-add-report': router.push('/dashboard/reports/add'); break;
       default: console.warn(`Navigation for "${itemId}" is not defined.`); break;
     }

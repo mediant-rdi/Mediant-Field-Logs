@@ -2,7 +2,8 @@
 
 import { v } from "convex/values";
 import { mutation, query, internalMutation, action } from "./_generated/server";
-import { getAuthUserId } from "./auth";
+//import { getAuthUserId } from "./auth";
+import { getAuthUserId } from "@convex-dev/auth/server"; 
 import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 

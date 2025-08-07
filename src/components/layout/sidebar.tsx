@@ -16,7 +16,8 @@ import {
   Server,
   ClipboardList,
   Shield,
-  BookOpen, // Added for manuals
+  BookOpen,
+  PhoneCall, // Added for Call Logs
   ChevronDown
 } from "lucide-react";
 
@@ -34,9 +35,10 @@ const baseMenuItems = [
       { id: 'complaint-engineer', name: 'Engineer Complaint' }
     ]
   },
+  { id: 'call-logs', name: 'Call Logs', icon: <PhoneCall size={20} /> }, // Moved to be an independent item
   { id: 'clients-view', name: 'View Clients', icon: <Users size={20} />, },
   { id: 'machines', name: 'View Products', icon: <Server size={20} />, },
-  { id: 'manuals-view', name: 'Machine Manuals', icon: <BookOpen size={20} /> }, // New menu item for all users
+  { id: 'manuals-view', name: 'Machine Manuals', icon: <BookOpen size={20} /> },
   { id: 'reports-machine-dev', name: 'Machine Reports', icon: <ClipboardList size={20} />, },
   { 
     id: 'admin', 
@@ -47,7 +49,7 @@ const baseMenuItems = [
       { id: 'admin-add-user', name: 'Add User' },
       { id: 'admin-add-client', name: 'Add Client / Location' },
       { id: 'admin-add-machine', 'name': 'Add Machine' },
-      { id: 'admin-add-manual', name: 'Add Manual' }, // New admin-only sub-item
+      { id: 'admin-add-manual', name: 'Add Manual' },
       { id: 'admin-add-report', name: 'Add Report' }
     ]
   },
@@ -69,14 +71,19 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
 
   // Dynamically generate menuItems based on user role
   const menuItems = useMemo(() => {
+    // Open the dropdown if the active item is one of its children
+    const activeParent = baseMenuItems.find(item => item.subItems?.some(sub => sub.id === activeItem));
+    if (activeParent && openDropdown !== activeParent.id) {
+        setOpenDropdown(activeParent.id);
+    }
+    
     if (isLoading || !user?.isAdmin) {
       return baseMenuItems.filter(item => item.id !== 'admin');
     }
     return baseMenuItems;
-  }, [user, isLoading]); 
+  }, [user, isLoading, activeItem, openDropdown]); 
 
 
-  // --- The rest of the component remains the same ---
   const handleItemClick = (itemId: string) => { onItemClick(itemId); onClose(); };
   const handleDropdownToggle = (itemId: string) => { setOpenDropdown(prev => (prev === itemId ? null : itemId)); };
   const getUserInitials = (name?: string | null, email?: string | null) => { if (name) return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2); if (email) return email.slice(0, 2).toUpperCase(); return 'U'; };

@@ -51,7 +51,6 @@ export const getFilteredSubmissions = query({
   args: {
     tab: v.optional(v.union(v.literal('needsReview'), v.literal('serviceReports'), v.literal('complaints'), v.literal('feedback'), v.null())),
     searchQuery: v.optional(v.string()),
-    // --- MODIFIED: New comprehensive filter for complaints/reports ---
     complaintStatusFilter: v.optional(v.union(v.literal('all'), v.literal('waiting'), v.literal('in_progress'), v.literal('resolved'), v.literal('rejected'))),
     feedbackStatusFilter: v.optional(v.union(v.literal('all'), v.literal('waiting'), v.literal('in_progress'), v.literal('resolved'), v.literal('cannot_be_implemented'))),
   },
@@ -64,11 +63,9 @@ export const getFilteredSubmissions = query({
 
     let documents: (Doc<"serviceReports"> | Doc<"complaints"> | Doc<"feedback">)[] = [];
     
-    // For non-admins, this fetches their own reports (any status) plus all globally approved ones.
     const nonAdminQuery = (q: any) => q.or(q.eq(q.field("submittedBy"), userId), q.eq(q.field("status"), "approved"));
     
     if (searchQuery && searchQuery.length > 0) {
-      // --- Search logic is unchanged ---
       const searchPromises: Promise<(Doc<"serviceReports"> | Doc<"complaints">)[]>[] = [];
       const matchingUsers = await ctx.db.query("users").withSearchIndex("by_name_search", (q) => q.search("name", searchQuery)).collect();
       const userIds = matchingUsers.map((u) => u._id);
@@ -121,16 +118,13 @@ export const getFilteredSubmissions = query({
       }
     }
     
-    // --- MODIFIED: Filtering logic to handle the new complaintStatusFilter ---
     let filteredDocs = documents;
-    if (!searchQuery) { // Apply filters only when not performing a global search
+    if (!searchQuery) {
       if (isAdmin && tab === 'feedback' && feedbackStatusFilter && feedbackStatusFilter !== 'all') {
         filteredDocs = documents.filter(doc => 'status' in doc && doc.status === feedbackStatusFilter);
       } else if ((tab === 'serviceReports' || tab === 'complaints') && complaintStatusFilter) {
         
         let baseDocs = documents;
-        // For admins, the complaint/report tabs should not show 'pending' items.
-        // 'pending' items are exclusively for the 'Needs Review' tab.
         if (isAdmin) {
           baseDocs = documents.filter(doc => doc.status !== 'pending');
         }
@@ -139,8 +133,7 @@ export const getFilteredSubmissions = query({
           filteredDocs = baseDocs;
         } else if (complaintStatusFilter === 'rejected') {
           filteredDocs = baseDocs.filter(doc => 'status' in doc && doc.status === 'rejected');
-        } else { // 'waiting', 'in_progress', 'resolved'
-          // These filters apply only to 'approved' reports.
+        } else {
           filteredDocs = baseDocs.filter(
             doc => 'status' in doc && 
             doc.status === 'approved' && 
@@ -151,7 +144,6 @@ export const getFilteredSubmissions = query({
       }
     }
     
-    // Enrichment logic remains the same...
     const allSubmissions = await Promise.all(filteredDocs.map(async (doc) => {
       const submitter = 'submittedBy' in doc && doc.submittedBy ? await ctx.db.get(doc.submittedBy) : null;
       const submitterName = submitter?.name ?? "Unknown User";

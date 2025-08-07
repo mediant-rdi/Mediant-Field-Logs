@@ -8,4 +8,4 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 });
 
 // Export the helper function for getting authenticated user ID
-export const getAuthUserId = auth.getUserId;
+//export const getAuthUserId = auth.getUserId;

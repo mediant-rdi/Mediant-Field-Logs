@@ -3,7 +3,8 @@
 import { v } from "convex/values";
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import { getAuthUserId } from "./auth";
+//import { getAuthUserId } from "./auth";
+import { getAuthUserId } from "@convex-dev/auth/server"; 
 import { Id } from "./_generated/dataModel";
 
 // Helper function to generate a secure random token for the URL.

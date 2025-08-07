@@ -11,7 +11,6 @@ const approvalStatus = v.union(
   v.literal('rejected')
 );
 
-// --- Secondary status for approved items ---
 const resolutionStatus = v.union(
   v.literal('waiting'),
   v.literal('in_progress'),
@@ -27,7 +26,30 @@ const agreementType = v.union(
 export default defineSchema({
   ...authTables,
   
-  // ... other tables are unchanged ...
+  // --- UPDATED callLogs TABLE DEFINITION ---
+  callLogs: defineTable({
+    locationId: v.id("clientLocations"), 
+    issue: v.string(),
+    engineerIds: v.array(v.id("users")), 
+    status: v.string(),
+    statusTimestamp: v.number(),
+    searchField: v.optional(v.string()),
+    acceptedBy: v.optional(v.array(v.id("users"))),
+    viewedByEngineers: v.optional(v.array(v.id("users"))),
+    startLocation: v.optional(v.object({
+      latitude: v.number(),
+      longitude: v.number(),
+    })),
+    // --- FIELD ADDED FOR START TIMESTAMP ---
+    jobStartTime: v.optional(v.number()),
+  })
+  .index("by_location", ["locationId"])
+  .index("by_status", ["status"])
+  .searchIndex("by_search", { searchField: "searchField" })
+  .index("by_engineer", ["engineerIds"])
+  .index("by_engineer_and_status", ["engineerIds", "status"]),
+
+
   authAccounts: defineTable({
     userId: v.id("users"),
     provider: v.string(),
@@ -47,10 +69,12 @@ export default defineSchema({
     isAnonymous: v.optional(v.boolean()),
     isAdmin: v.optional(v.boolean()),
     accountActivated: v.optional(v.boolean()),
+    searchName: v.optional(v.string()),
   })
     .index('by_email', ['email'])
+    .index("by_search_name", ["searchName"])
     .searchIndex("by_name_search", { searchField: "name" }),
-
+  
   invitations: defineTable({
     token: v.string(),
     email: v.string(),
@@ -118,17 +142,13 @@ export default defineSchema({
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
     viewedBySubmitter: v.optional(v.boolean()),
-    // --- MODIFIED: Allow null for clearing the field ---
     resolutionStatus: v.optional(v.union(resolutionStatus, v.null())),
-    // --- NEW: Optional field for actions during 'in_progress' status ---
     otherActionsProvided: v.optional(v.string()),
   })
     .index("by_status", ["status"])
     .index("by_submittedBy", ["submittedBy"])
     .index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"])
-    .searchIndex("search_complaint_text", {
-      searchField: "complaintText",
-    })
+    .searchIndex("search_complaint_text", { searchField: "complaintText" })
     .index("by_branchLocation", ["branchLocation"])
     .index("by_client", ["clientId"])
     .index("by_location", ["locationId"])
@@ -162,17 +182,13 @@ export default defineSchema({
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
     viewedBySubmitter: v.optional(v.boolean()),
-    // --- MODIFIED: Allow null for clearing the field ---
     resolutionStatus: v.optional(v.union(resolutionStatus, v.null())),
-    // --- NEW: Optional field for actions during 'in_progress' status ---
     otherActionsProvided: v.optional(v.string()),
   })
     .index("by_status", ["status"])
     .index("by_submittedBy", ["submittedBy"])
     .index("by_submitter_and_viewed", ["submittedBy", "status", "viewedBySubmitter"])
-    .searchIndex("search_complaint_text", {
-      searchField: "complaintText",
-    })
+    .searchIndex("search_complaint_text", { searchField: "complaintText" })
     .index("by_branchLocation", ["branchLocation"])
     .index("by_client", ["clientId"])
     .index("by_location", ["locationId"])
@@ -213,7 +229,5 @@ export default defineSchema({
     .index("by_client_and_search", ["clientId", "searchName"])
     .index("by_full_search_name", ["searchFullName"])
     .index("by_search_name", ["searchName"])
-    .searchIndex("by_full_name_text", {
-      searchField: "fullName",
-    }),
+    .searchIndex("by_full_name_text", { searchField: "fullName", }),
 });

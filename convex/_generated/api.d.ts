@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as auth from "../auth.js";
+import type * as callLogs from "../callLogs.js";
 import type * as clients from "../clients.js";
 import type * as complaints from "../complaints.js";
 import type * as dashboard from "../dashboard.js";
@@ -24,6 +25,7 @@ import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
 import type * as machines from "../machines.js";
 import type * as manuals from "../manuals.js";
+import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
 import type * as passwordResets from "../passwordResets.js";
 import type * as reports from "../reports.js";
@@ -42,6 +44,7 @@ import type * as users from "../users.js";
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  callLogs: typeof callLogs;
   clients: typeof clients;
   complaints: typeof complaints;
   dashboard: typeof dashboard;
@@ -52,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   invitations: typeof invitations;
   machines: typeof machines;
   manuals: typeof manuals;
+  migrations: typeof migrations;
   notifications: typeof notifications;
   passwordResets: typeof passwordResets;
   reports: typeof reports;
