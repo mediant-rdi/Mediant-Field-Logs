@@ -99,6 +99,42 @@ export const acceptJob = mutation({
   },
 });
 
+// --- NEW MUTATION TO FINISH A JOB ---
+export const finishJob = mutation({
+  args: {
+    callLogId: v.id("callLogs"),
+    latitude: v.optional(v.number()),
+    longitude: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("You must be logged in to finish a job.");
+
+    const callLog = await ctx.db.get(args.callLogId);
+    if (!callLog) throw new Error("Call log not found.");
+    if (!callLog.engineerIds.includes(userId)) throw new Error("You are not assigned to this call log.");
+    if (callLog.status !== "In Progress") throw new Error("Job must be 'In Progress' to be marked as resolved.");
+
+    // Build the data object to patch
+    const patchData: Partial<Doc<"callLogs">> = {
+      status: "Resolved",
+      statusTimestamp: Date.now(),
+      jobEndTime: Date.now(),
+    };
+
+    // If location is provided, add it to the patch data
+    if (args.latitude !== undefined && args.longitude !== undefined) {
+      patchData.endLocation = {
+        latitude: args.latitude,
+        longitude: args.longitude,
+      };
+    }
+
+    // Perform a single, efficient patch operation
+    await ctx.db.patch(args.callLogId, patchData);
+  },
+});
+
 // getById query (No changes needed)
 export const getById = query({
   args: { id: v.id("callLogs") },

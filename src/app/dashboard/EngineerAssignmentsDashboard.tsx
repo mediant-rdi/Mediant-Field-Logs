@@ -1,7 +1,7 @@
 // src/components/dashboard/EngineerAssignmentsDashboard.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Doc, Id } from '../../../convex/_generated/dataModel';
@@ -13,6 +13,7 @@ import {
   Clock,
   ListChecks,
   Settings,
+  Flag,
 } from 'lucide-react';
 import { useAccurateLocation } from '@/hooks/useAccurateLocation';
 
@@ -43,41 +44,58 @@ type EnrichedCallLog = Doc<"callLogs"> & {
 
 export function EngineerAssignmentsDashboard() {
   const currentUser = useQuery(api.users.current);
-  const assignedJobs = useQuery(
+  const allAssignedJobs = useQuery(
     api.callLogs.getMyAssignedJobs,
     currentUser ? {} : 'skip'
   );
+  const assignedJobs = useMemo(() => allAssignedJobs?.slice(0, 3), [allAssignedJobs]);
   
   const acceptJob = useMutation(api.callLogs.acceptJob);
+  const finishJob = useMutation(api.callLogs.finishJob);
   const { getLocation, isGettingLocation } = useAccurateLocation();
   const [processingId, setProcessingId] = useState<Id<"callLogs"> | null>(null);
 
   const handleAccept = async (logId: Id<"callLogs">) => {
     setProcessingId(logId);
     try {
-      // This will wait up to 40s or fail with an error
       const position = await getLocation();
-      
-      // Only call mutation if location was successful
       await acceptJob({
         callLogId: logId,
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       });
     } catch (error) {
-      // Show a clear error and stop the process
       if (error instanceof Error) {
         alert(error.message);
       } else {
         alert('An unknown error occurred.');
       }
     } finally {
-      // Always reset the processing state for this job ID.
       setProcessingId(null);
     }
   };
 
-  const isLoading = currentUser === undefined || assignedJobs === undefined;
+  const handleFinish = async (logId: Id<"callLogs">) => {
+    setProcessingId(logId);
+    try {
+      const position = await getLocation();
+      await finishJob({
+        callLogId: logId,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert('An unknown error occurred.');
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const isLoading = currentUser === undefined || allAssignedJobs === undefined;
 
   if (isLoading) {
     return (
@@ -98,7 +116,7 @@ export function EngineerAssignmentsDashboard() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">Your Job Assignments</h2>
-              <p className="text-sm text-gray-600">A list of all jobs assigned to you.</p>
+              <p className="text-sm text-gray-600">Showing the 3 most recent jobs assigned to you.</p>
             </div>
           </div>
         </div>
@@ -130,6 +148,16 @@ export function EngineerAssignmentsDashboard() {
                         >
                           {isCurrentJobLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                           {isCurrentJobLoading && isGettingLocation ? 'Getting Location...' : 'Accept Job'}
+                        </button>
+                      )}
+                      {job.status === 'In Progress' && (
+                        <button
+                          onClick={() => handleFinish(job._id)}
+                          disabled={isCurrentJobLoading}
+                          className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isCurrentJobLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flag className="w-4 h-4" />}
+                          {isCurrentJobLoading && isGettingLocation ? 'Getting Location...' : 'Finish Job'}
                         </button>
                       )}
                     </div>

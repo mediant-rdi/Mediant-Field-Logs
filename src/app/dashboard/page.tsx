@@ -57,18 +57,15 @@ const TableSkeleton = () => (
   </div>
 );
 
-// --- MODIFIED COMPONENT TO USE THE STRICT HOOK ---
 const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCallLog }) {
   const startJobMutation = useMutation(api.callLogs.acceptJob);
+  const finishJobMutation = useMutation(api.callLogs.finishJob);
   const { getLocation, isGettingLocation } = useAccurateLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleStartJob = async () => {
     try {
-      // This will now wait up to 40s and fail if accuracy is not met.
       const position = await getLocation();
-      
-      // Only proceeds if getLocation() was successful.
       setIsSubmitting(true);
       await startJobMutation({
         callLogId: log._id,
@@ -76,7 +73,26 @@ const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCall
         longitude: position.coords.longitude,
       });
     } catch (error) {
-      // Show a clear error and stop the process.
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert('An unknown error occurred.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  const handleFinishJob = async () => {
+    try {
+      const position = await getLocation();
+      setIsSubmitting(true);
+      await finishJobMutation({
+        callLogId: log._id,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+    } catch (error) {
       if (error instanceof Error) {
         alert(error.message);
       } else {
@@ -116,6 +132,15 @@ const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCall
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isGettingLocation ? 'Getting Accurate Location...' : 'Start Job'}
           </button>
+        ) : log.status === 'In Progress' ? (
+           <button
+            onClick={handleFinishJob}
+            disabled={isLoading}
+            className="inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isGettingLocation ? 'Getting Accurate Location...' : 'Finish Job'}
+          </button>
         ) : (
           <Link
             href={`/dashboard/call-logs/${log._id}`}
@@ -129,9 +154,9 @@ const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCall
   );
 });
 
-// --- MODIFIED COMPONENT TO USE THE STRICT HOOK ---
 const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLog }) {
   const startJobMutation = useMutation(api.callLogs.acceptJob);
+  const finishJobMutation = useMutation(api.callLogs.finishJob);
   const { getLocation, isGettingLocation } = useAccurateLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -140,6 +165,26 @@ const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLo
       const position = await getLocation();
       setIsSubmitting(true);
       await startJobMutation({
+        callLogId: log._id,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert('An unknown error occurred.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFinishJob = async () => {
+    try {
+      const position = await getLocation();
+      setIsSubmitting(true);
+      await finishJobMutation({
         callLogId: log._id,
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
@@ -178,6 +223,15 @@ const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLo
             {isLoading && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             {isGettingLocation ? 'Locating...' : 'Start'}
           </button>
+        ) : log.status === 'In Progress' ? (
+          <button
+            onClick={handleFinishJob}
+            disabled={isLoading}
+            className="inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isLoading && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+            {isGettingLocation ? 'Locating...' : 'Finish'}
+          </button>
         ) : (
           <Link
             href={`/dashboard/call-logs/${log._id}`}
@@ -191,7 +245,6 @@ const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLo
   );
 });
 
-// SIMPLIFIED: This component no longer needs the `isAdmin` prop.
 function CallLogsDataTable({
   callLogs,
 }: {
@@ -274,11 +327,15 @@ export default function DashboardPage() {
   const currentUser = useQuery(api.users.current);
   const isAdmin = currentUser?.isAdmin ?? false;
 
-  // --- UNIFIED DATA FETCHING: Everyone sees their own assigned jobs. ---
   const assignedJobs = useQuery(
     api.callLogs.getMyAssignedJobs,
-    currentUser ? {} : 'skip' // Run for ANY logged-in user
+    currentUser ? {} : 'skip' 
   );
+  
+  const latestAssignedJobs = useMemo(() => {
+    return assignedJobs?.slice(0, 3);
+  }, [assignedJobs]);
+
 
   // --- State for the Admin portion of the dashboard ---
   const [activeTab, setActiveTab] = useState<TabType>(null);
@@ -339,7 +396,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">My Assigned Jobs</h2>
-                  <p className="text-sm text-gray-600">A list of all jobs currently assigned to you.</p>
+                  <p className="text-sm text-gray-600">Showing the 3 most recent jobs assigned to you.</p>
                 </div>
               </div>
               {isAdmin && (
@@ -350,7 +407,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="p-4 sm:p-6">
-            <CallLogsDataTable callLogs={assignedJobs} />
+            <CallLogsDataTable callLogs={latestAssignedJobs} />
           </div>
         </section>
 

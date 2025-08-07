@@ -5,7 +5,6 @@ import { api } from '../../../../../convex/_generated/api';
 import { Id } from '../../../../../convex/_generated/dataModel';
 import { useParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-// --- ADD Clock ICON ---
 import { ArrowLeft, Loader2, MapPin, AlertTriangle, User, Calendar, Flag, Clock } from 'lucide-react';
 
 // Helper to create a Google Maps link
@@ -46,7 +45,8 @@ export default function CallLogDetailsPage() {
     );
   }
 
-  const mapLink = getGoogleMapsLink(callLog.startLocation?.latitude, callLog.startLocation?.longitude);
+  const startMapLink = getGoogleMapsLink(callLog.startLocation?.latitude, callLog.startLocation?.longitude);
+  const endMapLink = getGoogleMapsLink(callLog.endLocation?.latitude, callLog.endLocation?.longitude);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -60,9 +60,6 @@ export default function CallLogDetailsPage() {
         <div className="bg-white shadow-lg rounded-lg overflow-hidden">
           <div className="bg-gray-50 px-6 py-5 border-b border-gray-200">
             <h1 className="text-2xl font-bold text-gray-900">{callLog.clientName}</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Job ID: {callLog._id}
-            </p>
           </div>
           <div className="p-6 space-y-8">
             <div>
@@ -85,7 +82,6 @@ export default function CallLogDetailsPage() {
                   <p className="text-md font-semibold text-gray-900">{callLog.status}</p>
                 </div>
               </div>
-              {/* --- ADDED JOB START TIME DISPLAY --- */}
               <div className="flex items-start space-x-3">
                 <div className="flex-shrink-0 mt-1"><Clock className="w-5 h-5 text-gray-400"/></div>
                 <div>
@@ -97,7 +93,18 @@ export default function CallLogDetailsPage() {
                   )}
                 </div>
               </div>
-              <div className="flex items-start space-x-3">
+               <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0 mt-1"><Flag className="w-5 h-5 text-gray-400"/></div>
+                <div>
+                  <h4 className="font-medium text-gray-600">Job Finished At</h4>
+                  {callLog.jobEndTime ? (
+                    <p className="text-md text-gray-900">{format(new Date(callLog.jobEndTime), 'dd MMMM yyyy, h:mm a')}</p>
+                  ) : (
+                    <p className="text-md text-gray-500 italic">Not finished yet</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-start space-x-3 md:col-span-2">
                 <div className="flex-shrink-0 mt-1"><User className="w-5 h-5 text-gray-400"/></div>
                 <div>
                   <h4 className="font-medium text-gray-600">Assigned Engineers</h4>
@@ -106,30 +113,57 @@ export default function CallLogDetailsPage() {
               </div>
             </div>
 
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-3">Job Start Location</h3>
-              {mapLink ? (
-                <div className="mt-2">
-                  <a 
-                    href={mapLink} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                  >
-                    <MapPin className="w-5 h-5" />
-                    View on Google Maps
-                  </a>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Coordinates Captured: {callLog.startLocation?.latitude?.toFixed(6)}, {callLog.startLocation?.longitude?.toFixed(6)}
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-2 flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-                  <p className="text-sm text-yellow-800">No start location was recorded for this job.</p>
-                </div>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-3">Job Start Location</h3>
+                {startMapLink ? (
+                  <div className="mt-2">
+                    <a 
+                      href={startMapLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                      <MapPin className="w-5 h-5" />
+                      View on Google Maps
+                    </a>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Coordinates Captured: {callLog.startLocation?.latitude?.toFixed(6)}, {callLog.startLocation?.longitude?.toFixed(6)}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-2 flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+                    <p className="text-sm text-yellow-800">No start location was recorded for this job.</p>
+                  </div>
+                )}
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-3">Job End Location</h3>
+                {endMapLink ? (
+                  <div className="mt-2">
+                    <a 
+                      href={endMapLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                      <MapPin className="w-5 h-5" />
+                      View on Google Maps
+                    </a>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Coordinates Captured: {callLog.endLocation?.latitude?.toFixed(6)}, {callLog.endLocation?.longitude?.toFixed(6)}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-2 flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+                    <p className="text-sm text-yellow-800">No end location was recorded for this job.</p>
+                  </div>
+                )}
+              </div>
             </div>
+
           </div>
         </div>
       </div>

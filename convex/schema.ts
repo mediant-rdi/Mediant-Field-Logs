@@ -40,8 +40,13 @@ export default defineSchema({
       latitude: v.number(),
       longitude: v.number(),
     })),
-    // --- FIELD ADDED FOR START TIMESTAMP ---
     jobStartTime: v.optional(v.number()),
+    // --- FIELDS ADDED FOR JOB COMPLETION ---
+    endLocation: v.optional(v.object({
+      latitude: v.number(),
+      longitude: v.number(),
+    })),
+    jobEndTime: v.optional(v.number()),
   })
   .index("by_location", ["locationId"])
   .index("by_status", ["status"])
