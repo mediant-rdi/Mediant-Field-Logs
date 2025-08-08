@@ -26,7 +26,30 @@ const enrichLog = async (ctx: QueryCtx, log: Doc<"callLogs">) => {
     };
 };
 
-// Create mutation (No changes needed)
+// --- CORRECTED MUTATION TO REQUEST AN ESCALATION ---
+export const requestEscalation = mutation({
+  args: { callLogId: v.id("callLogs") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("You must be logged in to escalate a job.");
+
+    const callLog = await ctx.db.get(args.callLogId);
+    if (!callLog) throw new Error("Call log not found.");
+    if (callLog.status !== "In Progress") throw new Error("Job must be 'In Progress' to be escalated.");
+    if (callLog.isEscalated) throw new Error("This job has already been escalated.");
+    if (!callLog.engineerIds.includes(userId)) throw new Error("You are not assigned to this call log.");
+
+    // Change status and record the number of engineers at this exact moment.
+    await ctx.db.patch(args.callLogId, {
+      status: "Escalated",
+      statusTimestamp: Date.now(),
+      isEscalated: true,
+      engineersAtEscalation: callLog.engineerIds.length, // <-- THIS IS THE KEY CHANGE
+    });
+  },
+});
+
+// Create mutation
 export const create = mutation({
   args: {
     locationId: v.id("clientLocations"),
@@ -51,11 +74,12 @@ export const create = mutation({
       searchField: searchField,
       acceptedBy: [],
       viewedByEngineers: [],
+      isEscalated: false,
     });
   },
 });
 
-// MODIFIED: Mutation now captures start time in a single patch.
+// acceptJob mutation
 export const acceptJob = mutation({
   args: {
     callLogId: v.id("callLogs"),
@@ -65,119 +89,104 @@ export const acceptJob = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("You must be logged in to accept a job.");
-
     const callLog = await ctx.db.get(args.callLogId);
     if (!callLog) throw new Error("Call log not found.");
     if (!callLog.engineerIds.includes(userId)) throw new Error("You are not assigned to this call log.");
-
     if (callLog.acceptedBy?.includes(userId)) return;
-
     const currentAccepted = callLog.acceptedBy ?? [];
-    
-    // Build the data object to patch
     const patchData: Partial<Doc<"callLogs">> = {
       acceptedBy: [...currentAccepted, userId],
     };
-
-    // If location is provided, add it to the patch data
     if (args.latitude !== undefined && args.longitude !== undefined) {
-      patchData.startLocation = {
-        latitude: args.latitude,
-        longitude: args.longitude,
-      };
+      if (callLog.status === "Pending") {
+          patchData.startLocation = { latitude: args.latitude, longitude: args.longitude };
+      } else if (callLog.status === "Escalated") {
+          patchData.escalatedStartLocation = { latitude: args.latitude, longitude: args.longitude };
+      }
     }
-    
-    // If this is the first person to accept, update status and timestamps
-    if (callLog.status === "Pending") {
+    if (callLog.status === "Pending" || callLog.status === "Escalated") {
       patchData.status = "In Progress";
       patchData.statusTimestamp = Date.now();
-      patchData.jobStartTime = Date.now(); // <-- SET THE START TIME
+      if (callLog.status === "Pending") {
+        patchData.jobStartTime = Date.now();
+      } else {
+        patchData.escalatedJobStartTime = Date.now();
+      }
     }
-
-    // Perform a single, efficient patch operation
     await ctx.db.patch(args.callLogId, patchData);
   },
 });
 
-// --- NEW MUTATION TO FINISH A JOB ---
-export const finishJob = mutation({
+// assignEscalatedEngineer mutation
+export const assignEscalatedEngineer = mutation({
   args: {
     callLogId: v.id("callLogs"),
-    latitude: v.optional(v.number()),
-    longitude: v.optional(v.number()),
+    newEngineerId: v.id("users"),
   },
+  handler: async (ctx, args) => {
+    const callLog = await ctx.db.get(args.callLogId);
+    if (!callLog) throw new Error("Call log not found.");
+    if (callLog.status !== "Escalated") throw new Error("Job must have 'Escalated' status to assign a new engineer.");
+    const newEngineer = await ctx.db.get(args.newEngineerId);
+    if (!newEngineer) throw new Error("The selected new engineer could not be found.");
+    if (callLog.engineerIds.includes(args.newEngineerId)) throw new Error("This engineer is already assigned to the job.");
+    const newEngineerName = newEngineer.name ?? "Unknown User";
+    const searchField = [callLog.searchField, newEngineerName].join(" ");
+    await ctx.db.patch(args.callLogId, {
+      engineerIds: [...callLog.engineerIds, args.newEngineerId],
+      searchField: searchField,
+    });
+  },
+});
+
+// finishJob mutation
+export const finishJob = mutation({
+  args: { callLogId: v.id("callLogs"), latitude: v.optional(v.number()), longitude: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("You must be logged in to finish a job.");
-
     const callLog = await ctx.db.get(args.callLogId);
     if (!callLog) throw new Error("Call log not found.");
     if (!callLog.engineerIds.includes(userId)) throw new Error("You are not assigned to this call log.");
     if (callLog.status !== "In Progress") throw new Error("Job must be 'In Progress' to be marked as resolved.");
-
-    // Build the data object to patch
     const patchData: Partial<Doc<"callLogs">> = {
       status: "Resolved",
       statusTimestamp: Date.now(),
       jobEndTime: Date.now(),
     };
-
-    // If location is provided, add it to the patch data
     if (args.latitude !== undefined && args.longitude !== undefined) {
-      patchData.endLocation = {
-        latitude: args.latitude,
-        longitude: args.longitude,
-      };
+      patchData.endLocation = { latitude: args.latitude, longitude: args.longitude };
     }
-
-    // Perform a single, efficient patch operation
     await ctx.db.patch(args.callLogId, patchData);
   },
 });
 
-// getById query (No changes needed)
+// Queries
 export const getById = query({
   args: { id: v.id("callLogs") },
   handler: async (ctx, args) => {
     const log = await ctx.db.get(args.id);
-    if (!log) {
-      return null;
-    }
+    if (!log) return null;
     return enrichLog(ctx, log);
   },
 });
 
-// getMyAssignedJobs query (No changes needed)
 export const getMyAssignedJobs = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return [];
-    }
+    if (!userId) return [];
     const allLogs = await ctx.db.query("callLogs").order("desc").collect();
-    const assignedLogs = allLogs.filter(log => 
-      log.engineerIds.includes(userId)
-    );
+    const assignedLogs = allLogs.filter(log => log.engineerIds.includes(userId));
     return asyncMap(assignedLogs, (log) => enrichLog(ctx, log));
   },
 });
 
-// Other queries (searchCallLogs, list) remain unchanged...
 export const searchCallLogs = query({
   args: { searchText: v.string() },
   handler: async (ctx, args) => {
-    if (args.searchText === "") {
-      const allLogs = await ctx.db.query("callLogs").order("desc").collect();
-      return asyncMap(allLogs, (log) => enrichLog(ctx, log));
-    }
-    const logs = await ctx.db.query("callLogs").withSearchIndex("by_search", (q) => q.search("searchField", args.searchText)).collect();
-    return asyncMap(logs, (log) => enrichLog(ctx, log));
-  },
-});
-
-export const list = query({
-  handler: async (ctx) => {
-    const logs = await ctx.db.query("callLogs").order("desc").collect();
+    const logs = args.searchText === ""
+      ? await ctx.db.query("callLogs").order("desc").collect()
+      : await ctx.db.query("callLogs").withSearchIndex("by_search", (q) => q.search("searchField", args.searchText)).collect();
     return asyncMap(logs, (log) => enrichLog(ctx, log));
   },
 });

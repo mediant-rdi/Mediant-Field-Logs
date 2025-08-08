@@ -31,7 +31,7 @@ export default defineSchema({
     locationId: v.id("clientLocations"), 
     issue: v.string(),
     engineerIds: v.array(v.id("users")), 
-    status: v.string(),
+    status: v.string(), // e.g., "Pending", "In Progress", "Escalated", "Resolved"
     statusTimestamp: v.number(),
     searchField: v.optional(v.string()),
     acceptedBy: v.optional(v.array(v.id("users"))),
@@ -41,12 +41,21 @@ export default defineSchema({
       longitude: v.number(),
     })),
     jobStartTime: v.optional(v.number()),
-    // --- FIELDS ADDED FOR JOB COMPLETION ---
     endLocation: v.optional(v.object({
       latitude: v.number(),
       longitude: v.number(),
     })),
     jobEndTime: v.optional(v.number()),
+    isEscalated: v.optional(v.boolean()),
+    escalatedJobStartTime: v.optional(v.number()),
+    escalatedStartLocation: v.optional(v.object({
+      latitude: v.number(),
+      longitude: v.number(),
+    })),
+
+    // ---- THIS IS THE CRITICAL FIELD FOR THE FIX ----
+    engineersAtEscalation: v.optional(v.number()),
+
   })
   .index("by_location", ["locationId"])
   .index("by_status", ["status"])

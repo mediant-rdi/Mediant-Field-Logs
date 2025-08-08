@@ -13,6 +13,49 @@ const getGoogleMapsLink = (lat?: number, lon?: number) => {
   return `https://www.google.com/maps?q=${lat},${lon}`;
 };
 
+// Reusable component to display a location block
+const LocationBlock = ({ title, mapLink, lat, lon }: { title: string, mapLink: string | null, lat?: number, lon?: number }) => (
+  <div>
+    <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-3">{title}</h3>
+    {mapLink ? (
+      <div className="mt-2">
+        <a 
+          href={mapLink} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+        >
+          <MapPin className="w-5 h-5" />
+          View on Google Maps
+        </a>
+        <p className="text-xs text-gray-500 mt-2">
+          Coordinates Captured: {lat?.toFixed(6)}, {lon?.toFixed(6)}
+        </p>
+      </div>
+    ) : (
+      <div className="mt-2 flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+        <p className="text-sm text-yellow-800">No location was recorded for this event.</p>
+      </div>
+    )}
+  </div>
+);
+
+// Reusable component to display a time block
+const TimeBlock = ({ title, time }: { title: string, time?: number }) => (
+  <div className="flex items-start space-x-3">
+    <div className="flex-shrink-0 mt-1"><Clock className="w-5 h-5 text-gray-400"/></div>
+    <div>
+      <h4 className="font-medium text-gray-600">{title}</h4>
+      {time ? (
+        <p className="text-md text-gray-900">{format(new Date(time), 'dd MMMM yyyy, h:mm a')}</p>
+      ) : (
+        <p className="text-md text-gray-500 italic">Not available</p>
+      )}
+    </div>
+  </div>
+);
+
 export default function CallLogDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -46,6 +89,7 @@ export default function CallLogDetailsPage() {
   }
 
   const startMapLink = getGoogleMapsLink(callLog.startLocation?.latitude, callLog.startLocation?.longitude);
+  const escalatedStartMapLink = getGoogleMapsLink(callLog.escalatedStartLocation?.latitude, callLog.escalatedStartLocation?.longitude);
   const endMapLink = getGoogleMapsLink(callLog.endLocation?.latitude, callLog.endLocation?.longitude);
 
   return (
@@ -60,6 +104,11 @@ export default function CallLogDetailsPage() {
         <div className="bg-white shadow-lg rounded-lg overflow-hidden">
           <div className="bg-gray-50 px-6 py-5 border-b border-gray-200">
             <h1 className="text-2xl font-bold text-gray-900">{callLog.clientName}</h1>
+            {callLog.isEscalated && (
+              <span className="mt-1 inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                Escalated Issue
+              </span>
+            )}
           </div>
           <div className="p-6 space-y-8">
             <div>
@@ -67,6 +116,7 @@ export default function CallLogDetailsPage() {
               <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{callLog.issue}</p>
             </div>
             
+            {/* General Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
               <div className="flex items-start space-x-3">
                 <div className="flex-shrink-0 mt-1"><Calendar className="w-5 h-5 text-gray-400"/></div>
@@ -82,28 +132,6 @@ export default function CallLogDetailsPage() {
                   <p className="text-md font-semibold text-gray-900">{callLog.status}</p>
                 </div>
               </div>
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 mt-1"><Clock className="w-5 h-5 text-gray-400"/></div>
-                <div>
-                  <h4 className="font-medium text-gray-600">Job Started At</h4>
-                  {callLog.jobStartTime ? (
-                    <p className="text-md text-gray-900">{format(new Date(callLog.jobStartTime), 'dd MMMM yyyy, h:mm a')}</p>
-                  ) : (
-                    <p className="text-md text-gray-500 italic">Not started yet</p>
-                  )}
-                </div>
-              </div>
-               <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 mt-1"><Flag className="w-5 h-5 text-gray-400"/></div>
-                <div>
-                  <h4 className="font-medium text-gray-600">Job Finished At</h4>
-                  {callLog.jobEndTime ? (
-                    <p className="text-md text-gray-900">{format(new Date(callLog.jobEndTime), 'dd MMMM yyyy, h:mm a')}</p>
-                  ) : (
-                    <p className="text-md text-gray-500 italic">Not finished yet</p>
-                  )}
-                </div>
-              </div>
               <div className="flex items-start space-x-3 md:col-span-2">
                 <div className="flex-shrink-0 mt-1"><User className="w-5 h-5 text-gray-400"/></div>
                 <div>
@@ -113,57 +141,48 @@ export default function CallLogDetailsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-3">Job Start Location</h3>
-                {startMapLink ? (
-                  <div className="mt-2">
-                    <a 
-                      href={startMapLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                    >
-                      <MapPin className="w-5 h-5" />
-                      View on Google Maps
-                    </a>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Coordinates Captured: {callLog.startLocation?.latitude?.toFixed(6)}, {callLog.startLocation?.longitude?.toFixed(6)}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="mt-2 flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-                    <p className="text-sm text-yellow-800">No start location was recorded for this job.</p>
-                  </div>
-                )}
+            {/* Conditional Timeline & Location Details */}
+            {callLog.isEscalated ? (
+              <div className="space-y-8 border-t pt-8 mt-8">
+                <h3 className="text-xl font-bold text-gray-800">Job Timeline</h3>
+                {/* 1. Initial Job */}
+                <div className="pl-4 border-l-4 border-gray-200">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-4">1. Initial Job Start</h4>
+                    <div className="space-y-6">
+                      <TimeBlock title="Initial Job Started At" time={callLog.jobStartTime} />
+                      <LocationBlock title="Initial Start Location" mapLink={startMapLink} lat={callLog.startLocation?.latitude} lon={callLog.startLocation?.longitude} />
+                    </div>
+                </div>
+                {/* 2. Escalation Job */}
+                <div className="pl-4 border-l-4 border-yellow-400">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-4">2. Escalated Job Start</h4>
+                    <div className="space-y-6">
+                      <TimeBlock title="Escalated Job Started At" time={callLog.escalatedJobStartTime} />
+                      <LocationBlock title="Escalated Start Location" mapLink={escalatedStartMapLink} lat={callLog.escalatedStartLocation?.latitude} lon={callLog.escalatedStartLocation?.longitude} />
+                    </div>
+                </div>
+                {/* 3. Completion */}
+                <div className="pl-4 border-l-4 border-green-400">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-4">3. Job Completion</h4>
+                    <div className="space-y-6">
+                      <TimeBlock title="Job Finished At" time={callLog.jobEndTime} />
+                      <LocationBlock title="Job End Location" mapLink={endMapLink} lat={callLog.endLocation?.latitude} lon={callLog.endLocation?.longitude} />
+                    </div>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-3">Job End Location</h3>
-                {endMapLink ? (
-                  <div className="mt-2">
-                    <a 
-                      href={endMapLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                    >
-                      <MapPin className="w-5 h-5" />
-                      View on Google Maps
-                    </a>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Coordinates Captured: {callLog.endLocation?.latitude?.toFixed(6)}, {callLog.endLocation?.longitude?.toFixed(6)}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="mt-2 flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-                    <p className="text-sm text-yellow-800">No end location was recorded for this job.</p>
-                  </div>
-                )}
+            ) : (
+              // Standard View for non-escalated jobs
+              <div className="border-t pt-8 mt-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8 mb-8">
+                  <TimeBlock title="Job Started At" time={callLog.jobStartTime} />
+                  <TimeBlock title="Job Finished At" time={callLog.jobEndTime} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <LocationBlock title="Job Start Location" mapLink={startMapLink} lat={callLog.startLocation?.latitude} lon={callLog.startLocation?.longitude} />
+                  <LocationBlock title="Job End Location" mapLink={endMapLink} lat={callLog.endLocation?.latitude} lon={callLog.endLocation?.longitude} />
+                </div>
               </div>
-            </div>
-
+            )}
           </div>
         </div>
       </div>

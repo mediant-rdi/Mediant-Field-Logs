@@ -19,6 +19,7 @@ import {
   Check,
   Loader2,
   ListChecks,
+  AlertTriangle,
 } from 'lucide-react';
 import { Doc } from '../../../convex/_generated/dataModel';
 import { format } from 'date-fns';
@@ -38,6 +39,7 @@ const getStatusBadge = (status: string) => {
     case 'Resolved': return 'bg-green-100 text-green-800';
     case 'Pending': return 'bg-yellow-100 text-yellow-800';
     case 'In Progress': return 'bg-blue-100 text-blue-800';
+    case 'Escalated': return 'bg-red-100 text-red-800';
     default: return 'bg-gray-100 text-gray-800';
   }
 };
@@ -57,53 +59,41 @@ const TableSkeleton = () => (
   </div>
 );
 
-const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCallLog }) {
-  const startJobMutation = useMutation(api.callLogs.acceptJob);
+
+const CallLogCard = React.memo(function CallLogCard({ log, currentUser }: { log: EnrichedCallLog; currentUser: Doc<"users"> | null }) {
+  const acceptJobMutation = useMutation(api.callLogs.acceptJob);
   const finishJobMutation = useMutation(api.callLogs.finishJob);
+  // --- FIXED: Use the correct mutation ---
+  const requestEscalationMutation = useMutation(api.callLogs.requestEscalation);
   const { getLocation, isGettingLocation } = useAccurateLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleStartJob = async () => {
+  const handleJobAction = async (action: 'accept' | 'finish' | 'escalate') => {
+    setIsSubmitting(true);
     try {
-      const position = await getLocation();
-      setIsSubmitting(true);
-      await startJobMutation({
-        callLogId: log._id,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        alert(error.message);
+      if (action === 'escalate') {
+        if (window.confirm("Are you sure you want to escalate this job? An admin will need to assign a new engineer.")) {
+          await requestEscalationMutation({ callLogId: log._id });
+        }
       } else {
-        alert('An unknown error occurred.');
+        const position = await getLocation();
+        const payload = {
+          callLogId: log._id,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        if (action === 'accept') await acceptJobMutation(payload);
+        if (action === 'finish') await finishJobMutation(payload);
       }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'An unknown error occurred.');
     } finally {
       setIsSubmitting(false);
     }
   };
-  
-  const handleFinishJob = async () => {
-    try {
-      const position = await getLocation();
-      setIsSubmitting(true);
-      await finishJobMutation({
-        callLogId: log._id,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        alert(error.message);
-      } else {
-        alert('An unknown error occurred.');
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
+
   const isLoading = isGettingLocation || isSubmitting;
+  const isUserAccepted = !!currentUser?._id && !!log.acceptedBy?.includes(currentUser._id);
 
   return (
     <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col justify-between">
@@ -122,87 +112,76 @@ const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCall
           <span className="font-medium">Engineers:</span> {log.engineers.join(', ')}
         </p>
       </div>
-      <div className="mt-4 flex items-center justify-end gap-x-6">
-        {log.status === 'Pending' ? (
-          <button
-            onClick={handleStartJob}
-            disabled={isLoading}
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isGettingLocation ? 'Getting Accurate Location...' : 'Start Job'}
-          </button>
-        ) : log.status === 'In Progress' ? (
-           <button
-            onClick={handleFinishJob}
-            disabled={isLoading}
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isGettingLocation ? 'Getting Accurate Location...' : 'Finish Job'}
-          </button>
-        ) : (
-          <Link
-            href={`/dashboard/call-logs/${log._id}`}
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-          >
-            View Details →
-          </Link>
-        )}
+      <div className="mt-4 flex flex-col items-end gap-2">
+        <div className="flex items-center justify-end gap-x-2 w-full">
+            {(log.status === 'Pending' || (log.status === 'Escalated' && !isUserAccepted)) && (
+            <button onClick={() => handleJobAction('accept')} disabled={isLoading} className="inline-flex items-center justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isGettingLocation ? 'Locating...' : 'Accept Job'}
+            </button>
+            )}
+            {log.status === 'In Progress' && (
+                <>
+                <button onClick={() => handleJobAction('finish')} disabled={isLoading} className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Finish Job
+                </button>
+                {!log.isEscalated && (
+                    <button onClick={() => handleJobAction('escalate')} disabled={isLoading} className="inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <AlertTriangle className="mr-2 h-4 w-4" /> Escalate
+                    </button>
+                )}
+                </>
+            )}
+            {log.status === 'Resolved' && (
+            <Link href={`/dashboard/call-logs/${log._id}`} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                View Details →
+            </Link>
+            )}
+        </div>
       </div>
     </div>
   );
 });
 
-const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLog }) {
-  const startJobMutation = useMutation(api.callLogs.acceptJob);
+const CallLogRow = React.memo(function CallLogRow({ log, currentUser }: { log: EnrichedCallLog; currentUser: Doc<"users"> | null }) {
+  const acceptJobMutation = useMutation(api.callLogs.acceptJob);
   const finishJobMutation = useMutation(api.callLogs.finishJob);
+  // --- FIXED: Use the correct mutation ---
+  const requestEscalationMutation = useMutation(api.callLogs.requestEscalation);
   const { getLocation, isGettingLocation } = useAccurateLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleStartJob = async () => {
+  const handleJobAction = async (action: 'accept' | 'finish' | 'escalate') => {
+    setIsSubmitting(true);
     try {
-      const position = await getLocation();
-      setIsSubmitting(true);
-      await startJobMutation({
-        callLogId: log._id,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        alert(error.message);
+      if (action === 'escalate') {
+        if(window.confirm("Are you sure you want to escalate this job? An admin will need to assign a new engineer.")){
+           await requestEscalationMutation({ callLogId: log._id });
+        }
       } else {
-        alert('An unknown error occurred.');
+        const position = await getLocation();
+        const payload = {
+          callLogId: log._id,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        if (action === 'accept') await acceptJobMutation(payload);
+        if (action === 'finish') await finishJobMutation(payload);
       }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleFinishJob = async () => {
-    try {
-      const position = await getLocation();
-      setIsSubmitting(true);
-      await finishJobMutation({
-        callLogId: log._id,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
     } catch (error) {
-      if (error instanceof Error) {
-        alert(error.message);
-      } else {
-        alert('An unknown error occurred.');
-      }
+      alert(error instanceof Error ? error.message : 'An unknown error occurred.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const isLoading = isGettingLocation || isSubmitting;
+  const isUserAccepted = !!currentUser?._id && !!log.acceptedBy?.includes(currentUser._id);
 
   return (
+    <>
     <tr>
       <td className="px-4 py-3 text-sm text-gray-600">{format(new Date(log._creationTime), 'dd MMM yyyy')}</td>
       <td className="px-4 py-3 font-medium text-gray-900">{log.clientName}</td>
@@ -213,42 +192,44 @@ const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLo
           {log.status}
         </span>
       </td>
-      <td className="px-4 py-3 text-right">
-        {log.status === 'Pending' ? (
-          <button
-            onClick={handleStartJob}
-            disabled={isLoading}
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+      <td className="px-4 py-3 text-right space-x-2">
+        {(log.status === 'Pending' || (log.status === 'Escalated' && !isUserAccepted)) && (
+          <button onClick={() => handleJobAction('accept')} disabled={isLoading} className="inline-flex items-center justify-center rounded-md border border-transparent bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
             {isLoading && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            {isGettingLocation ? 'Locating...' : 'Start'}
+            {isGettingLocation ? 'Locating...' : 'Accept'}
           </button>
-        ) : log.status === 'In Progress' ? (
-          <button
-            onClick={handleFinishJob}
-            disabled={isLoading}
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isLoading && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            {isGettingLocation ? 'Locating...' : 'Finish'}
-          </button>
-        ) : (
-          <Link
-            href={`/dashboard/call-logs/${log._id}`}
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-          >
+        )}
+        {log.status === 'In Progress' && (
+          <>
+            <button onClick={() => handleJobAction('finish')} disabled={isLoading} className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+              {isLoading && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              Finish
+            </button>
+            {!log.isEscalated && (
+                <button onClick={() => handleJobAction('escalate')} disabled={isLoading} className="inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                    {isLoading && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                    <AlertTriangle className="mr-1 h-4 w-4" /> Escalate
+                </button>
+            )}
+          </>
+        )}
+        {log.status === 'Resolved' && (
+          <Link href={`/dashboard/call-logs/${log._id}`} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
             View
           </Link>
         )}
       </td>
     </tr>
+    </>
   );
 });
 
 function CallLogsDataTable({
   callLogs,
+  currentUser,
 }: {
   callLogs: EnrichedCallLog[] | undefined;
+  currentUser: Doc<"users"> | null;
 }) {
   if (callLogs === undefined) {
     return <TableSkeleton />;
@@ -266,7 +247,7 @@ function CallLogsDataTable({
   return (
     <>
       <div className="space-y-4 md:hidden">
-        {callLogs.map((log) => <CallLogCard key={log._id} log={log} />)}
+        {callLogs.map((log) => <CallLogCard key={log._id} log={log} currentUser={currentUser} />)}
       </div>
       <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-lg">
         <table className="min-w-full text-left text-sm">
@@ -281,7 +262,7 @@ function CallLogsDataTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {callLogs.map((log) => <CallLogRow key={log._id} log={log} />)}
+            {callLogs.map((log) => <CallLogRow key={log._id} log={log} currentUser={currentUser} />)}
           </tbody>
         </table>
       </div>
@@ -332,9 +313,12 @@ export default function DashboardPage() {
     currentUser ? {} : 'skip' 
   );
   
+  // --- MODIFICATION: State and memo to handle visible jobs ---
+  const [visibleJobsCount, setVisibleJobsCount] = useState(3);
+
   const latestAssignedJobs = useMemo(() => {
-    return assignedJobs?.slice(0, 3);
-  }, [assignedJobs]);
+    return assignedJobs?.slice(0, visibleJobsCount);
+  }, [assignedJobs, visibleJobsCount]);
 
 
   // --- State for the Admin portion of the dashboard ---
@@ -396,7 +380,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">My Assigned Jobs</h2>
-                  <p className="text-sm text-gray-600">Showing the 3 most recent jobs assigned to you.</p>
+                  <p className="text-sm text-gray-600">Showing the {latestAssignedJobs?.length ?? 0} most recent jobs assigned to you.</p>
                 </div>
               </div>
               {isAdmin && (
@@ -407,8 +391,20 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="p-4 sm:p-6">
-            <CallLogsDataTable callLogs={latestAssignedJobs} />
+            <CallLogsDataTable callLogs={latestAssignedJobs} currentUser={currentUser} />
           </div>
+          
+          {/* --- MODIFICATION: "View More" button --- */}
+          {assignedJobs && assignedJobs.length > 3 && visibleJobsCount === 3 && (
+            <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 text-center">
+              <button
+                onClick={() => setVisibleJobsCount(6)}
+                className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+              >
+                View More...
+              </button>
+            </div>
+          )}
         </section>
 
         <main className="bg-white rounded-xl border border-gray-200 overflow-hidden">
