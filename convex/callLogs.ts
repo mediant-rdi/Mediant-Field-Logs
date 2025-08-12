@@ -6,9 +6,16 @@ import { asyncMap } from "convex-helpers";
 import { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
-// Helper function (No changes needed)
+// Helper function
 const enrichLog = async (ctx: QueryCtx, log: Doc<"callLogs">) => {
-    const location = await ctx.db.get(log.locationId);
+    // --- MODIFICATION: Fetch location capturer names along with location ---
+    const [location, startUser, endUser, escalatedStartUser] = await Promise.all([
+      ctx.db.get(log.locationId),
+      log.startLocation ? ctx.db.get(log.startLocation.capturedBy) : null,
+      log.endLocation ? ctx.db.get(log.endLocation.capturedBy) : null,
+      log.escalatedStartLocation ? ctx.db.get(log.escalatedStartLocation.capturedBy) : null,
+    ]);
+
     let clientName = "Unknown Location";
     if (location) {
         clientName = location.fullName;
@@ -23,6 +30,10 @@ const enrichLog = async (ctx: QueryCtx, log: Doc<"callLogs">) => {
       ...log,
       clientName,
       engineers: engineers.map((e: Doc<"users"> | null) => e?.name ?? "Unknown User"),
+      // --- MODIFICATION: Add enriched location data with capturer names ---
+      startLocation: log.startLocation ? { ...log.startLocation, capturedByName: startUser?.name ?? "Unknown" } : undefined,
+      endLocation: log.endLocation ? { ...log.endLocation, capturedByName: endUser?.name ?? "Unknown" } : undefined,
+      escalatedStartLocation: log.escalatedStartLocation ? { ...log.escalatedStartLocation, capturedByName: escalatedStartUser?.name ?? "Unknown" } : undefined,
     };
 };
 
@@ -38,10 +49,6 @@ export const requestEscalation = mutation({
     if (callLog.isEscalated) throw new Error("This job has already been escalated.");
     if (!callLog.engineerIds.includes(userId)) throw new Error("You are not assigned to this call log.");
 
-    // THE FIX:
-    // When a job is escalated, all currently assigned engineers are treated as part of the escalated state.
-    // We update `acceptedBy` to include all current engineers, ensuring their UI state is synchronized.
-    // This prevents the issue where one engineer escalates, and another sees an "Accept Job" button.
     const currentAccepted = callLog.acceptedBy ?? [];
     const allCurrentEngineers = callLog.engineerIds;
     const newAcceptedBy = [...new Set([...currentAccepted, ...allCurrentEngineers])];
@@ -103,10 +110,17 @@ export const acceptJob = mutation({
       acceptedBy: [...currentAccepted, userId],
     };
     if (args.latitude !== undefined && args.longitude !== undefined) {
+      // --- MODIFICATION: Create the enhanced location object ---
+      const locationData = { 
+        latitude: args.latitude, 
+        longitude: args.longitude,
+        capturedBy: userId,
+        capturedAt: Date.now(),
+      };
       if (callLog.status === "Pending") {
-          patchData.startLocation = { latitude: args.latitude, longitude: args.longitude };
+          patchData.startLocation = locationData;
       } else if (callLog.status === "Escalated") {
-          patchData.escalatedStartLocation = { latitude: args.latitude, longitude: args.longitude };
+          patchData.escalatedStartLocation = locationData;
       }
     }
     if (callLog.status === "Pending" || callLog.status === "Escalated") {
@@ -143,7 +157,6 @@ export const assignEscalatedEngineer = mutation({
   },
 });
 
-// --- THIS IS THE CORRECTED MUTATION ---
 export const finishJob = mutation({
   args: { callLogId: v.id("callLogs"), latitude: v.optional(v.number()), longitude: v.optional(v.number()) },
   handler: async (ctx, args) => {
@@ -155,18 +168,22 @@ export const finishJob = mutation({
     if (!callLog.engineerIds.includes(userId)) throw new Error("You are not assigned to this call log.");
     if (callLog.status !== "In Progress") throw new Error("Job must be 'In Progress' to be marked as resolved.");
     
-    // 1. Update the Call Log as usual
     const patchData: Partial<Doc<"callLogs">> = {
       status: "Resolved",
       statusTimestamp: Date.now(),
       jobEndTime: Date.now(),
     };
     if (args.latitude !== undefined && args.longitude !== undefined) {
-      patchData.endLocation = { latitude: args.latitude, longitude: args.longitude };
+      // --- MODIFICATION: Create the enhanced location object ---
+      patchData.endLocation = { 
+        latitude: args.latitude, 
+        longitude: args.longitude,
+        capturedBy: userId,
+        capturedAt: Date.now(),
+      };
     }
     await ctx.db.patch(args.callLogId, patchData);
 
-    // 2. Check for an active service period and update the corresponding service log
     const settings = await ctx.db.query("systemSettings").withIndex("by_singleton", q => q.eq("singleton", "global")).first();
     
     if (settings && settings.isServicePeriodActive && settings.currentServicePeriodId) {
@@ -184,7 +201,6 @@ export const finishJob = mutation({
           completionMethod: "Call Log",
           completedByUserId: userId,
           completedCallLogId: callLog._id,
-          // THE FIX: Changed 'finishTime' to 'jobEndTime' to match the schema
           jobEndTime: Date.now(), 
         });
         console.log(`Service log ${serviceLog._id} for location ${callLog.locationId} completed via call log ${callLog._id}.`);

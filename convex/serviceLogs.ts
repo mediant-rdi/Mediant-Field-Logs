@@ -7,10 +7,13 @@ import { asyncMap } from "convex-helpers";
 
 // Helper to enrich a service log with names for UI display
 const enrichServiceLog = async (ctx: QueryCtx, log: Doc<"serviceLogs">) => {
-    const [location, assignedEngineer, completedBy] = await Promise.all([
+    // --- MODIFICATION: Fetch location capturer names along with other details ---
+    const [location, assignedEngineer, completedBy, startUser, endUser] = await Promise.all([
         ctx.db.get(log.locationId),
         ctx.db.get(log.engineerId),
         log.completedByUserId ? ctx.db.get(log.completedByUserId) : null,
+        log.startLocation ? ctx.db.get(log.startLocation.capturedBy) : null,
+        log.endLocation ? ctx.db.get(log.endLocation.capturedBy) : null,
     ]);
 
     return {
@@ -18,6 +21,9 @@ const enrichServiceLog = async (ctx: QueryCtx, log: Doc<"serviceLogs">) => {
         locationName: location?.fullName ?? "Unknown Location",
         assignedEngineerName: assignedEngineer?.name ?? "Unknown Engineer",
         completedByName: completedBy?.name,
+        // --- MODIFICATION: Add enriched location data with capturer names ---
+        startLocation: log.startLocation ? { ...log.startLocation, capturedByName: startUser?.name ?? "Unknown" } : undefined,
+        endLocation: log.endLocation ? { ...log.endLocation, capturedByName: endUser?.name ?? "Unknown" } : undefined,
     };
 };
 
@@ -102,15 +108,17 @@ export const startPlannedService = mutation({
     await ctx.db.patch(log._id, {
         status: "In Progress",
         jobStartTime: Date.now(),
+        // --- MODIFICATION: Save the enhanced location object ---
         startLocation: {
             latitude: args.latitude,
             longitude: args.longitude,
+            capturedBy: userId,
+            capturedAt: Date.now(),
         }
     });
   },
 });
 
-// --- THIS MUTATION IS CORRECTED ---
 /**
  * Allows an engineer to finish a planned service job they started, capturing their location and an optional comment.
  */
@@ -119,7 +127,6 @@ export const finishPlannedService = mutation({
     serviceLogId: v.id("serviceLogs"),
     latitude: v.number(),
     longitude: v.number(),
-    // THIS IS THE NEW ARGUMENT
     completionNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -136,11 +143,13 @@ export const finishPlannedService = mutation({
         completionMethod: "Planned Service",
         completedByUserId: userId,
         jobEndTime: Date.now(),
+        // --- MODIFICATION: Save the enhanced location object ---
         endLocation: {
             latitude: args.latitude,
             longitude: args.longitude,
+            capturedBy: userId,
+            capturedAt: Date.now(),
         },
-        // THIS IS THE NEW FIELD BEING SAVED
         completionNotes: args.completionNotes,
     });
   },

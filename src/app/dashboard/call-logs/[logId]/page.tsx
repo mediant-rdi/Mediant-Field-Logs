@@ -5,41 +5,61 @@ import { api } from '../../../../../convex/_generated/api';
 import { Id } from '../../../../../convex/_generated/dataModel';
 import { useParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { ArrowLeft, Loader2, MapPin, AlertTriangle, User, Calendar, Flag, Clock } from 'lucide-react';
+import { ArrowLeft, Loader2, MapPin, AlertTriangle, User, Calendar, Flag, Clock, UserCheck } from 'lucide-react';
 
-// Helper to create a Google Maps link
-const getGoogleMapsLink = (lat?: number, lon?: number) => {
+// --- MODIFICATION: New helper to create a Google Maps link with a label ---
+const getGoogleMapsLink = (lat?: number, lon?: number, label?: string) => {
   if (lat === undefined || lon === undefined) return null;
-  return `https://www.google.com/maps?q=${lat},${lon}`;
+  const encodedLabel = label ? `(${encodeURIComponent(label)})` : '';
+  return `https://www.google.com/maps?q=${lat},${lon}${encodedLabel}`;
 };
 
-// Reusable component to display a location block
-const LocationBlock = ({ title, mapLink, lat, lon }: { title: string, mapLink: string | null, lat?: number, lon?: number }) => (
-  <div>
-    <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-3">{title}</h3>
-    {mapLink ? (
-      <div className="mt-2">
-        <a 
-          href={mapLink} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-        >
-          <MapPin className="w-5 h-5" />
-          View on Google Maps
-        </a>
-        <p className="text-xs text-gray-500 mt-2">
-          Coordinates Captured: {lat?.toFixed(6)}, {lon?.toFixed(6)}
-        </p>
-      </div>
-    ) : (
-      <div className="mt-2 flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-        <p className="text-sm text-yellow-800">No location was recorded for this event.</p>
-      </div>
-    )}
-  </div>
-);
+// --- MODIFICATION: Define type for enriched location data for component props ---
+type EnrichedLocation = {
+  latitude: number;
+  longitude: number;
+  capturedBy: Id<"users">;
+  capturedAt: number;
+  capturedByName: string;
+};
+
+// --- MODIFICATION: New reusable component to display an enhanced location block ---
+const LocationBlock = ({ title, locationData }: { title: string, locationData?: EnrichedLocation }) => {
+  const mapLink = getGoogleMapsLink(locationData?.latitude, locationData?.longitude, locationData?.capturedByName);
+
+  return (
+    <div>
+      <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-3">{title}</h3>
+      {locationData && mapLink ? (
+        <div className="space-y-3">
+          <a 
+            href={mapLink} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <MapPin className="w-5 h-5" />
+            View {locationData.capturedByName}'s Location
+          </a>
+          <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <UserCheck className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-blue-900">Captured by: {locationData.capturedByName}</p>
+              <p className="text-xs text-blue-700 mt-1">
+                {format(new Date(locationData.capturedAt), 'dd MMMM yyyy, h:mm a')}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-2 flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+          <p className="text-sm text-yellow-800">No location was recorded for this event.</p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Reusable component to display a time block
 const TimeBlock = ({ title, time }: { title: string, time?: number }) => (
@@ -87,10 +107,6 @@ export default function CallLogDetailsPage() {
       </div>
     );
   }
-
-  const startMapLink = getGoogleMapsLink(callLog.startLocation?.latitude, callLog.startLocation?.longitude);
-  const escalatedStartMapLink = getGoogleMapsLink(callLog.escalatedStartLocation?.latitude, callLog.escalatedStartLocation?.longitude);
-  const endMapLink = getGoogleMapsLink(callLog.endLocation?.latitude, callLog.endLocation?.longitude);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -150,7 +166,7 @@ export default function CallLogDetailsPage() {
                     <h4 className="text-lg font-semibold text-gray-700 mb-4">1. Initial Job Start</h4>
                     <div className="space-y-6">
                       <TimeBlock title="Initial Job Started At" time={callLog.jobStartTime} />
-                      <LocationBlock title="Initial Start Location" mapLink={startMapLink} lat={callLog.startLocation?.latitude} lon={callLog.startLocation?.longitude} />
+                      <LocationBlock title="Initial Start Location" locationData={callLog.startLocation} />
                     </div>
                 </div>
                 {/* 2. Escalation Job */}
@@ -158,7 +174,7 @@ export default function CallLogDetailsPage() {
                     <h4 className="text-lg font-semibold text-gray-700 mb-4">2. Escalated Job Start</h4>
                     <div className="space-y-6">
                       <TimeBlock title="Escalated Job Started At" time={callLog.escalatedJobStartTime} />
-                      <LocationBlock title="Escalated Start Location" mapLink={escalatedStartMapLink} lat={callLog.escalatedStartLocation?.latitude} lon={callLog.escalatedStartLocation?.longitude} />
+                      <LocationBlock title="Escalated Start Location" locationData={callLog.escalatedStartLocation} />
                     </div>
                 </div>
                 {/* 3. Completion */}
@@ -166,7 +182,7 @@ export default function CallLogDetailsPage() {
                     <h4 className="text-lg font-semibold text-gray-700 mb-4">3. Job Completion</h4>
                     <div className="space-y-6">
                       <TimeBlock title="Job Finished At" time={callLog.jobEndTime} />
-                      <LocationBlock title="Job End Location" mapLink={endMapLink} lat={callLog.endLocation?.latitude} lon={callLog.endLocation?.longitude} />
+                      <LocationBlock title="Job End Location" locationData={callLog.endLocation} />
                     </div>
                 </div>
               </div>
@@ -178,8 +194,8 @@ export default function CallLogDetailsPage() {
                   <TimeBlock title="Job Finished At" time={callLog.jobEndTime} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <LocationBlock title="Job Start Location" mapLink={startMapLink} lat={callLog.startLocation?.latitude} lon={callLog.startLocation?.longitude} />
-                  <LocationBlock title="Job End Location" mapLink={endMapLink} lat={callLog.endLocation?.latitude} lon={callLog.endLocation?.longitude} />
+                  <LocationBlock title="Job Start Location" locationData={callLog.startLocation} />
+                  <LocationBlock title="Job End Location" locationData={callLog.endLocation} />
                 </div>
               </div>
             )}

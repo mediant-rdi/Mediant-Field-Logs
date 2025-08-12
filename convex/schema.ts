@@ -23,6 +23,14 @@ const agreementType = v.union(
   v.literal('CONTRACT')
 );
 
+// --- NEW: Reusable enhanced location object definition ---
+const locationWithUser = v.object({
+  latitude: v.number(),
+  longitude: v.number(),
+  capturedBy: v.id("users"),
+  capturedAt: v.number(),
+});
+
 export default defineSchema({
   ...authTables,
 
@@ -53,19 +61,13 @@ export default defineSchema({
     completedByUserId: v.optional(v.id("users")), // Who actually did the job
     completedCallLogId: v.optional(v.id("callLogs")), // Audit trail to the call log
     
-    // --- THIS IS THE NEW FIELD ---
     completionNotes: v.optional(v.string()), // To store user-entered comments on completion.
 
     jobStartTime: v.optional(v.number()), 
     jobEndTime: v.optional(v.number()),   
-    startLocation: v.optional(v.object({
-      latitude: v.number(),
-      longitude: v.number(),
-    })),
-    endLocation: v.optional(v.object({
-      latitude: v.number(),
-      longitude: v.number(),
-    })),
+    // --- MODIFICATION: Using the enhanced location object ---
+    startLocation: v.optional(locationWithUser),
+    endLocation: v.optional(locationWithUser),
   })
   .index("by_engineer_and_period", ["engineerId", "servicePeriodId"])
   .index("by_location_and_period", ["locationId", "servicePeriodId"]),
@@ -81,22 +83,16 @@ export default defineSchema({
     searchField: v.optional(v.string()),
     acceptedBy: v.optional(v.array(v.id("users"))),
     viewedByEngineers: v.optional(v.array(v.id("users"))),
-    startLocation: v.optional(v.object({
-      latitude: v.number(),
-      longitude: v.number(),
-    })),
+    // --- MODIFICATION: Using the enhanced location object ---
+    startLocation: v.optional(locationWithUser),
     jobStartTime: v.optional(v.number()),
-    endLocation: v.optional(v.object({
-      latitude: v.number(),
-      longitude: v.number(),
-    })),
+    // --- MODIFICATION: Using the enhanced location object ---
+    endLocation: v.optional(locationWithUser),
     jobEndTime: v.optional(v.number()),
     isEscalated: v.optional(v.boolean()),
     escalatedJobStartTime: v.optional(v.number()),
-    escalatedStartLocation: v.optional(v.object({
-      latitude: v.number(),
-      longitude: v.number(),
-    })),
+    // --- MODIFICATION: Using the enhanced location object ---
+    escalatedStartLocation: v.optional(locationWithUser),
     engineersAtEscalation: v.optional(v.number()),
   })
   .index("by_location", ["locationId"])
@@ -124,7 +120,6 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     isAdmin: v.optional(v.boolean()),
-    // --- MODIFICATION: New field for call log access ---
     canAccessCallLogs: v.optional(v.boolean()),
     accountActivated: v.optional(v.boolean()),
     searchName: v.optional(v.string()),
