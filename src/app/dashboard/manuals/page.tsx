@@ -3,7 +3,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+// MODIFIED: Added useConvex import
+import { useQuery, useMutation, useConvex } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { type FunctionReturnType } from "convex/server";
 import { Trash2, Download, AlertTriangle, Search, X, Eye, FileText, Loader2 } from "lucide-react";
@@ -155,10 +156,9 @@ const DescriptionViewer = ({
   </>
 );
 
-// --- MODIFIED: FILE PREVIEWER COMPONENT ---
-// Now fetches its own URL, showing a loading state.
+// --- FILE PREVIEWER COMPONENT (Unchanged but should now work correctly) ---
 const FilePreviewer = ({ manual, onClose }: { manual: ManualType; onClose: () => void }) => {
-  // Use the new `getManualUrl` query to fetch the URL just-in-time.
+  // This uses the correct `useQuery` hook for reactive data fetching.
   const fileUrl = useQuery(api.manuals.getManualUrl, { storageId: manual.fileStorageId });
   
   const isPdf = manual.fileType === 'application/pdf';
@@ -206,18 +206,20 @@ const FilePreviewer = ({ manual, onClose }: { manual: ManualType; onClose: () =>
   );
 };
 
-// --- NEW: DOWNLOAD BUTTON COMPONENT ---
+// --- CORRECTED: DOWNLOAD BUTTON COMPONENT ---
 // A button that fetches the URL on click and then opens it.
 const DownloadButton = ({ manual, children, className }: { manual: ManualType; children: React.ReactNode; className?: string }) => {
+    const convex = useConvex(); // Get the Convex client
     const [isDownloading, setIsDownloading] = useState(false);
 
     const handleDownload = async () => {
         setIsDownloading(true);
         try {
-            // Fetch the manual URL on demand
-            // Use fetch to call the Convex query directly
-            const response = await fetch(`/api/manuals/getManualUrl?storageId=${manual.fileStorageId}`);
-            const url = await response.json();
+            // Use the Convex client to call the query imperatively
+            const url = await convex.query(api.manuals.getManualUrl, { 
+              storageId: manual.fileStorageId 
+            });
+            
             if (url) {
                 window.open(url, '_blank', 'noopener,noreferrer');
             } else {
