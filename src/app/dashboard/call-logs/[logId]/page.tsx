@@ -39,7 +39,7 @@ const LocationBlock = ({ title, locationData }: { title: string, locationData?: 
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
             <MapPin className="w-5 h-5" />
-            View {locationData.capturedByName}'s Location
+            View {locationData.capturedByName}&apos;s Location
           </a>
           <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <UserCheck className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
