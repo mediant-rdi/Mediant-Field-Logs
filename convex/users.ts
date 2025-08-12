@@ -73,7 +73,13 @@ export const getMyAssignedLocations = query({
 });
 
 export const adminCreateUser = mutation({
-  args: { name: v.string(), email: v.string(), isAdmin: v.boolean() },
+  // MODIFICATION: Add canAccessCallLogs (optional to avoid breaking AddUserForm)
+  args: { 
+    name: v.string(), 
+    email: v.string(), 
+    isAdmin: v.boolean(),
+    canAccessCallLogs: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
     const existingUser = await ctx.db.query('users').withIndex('by_email', (q) => q.eq('email', args.email)).first();
     if (existingUser) throw new Error('User with this email already exists.');
@@ -81,7 +87,9 @@ export const adminCreateUser = mutation({
     await ctx.db.insert('users', { 
         name: args.name, 
         email: args.email, 
-        isAdmin: args.isAdmin, 
+        isAdmin: args.isAdmin,
+        // MODIFICATION: Set the new property, defaulting to false
+        canAccessCallLogs: args.canAccessCallLogs ?? false, 
         accountActivated: true,
         searchName: normalizeNameForSearch(args.name),
     });
@@ -99,12 +107,16 @@ export const updateUserDetails = mutation({
     userId: v.id("users"),
     name: v.string(),
     isAdmin: v.boolean(),
+    // MODIFICATION: Add canAccessCallLogs to the arguments
+    canAccessCallLogs: v.boolean(),
   },
-  handler: async (ctx, { userId, name, isAdmin }) => {
+  handler: async (ctx, { userId, name, isAdmin, canAccessCallLogs }) => {
     // TODO: Add admin-level protection check if needed
     await ctx.db.patch(userId, { 
         name, 
         isAdmin,
+        // MODIFICATION: Patch the new field
+        canAccessCallLogs,
         searchName: normalizeNameForSearch(name),
     });
   },
@@ -203,6 +215,8 @@ export const deleteUser = mutation({
             emailVerificationTime: undefined,
             isAnonymous: undefined,
             isAdmin: false,
+            // MODIFICATION: Clear the permission on delete
+            canAccessCallLogs: undefined,
             accountActivated: false,
             searchName: undefined,
             serviceLocationIds: [],

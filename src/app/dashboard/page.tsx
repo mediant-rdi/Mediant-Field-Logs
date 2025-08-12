@@ -25,7 +25,8 @@ import { Doc } from '../../../convex/_generated/dataModel';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { useAccurateLocation } from '@/hooks/useAccurateLocation';
-
+// --- MODIFICATION: Import Toaster and toast ---
+import { Toaster, toast } from 'sonner';
 
 // --- HELPER COMPONENTS & TYPES FOR THE CALL LOG TABLE ---
 
@@ -63,7 +64,6 @@ const TableSkeleton = () => (
 const CallLogCard = React.memo(function CallLogCard({ log, currentUser }: { log: EnrichedCallLog; currentUser: Doc<"users"> | null }) {
   const acceptJobMutation = useMutation(api.callLogs.acceptJob);
   const finishJobMutation = useMutation(api.callLogs.finishJob);
-  // --- FIXED: Use the correct mutation ---
   const requestEscalationMutation = useMutation(api.callLogs.requestEscalation);
   const { getLocation, isGettingLocation } = useAccurateLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,6 +74,7 @@ const CallLogCard = React.memo(function CallLogCard({ log, currentUser }: { log:
       if (action === 'escalate') {
         if (window.confirm("Are you sure you want to escalate this job? An admin will need to assign a new engineer.")) {
           await requestEscalationMutation({ callLogId: log._id });
+          toast.success("Job escalated successfully.");
         }
       } else {
         const position = await getLocation();
@@ -82,11 +83,18 @@ const CallLogCard = React.memo(function CallLogCard({ log, currentUser }: { log:
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
-        if (action === 'accept') await acceptJobMutation(payload);
-        if (action === 'finish') await finishJobMutation(payload);
+        if (action === 'accept') {
+          await acceptJobMutation(payload);
+          toast.success("Job accepted.");
+        }
+        if (action === 'finish') {
+          await finishJobMutation(payload);
+          toast.success("Job finished.");
+        }
       }
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'An unknown error occurred.');
+      // --- MODIFICATION: Use toast for errors ---
+      toast.error(error instanceof Error ? error.message : 'An unknown error occurred.');
     } finally {
       setIsSubmitting(false);
     }
@@ -148,7 +156,6 @@ const CallLogCard = React.memo(function CallLogCard({ log, currentUser }: { log:
 const CallLogRow = React.memo(function CallLogRow({ log, currentUser }: { log: EnrichedCallLog; currentUser: Doc<"users"> | null }) {
   const acceptJobMutation = useMutation(api.callLogs.acceptJob);
   const finishJobMutation = useMutation(api.callLogs.finishJob);
-  // --- FIXED: Use the correct mutation ---
   const requestEscalationMutation = useMutation(api.callLogs.requestEscalation);
   const { getLocation, isGettingLocation } = useAccurateLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -159,6 +166,7 @@ const CallLogRow = React.memo(function CallLogRow({ log, currentUser }: { log: E
       if (action === 'escalate') {
         if(window.confirm("Are you sure you want to escalate this job? An admin will need to assign a new engineer.")){
            await requestEscalationMutation({ callLogId: log._id });
+           toast.success("Job escalated successfully.");
         }
       } else {
         const position = await getLocation();
@@ -167,11 +175,18 @@ const CallLogRow = React.memo(function CallLogRow({ log, currentUser }: { log: E
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
-        if (action === 'accept') await acceptJobMutation(payload);
-        if (action === 'finish') await finishJobMutation(payload);
+        if (action === 'accept') {
+          await acceptJobMutation(payload);
+          toast.success("Job accepted.");
+        }
+        if (action === 'finish') {
+          await finishJobMutation(payload);
+          toast.success("Job finished.");
+        }
       }
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'An unknown error occurred.');
+      // --- MODIFICATION: Use toast for errors ---
+      toast.error(error instanceof Error ? error.message : 'An unknown error occurred.');
     } finally {
       setIsSubmitting(false);
     }
@@ -313,7 +328,6 @@ export default function DashboardPage() {
     currentUser ? {} : 'skip' 
   );
   
-  // --- MODIFICATION: State and memo to handle visible jobs ---
   const [visibleJobsCount, setVisibleJobsCount] = useState(3);
 
   const latestAssignedJobs = useMemo(() => {
@@ -363,6 +377,8 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* --- MODIFICATION: Add Toaster component --- */}
+      <Toaster richColors position="top-center" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
@@ -383,18 +399,13 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-600">Showing the {latestAssignedJobs?.length ?? 0} most recent jobs assigned to you.</p>
                 </div>
               </div>
-              {isAdmin && (
-                <Link href="/dashboard/call-logs/add" className="hidden md:inline-flex bg-indigo-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors flex-shrink-0">
-                  + Add New Log
-                </Link>
-              )}
+              {/* --- MODIFICATION: Removed the "Add New Log" button from here --- */}
             </div>
           </div>
           <div className="p-4 sm:p-6">
             <CallLogsDataTable callLogs={latestAssignedJobs} currentUser={currentUser} />
           </div>
           
-          {/* --- MODIFICATION: "View More" button --- */}
           {assignedJobs && assignedJobs.length > 3 && visibleJobsCount === 3 && (
             <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 text-center">
               <button

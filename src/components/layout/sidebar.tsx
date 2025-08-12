@@ -69,26 +69,32 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
   const { isLoading, isAuthenticated } = useConvexAuth();
   const user = useQuery(api.users.current, isAuthenticated ? {} : "skip");
 
-  // --- FINAL CORRECTED LOGIC FOR DYNAMIC MENU ---
+  // --- MODIFICATION: Updated menu logic to handle call log permissions ---
   const menuItems = useMemo(() => {
-    // Auto-open dropdown if active item is a child
     const activeParent = baseMenuItems.find(item => item.subItems?.some(sub => sub.id === activeItem));
     if (activeParent && openDropdown !== activeParent.id) {
         setOpenDropdown(activeParent.id);
     }
     
-    // While loading, just show the base items without the admin panel
-    if (isLoading) {
-      return baseMenuItems.filter(item => item.id !== 'admin');
+    // While loading, hide items that depend on any user permissions to prevent flashing.
+    if (isLoading || !user) {
+      return baseMenuItems.filter(item => item.id !== 'admin' && item.id !== 'call-logs');
     }
 
-    // Once loaded, only filter out the admin panel for non-admins
-    if (user && !user.isAdmin) {
-      return baseMenuItems.filter(item => item.id !== 'admin');
+    // Start with all items and filter down based on permissions.
+    let filteredItems = [...baseMenuItems];
+
+    // 1. Filter Admin Panel if the user is not an admin.
+    if (!user.isAdmin) {
+      filteredItems = filteredItems.filter(item => item.id !== 'admin');
     }
     
-    // If the user is an admin, show all items.
-    return baseMenuItems;
+    // 2. Filter Call Logs if the user does not have specific permission.
+    if (!user.canAccessCallLogs) {
+      filteredItems = filteredItems.filter(item => item.id !== 'call-logs');
+    }
+
+    return filteredItems;
     
   }, [user, isLoading, activeItem, openDropdown]); 
 

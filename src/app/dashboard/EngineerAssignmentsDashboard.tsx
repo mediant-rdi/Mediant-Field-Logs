@@ -17,9 +17,11 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAccurateLocation } from '@/hooks/useAccurateLocation';
+// --- MODIFICATION: Import toast for notifications ---
+import { toast } from 'sonner';
 
 
-// --- Helper functions for styling ---
+// --- Helper functions for styling (unchanged) ---
 const getStatusBadge = (status: string) => {
   const badgeStyles: { [key: string]: string } = {
     'Pending': 'bg-amber-100 text-amber-800 ring-amber-200',
@@ -53,7 +55,6 @@ export function EngineerAssignmentsDashboard() {
     currentUser ? {} : 'skip'
   );
 
-  // --- MODIFICATION: State to control number of visible jobs ---
   const [visibleJobsCount, setVisibleJobsCount] = useState(3);
   const assignedJobs = useMemo(
     () => allAssignedJobs?.slice(0, visibleJobsCount), 
@@ -75,12 +76,10 @@ export function EngineerAssignmentsDashboard() {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       });
+      toast.success("Job accepted successfully!");
     } catch (error) {
-      if (error instanceof Error) {
-        alert(error.message);
-      } else {
-        alert('An unknown error occurred.');
-      }
+      // --- MODIFICATION: Use toast for errors ---
+      toast.error(error instanceof Error ? error.message : 'An unknown error occurred while accepting the job.');
     } finally {
       setProcessingId(null);
     }
@@ -95,12 +94,10 @@ export function EngineerAssignmentsDashboard() {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       });
+      toast.success("Job marked as finished!");
     } catch (error) {
-      if (error instanceof Error) {
-        alert(error.message);
-      } else {
-        alert('An unknown error occurred.');
-      }
+      // --- MODIFICATION: Use toast for errors ---
+      toast.error(error instanceof Error ? error.message : 'An unknown error occurred while finishing the job.');
     } finally {
       setProcessingId(null);
     }
@@ -111,13 +108,11 @@ export function EngineerAssignmentsDashboard() {
     try {
       if (window.confirm("Are you sure you want to escalate this job? This action cannot be undone and requires an admin to assign a new engineer.")) {
         await requestEscalation({ callLogId: logId });
+        toast.success("Job has been escalated. An admin will review it.");
       }
     } catch (error) {
-        if (error instanceof Error) {
-            alert(error.message);
-        } else {
-            alert('An unknown error occurred.');
-        }
+        // --- MODIFICATION: Use toast for errors ---
+        toast.error(error instanceof Error ? error.message : 'An unknown error occurred during escalation.');
     } finally {
         setProcessingId(null);
     }
@@ -219,7 +214,6 @@ export function EngineerAssignmentsDashboard() {
           )}
         </div>
         
-        {/* --- MODIFICATION: "View More" button --- */}
         {allAssignedJobs && allAssignedJobs.length > 3 && visibleJobsCount === 3 && (
           <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 text-center">
             <button

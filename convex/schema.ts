@@ -124,6 +124,8 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     isAdmin: v.optional(v.boolean()),
+    // --- MODIFICATION: New field for call log access ---
+    canAccessCallLogs: v.optional(v.boolean()),
     accountActivated: v.optional(v.boolean()),
     searchName: v.optional(v.string()),
     serviceLocationIds: v.optional(v.array(v.id("clientLocations"))),

@@ -14,10 +14,12 @@ interface EditUserFormProps {
 }
 
 export function EditUserForm({ user, onComplete }: EditUserFormProps) {
-  const updateUser = useMutation(api.users.updateUserDetails); // Using a more specific mutation now
+  const updateUser = useMutation(api.users.updateUserDetails);
 
   const [name, setName] = useState(user.name || "");
   const [isAdmin, setIsAdmin] = useState(user.isAdmin ?? false);
+  // MODIFICATION: Add state for the new permission
+  const [canAccessCallLogs, setCanAccessCallLogs] = useState(user.canAccessCallLogs ?? false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -25,6 +27,8 @@ export function EditUserForm({ user, onComplete }: EditUserFormProps) {
   useEffect(() => {
     setName(user.name || "");
     setIsAdmin(user.isAdmin ?? false);
+    // MODIFICATION: Reset the new permission state
+    setCanAccessCallLogs(user.canAccessCallLogs ?? false);
   }, [user]);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -37,6 +41,8 @@ export function EditUserForm({ user, onComplete }: EditUserFormProps) {
         userId: user._id,
         name,
         isAdmin,
+        // MODIFICATION: Pass the new permission value
+        canAccessCallLogs,
       });
       onComplete(); // Closes the modal or navigates away
     } catch (err: unknown) {
@@ -64,6 +70,11 @@ export function EditUserForm({ user, onComplete }: EditUserFormProps) {
         <div className="flex items-center">
           <input id="isAdmin-edit" type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"/>
           <label htmlFor="isAdmin-edit" className="ml-2 block text-sm text-gray-900">User is an Admin</label>
+        </div>
+        {/* --- MODIFICATION: Add checkbox for Call Log access --- */}
+        <div className="flex items-center">
+          <input id="canAccessCallLogs-edit" type="checkbox" checked={canAccessCallLogs} onChange={(e) => setCanAccessCallLogs(e.target.checked)} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"/>
+          <label htmlFor="canAccessCallLogs-edit" className="ml-2 block text-sm text-gray-900">Can Access Call Logs</label>
         </div>
       </div>
       

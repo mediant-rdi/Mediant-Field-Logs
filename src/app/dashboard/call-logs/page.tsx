@@ -1,6 +1,8 @@
 // app/dashboard/call-logs/page.tsx
 'use client';
 
+// --- MODIFICATION: Use the correct protection component name ---
+import CallLogProtection from '@/components/CallLogAccessProtection';
 import Link from 'next/link';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
@@ -8,13 +10,14 @@ import { Doc, Id } from '../../../../convex/_generated/dataModel';
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Loader2, UserPlus } from 'lucide-react';
+// --- MODIFICATION: Import Toaster and toast ---
+import { Toaster, toast } from 'sonner';
 
 type EnrichedCallLog = Doc<"callLogs"> & {
   clientName: string;
   engineers: string[];
 };
 
-// Debounce hook
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -53,7 +56,6 @@ const TableSkeleton = () => (
   </div>
 );
 
-// Component for assigning an engineer
 const AssignEngineerControl = ({ job, onAssign, onCancel, isProcessing }: { job: EnrichedCallLog; onAssign: (newEngineerId: Id<"users">) => void; onCancel: () => void; isProcessing: boolean; }) => {
     const [search, setSearch] = useState('');
     const results = useQuery(api.users.searchEngineers, search ? { searchText: search } : 'skip');
@@ -88,13 +90,10 @@ const AssignEngineerControl = ({ job, onAssign, onCancel, isProcessing }: { job:
     );
 };
 
-// --- THIS IS THE FULLY CORRECTED DESKTOP ROW COMPONENT ---
 const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLog }) {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const assignEngineer = useMutation(api.callLogs.assignEscalatedEngineer);
-
-  // This logic is the key. It robustly checks if an admin needs to act.
   const needsAssignment = 
     log.status === 'Escalated' &&
     (log.engineersAtEscalation === undefined || log.engineersAtEscalation === log.engineerIds.length);
@@ -103,9 +102,11 @@ const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLo
     setIsProcessing(true);
     try {
       await assignEngineer({ callLogId: log._id, newEngineerId });
-      setIsAssigning(false); // Close UI on success
+      toast.success("Engineer assigned successfully!");
+      setIsAssigning(false); 
     } catch(err) {
-      alert(err instanceof Error ? err.message : "Failed to assign engineer");
+      // --- MODIFICATION: Use toast for errors ---
+      toast.error(err instanceof Error ? err.message : "Failed to assign engineer");
     } finally {
       setIsProcessing(false);
     }
@@ -124,34 +125,27 @@ const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLo
           </span>
         </td>
         <td className="px-4 py-3 text-right">
-          {/* 
-            This is the corrected conditional rendering. 
-            - If it needs assignment, it shows a BUTTON that SETS state.
-            - Otherwise, it shows a LINK that NAVIGATES. There is no ambiguity.
-          */}
           {needsAssignment ? (
               <button 
-                onClick={() => setIsAssigning(true)} // This ONLY sets state, it doesn't toggle.
+                onClick={() => setIsAssigning(true)}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-semibold text-white bg-red-600 rounded-md shadow-sm hover:bg-red-700"
               >
                   <UserPlus className="w-4 h-4" /> Assign
               </button>
           ) : (
-              // This is a standard, functional Link that will now work for ALL statuses.
               <Link href={`/dashboard/call-logs/${log._id}`} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
                   View
               </Link>
           )}
         </td>
       </tr>
-      {/* This assignment control is only rendered when the "Assign" button is clicked. */}
       {isAssigning && (
           <tr>
               <td colSpan={6} className="p-2">
                   <AssignEngineerControl 
                     job={log} 
                     onAssign={handleAssign} 
-                    onCancel={() => setIsAssigning(false)} // Cancel button correctly closes the UI.
+                    onCancel={() => setIsAssigning(false)}
                     isProcessing={isProcessing} 
                   />
               </td>
@@ -161,7 +155,6 @@ const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLo
   );
 });
 
-// --- THIS IS THE FULLY CORRECTED MOBILE CARD COMPONENT ---
 const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCallLog }) {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -175,9 +168,11 @@ const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCall
     setIsProcessing(true);
     try {
       await assignEngineer({ callLogId: log._id, newEngineerId });
+      toast.success("Engineer assigned successfully!");
       setIsAssigning(false);
     } catch(err) {
-      alert(err instanceof Error ? err.message : "Failed to assign engineer");
+      // --- MODIFICATION: Use toast for errors ---
+      toast.error(err instanceof Error ? err.message : "Failed to assign engineer");
     } finally {
       setIsProcessing(false);
     }
@@ -200,7 +195,6 @@ const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCall
           <span className="font-medium">Engineers:</span> {log.engineers.join(', ')}
         </p>
       </div>
-      {/* The UI for actions is now self-contained and clear */}
       <div className="p-4 pt-0">
         {isAssigning ? (
           <AssignEngineerControl 
@@ -230,8 +224,7 @@ const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCall
   );
 });
 
-// Data table component using the corrected row and card components
-function CallLogsDataTable({ callLogs, isAdmin, searchText, }: { callLogs: EnrichedCallLog[] | undefined; isAdmin: boolean; searchText: string; }) {
+function CallLogsDataTable({ callLogs, searchText, }: { callLogs: EnrichedCallLog[] | undefined; searchText: string; }) {
   if (callLogs === undefined) {
     return <TableSkeleton />;
   }
@@ -240,7 +233,7 @@ function CallLogsDataTable({ callLogs, isAdmin, searchText, }: { callLogs: Enric
       <div className="text-center py-10 px-4">
         <h3 className="text-lg font-medium text-gray-900">{searchText ? "No Call Logs Found" : "No Call Logs Available"}</h3>
         <p className="mt-1 text-sm text-gray-500">{searchText ? `No logs match your search for "${searchText}".` : "Get started by adding a new call log."}</p>
-        {isAdmin && !searchText && (
+        {!searchText && (
           <div className="mt-6">
             <Link href="/dashboard/call-logs/add" className="bg-indigo-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
               + Add New Log
@@ -272,28 +265,22 @@ function CallLogsDataTable({ callLogs, isAdmin, searchText, }: { callLogs: Enric
   );
 }
 
-// Main page component
+// Main page component wrapped in protection
 export default function ViewCallLogsPage() {
-  const currentUser = useQuery(api.users.current);
+  return (
+    <CallLogProtection>
+      {/* --- MODIFICATION: Add Toaster component --- */}
+      <Toaster richColors position="top-center" />
+      <PageContent />
+    </CallLogProtection>
+  );
+}
+
+// Extracted the original page content into its own component
+function PageContent() {
   const [searchText, setSearchText] = useState('');
   const debouncedSearchText = useDebounce(searchText, 300);
   const callLogs = useQuery(api.callLogs.searchCallLogs, { searchText: debouncedSearchText });
-
-  if (currentUser === undefined) {
-    return (
-      <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
-        <div className="animate-pulse flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
-          <div>
-            <div className="h-7 w-48 bg-gray-200 rounded"></div>
-            <div className="h-4 w-64 bg-gray-200 rounded mt-2"></div>
-          </div>
-        </div>
-        <TableSkeleton />
-      </div>
-    );
-  }
-
-  const isAdmin = currentUser?.isAdmin === true;
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
@@ -302,13 +289,12 @@ export default function ViewCallLogsPage() {
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Call Log Management</h1>
           <p className="mt-1 text-sm text-gray-600">A list of all support calls in the system.</p>
         </div>
-        {isAdmin && (
-          <div className="self-start sm:self-auto">
-            <Link href="/dashboard/call-logs/add" className="bg-indigo-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
-              + Add New Log
-            </Link>
-          </div>
-        )}
+        {/* --- MODIFICATION: "Add New Log" button is now always visible on this page --- */}
+        <div className="self-start sm:self-auto">
+          <Link href="/dashboard/call-logs/add" className="bg-indigo-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
+            + Add New Log
+          </Link>
+        </div>
       </div>
       <div className="mb-6">
         <input
@@ -320,7 +306,7 @@ export default function ViewCallLogsPage() {
         />
       </div>
       <div>
-        <CallLogsDataTable callLogs={callLogs} isAdmin={isAdmin} searchText={searchText} />
+        <CallLogsDataTable callLogs={callLogs} searchText={searchText} />
       </div>
     </div>
   );
