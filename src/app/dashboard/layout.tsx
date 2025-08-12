@@ -1,7 +1,7 @@
 // src/app/dashboard/layout.tsx
 'use client';
 
-import { useState, useEffect, ReactNode, Fragment } from 'react'; // Import Fragment
+import { useState, useEffect, ReactNode, Fragment } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useConvexAuth } from "convex/react";
 import Sidebar from '@/components/layout/sidebar'; 
@@ -24,7 +24,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   // Logic for setting active item and page title
   useEffect(() => {
-    if (pathname.startsWith('/dashboard/reports/add')) {
+    // Check for the admin page first
+    if (pathname.startsWith('/dashboard/service-logs/admin')) {
+        setActiveItem('admin-activate-service');
+        setPageTitle('Activate Service Period');
+    // --- MODIFIED: Simplified rule for the main service logs page ---
+    } else if (pathname.startsWith('/dashboard/service-logs')) {
+        setActiveItem('service-logs'); // Matches the parent ID now
+        setPageTitle('My Service Logs');
+    } else if (pathname.startsWith('/dashboard/reports/add')) {
         setActiveItem('admin-add-report');
         setPageTitle('Add Report');
     } else if (pathname.startsWith('/dashboard/clients/add')) {
@@ -42,7 +50,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     } else if (pathname.startsWith('/dashboard/complaint/engineer')) {
       setActiveItem('complaint-engineer');
       setPageTitle('Engineer Complaint');
-    } else if (pathname.startsWith('/dashboard/call-logs')) { // New rule for Call Logs
+    } else if (pathname.startsWith('/dashboard/call-logs')) {
       setActiveItem('call-logs');
       setPageTitle('Call Logs');
     } else if (pathname === '/dashboard/feedback') { 
@@ -83,7 +91,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       case 'feedback-form': router.push('/dashboard/feedback'); break;
       case 'complaint-customer': router.push('/dashboard/complaint/customer'); break;
       case 'complaint-engineer': router.push('/dashboard/complaint/engineer'); break;
-      case 'call-logs': router.push('/dashboard/call-logs'); break; // New navigation case
+      case 'call-logs': router.push('/dashboard/call-logs'); break;
+      // --- MODIFIED: Simplified navigation case ---
+      case 'service-logs': router.push('/dashboard/service-logs'); break;
+      case 'admin-activate-service': router.push('/dashboard/service-logs/admin'); break;
       case 'admin-view-users': router.push('/dashboard/users'); break;
       case 'admin-add-user': router.push('/dashboard/users/add'); break;
       case 'admin-add-client': router.push('/dashboard/clients/add'); break;

@@ -29,9 +29,11 @@ import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
 import type * as passwordResets from "../passwordResets.js";
 import type * as reports from "../reports.js";
+import type * as serviceLogs from "../serviceLogs.js";
 import type * as serviceReports from "../serviceReports.js";
 import type * as setup from "../setup.js";
 import type * as shared from "../shared.js";
+import type * as systemSettings from "../systemSettings.js";
 import type * as users from "../users.js";
 
 /**
@@ -59,9 +61,11 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   passwordResets: typeof passwordResets;
   reports: typeof reports;
+  serviceLogs: typeof serviceLogs;
   serviceReports: typeof serviceReports;
   setup: typeof setup;
   shared: typeof shared;
+  systemSettings: typeof systemSettings;
   users: typeof users;
 }>;
 export declare const api: FilterApi<

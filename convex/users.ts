@@ -1,9 +1,10 @@
 // convex/users.ts
 
-import { getAuthUserId } from '@convex-dev/auth/server'; // CORRECTED IMPORT
+import { getAuthUserId } from '@convex-dev/auth/server';
 import { internalQuery, internalMutation, mutation, query } from './_generated/server';
 import { v } from 'convex/values';
 import { Id } from './_generated/dataModel';
+import { asyncMap } from 'convex-helpers'; // Make sure convex-helpers is installed
 
 // Helper function to normalize names for searching
 const normalizeNameForSearch = (name: string): string => {
@@ -46,6 +47,31 @@ export const listAll = query({
     },
 });
 
+/**
+ * Get the current user's assigned service locations.
+ * This query is independent of any service period.
+ */
+export const getMyAssignedLocations = query({
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const user = await ctx.db.get(userId);
+    if (!user || !user.serviceLocationIds) {
+      return []; // Return empty array if user or locations are not found
+    }
+
+    const locations = await asyncMap(user.serviceLocationIds, (id) =>
+      ctx.db.get(id)
+    );
+
+    return locations.filter(Boolean).map(loc => ({
+        _id: loc!._id,
+        fullName: loc!.fullName,
+    }));
+  },
+});
+
 export const adminCreateUser = mutation({
   args: { name: v.string(), email: v.string(), isAdmin: v.boolean() },
   handler: async (ctx, args) => {
@@ -62,16 +88,102 @@ export const adminCreateUser = mutation({
   },
 });
 
-export const updateUser = mutation({
-    args: { userId: v.id("users"), name: v.string(), isAdmin: v.boolean() },
-    handler: async (ctx, args) => { 
-        await ctx.db.patch(args.userId, { 
-            name: args.name, 
-            isAdmin: args.isAdmin,
-            searchName: normalizeNameForSearch(args.name),
-        });
-    },
+// --- NEW/REFACTORED FUNCTIONS FOR THE NEW UI ---
+
+/**
+ * [REFACTORED] Updates a user's basic details (name, admin status).
+ * This is used by the simplified EditUserForm.
+ */
+export const updateUserDetails = mutation({
+  args: {
+    userId: v.id("users"),
+    name: v.string(),
+    isAdmin: v.boolean(),
+  },
+  handler: async (ctx, { userId, name, isAdmin }) => {
+    // TODO: Add admin-level protection check if needed
+    await ctx.db.patch(userId, { 
+        name, 
+        isAdmin,
+        searchName: normalizeNameForSearch(name),
+    });
+  },
 });
+
+/**
+ * [NEW] Gets a user's assigned service locations. For the assignments page.
+ */
+export const getAssignedLocationsForUser = query({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        const user = await ctx.db.get(args.userId);
+        if (!user || !user.serviceLocationIds || user.serviceLocationIds.length === 0) {
+            return [];
+        }
+        const locations = await Promise.all(
+            user.serviceLocationIds.map(id => ctx.db.get(id))
+        );
+        return locations.filter(Boolean).map(loc => ({
+            _id: loc!._id,
+            fullName: loc!.fullName
+        }));
+    }
+});
+
+/**
+ * [NEW] Adds a service location to a user.
+ * Contains the critical logic to prevent assigning a location to multiple users.
+ */
+export const addServiceLocationToUser = mutation({
+    args: {
+        userId: v.id("users"),
+        locationId: v.id("clientLocations"),
+    },
+    handler: async (ctx, { userId, locationId }) => {
+        const allUsers = await ctx.db.query('users').collect();
+        const conflictingUser = allUsers.find(user =>
+            user._id !== userId &&
+            user.serviceLocationIds?.includes(locationId)
+        );
+
+        if (conflictingUser) {
+            const location = await ctx.db.get(locationId);
+            throw new Error(`Location "${location?.fullName ?? locationId}" is already assigned to ${conflictingUser.name}.`);
+        }
+
+        const user = await ctx.db.get(userId);
+        if (!user) throw new Error("User not found");
+
+        const existingIds = user.serviceLocationIds || [];
+        if (existingIds.includes(locationId)) return; // Already assigned, do nothing.
+
+        await ctx.db.patch(userId, {
+            serviceLocationIds: [...existingIds, locationId]
+        });
+    }
+});
+
+/**
+ * [NEW] Removes a service location from a user.
+ */
+export const removeServiceLocationFromUser = mutation({
+    args: {
+        userId: v.id("users"),
+        locationId: v.id("clientLocations"),
+    },
+    handler: async (ctx, { userId, locationId }) => {
+        const user = await ctx.db.get(userId);
+        if (!user) throw new Error("User not found");
+
+        const existingIds = user.serviceLocationIds || [];
+        await ctx.db.patch(userId, {
+            serviceLocationIds: existingIds.filter(id => id !== locationId)
+        });
+    }
+});
+
+
+// --- EXISTING & UNCHANGED FUNCTIONS ---
 
 export const deleteUser = mutation({
     args: { userId: v.id("users") },
@@ -92,7 +204,8 @@ export const deleteUser = mutation({
             isAnonymous: undefined,
             isAdmin: false,
             accountActivated: false,
-            searchName: undefined, // Clear the search name
+            searchName: undefined,
+            serviceLocationIds: [],
         });
     },
 });
@@ -105,9 +218,10 @@ export const current = query({
   },
 });
 
-export const get = query({
-  args: { id: v.id("users") },
-  handler: async (ctx, args) => { return await ctx.db.get(args.id) },
+// Renamed from 'get' to be more descriptive and avoid conflict with new functions.
+export const getUserById = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => { return await ctx.db.get(args.userId) },
 });
 
 export const getUsers = query({

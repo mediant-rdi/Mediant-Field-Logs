@@ -25,45 +25,41 @@ export const normalizeName = (name: string): string => {
     .trim();
 };
 
-// --- SEARCH QUERY (for locations autocomplete) ---
+// --- THIS QUERY IS CORRECTED ---
 /**
- * Searches for client locations by their full name, branch name, or full-text search.
+ * Searches for client locations by name, filtering out locations already assigned to other users.
  */
 export const searchLocations = query({
   args: {
     searchText: v.string(),
+    // ADDED: Pass the ID of the user being edited to provide context for filtering.
+    userIdForContext: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     if (args.searchText.length < 2) {
       return [];
     }
     
-    // Use the raw search text for the full-text search index
     const rawQuery = args.searchText;
-    // Use the normalized query for the prefix string-matching indexes
     const normalizedQuery = normalizeName(args.searchText);
 
     if (normalizedQuery.length === 0 && rawQuery.length < 2) {
       return [];
     }
 
-    // --- MODIFIED: Added a third search query for full-text search ---
     const [fullNameResults, nameResults, textSearchResults] = await Promise.all([
-      // 1. Prefix search on the normalized full name (e.g., "ncba town")
       ctx.db
         .query("clientLocations")
         .withIndex("by_full_search_name", (q) =>
           q.gte("searchFullName", normalizedQuery).lt("searchFullName", normalizedQuery + "\uffff")
         )
         .take(10),
-      // 2. Prefix search on the normalized branch name (e.g., "town")
       ctx.db
         .query("clientLocations")
         .withIndex("by_search_name", (q) =>
           q.gte("searchName", normalizedQuery).lt("searchName", normalizedQuery + "\uffff")
         )
         .take(10),
-      // 3. Full-text search on the original fullName (e.g., "NCBA Bank - Town")
       ctx.db
         .query("clientLocations")
         .withSearchIndex("by_full_name_text", (q) => 
@@ -72,33 +68,52 @@ export const searchLocations = query({
         .take(10)
     ]);
 
-    // --- MODIFIED: Combine all three result sets ---
     const combinedResults = [...textSearchResults, ...fullNameResults, ...nameResults];
 
-    // De-duplicate the results, preferring the order (text search first)
     const uniqueResults = new Map<Id<"clientLocations">, Doc<"clientLocations">>();
     for (const doc of combinedResults) {
       if (!uniqueResults.has(doc._id)) {
         uniqueResults.set(doc._id, doc);
       }
     }
+    
+    const uniqueResultsList = Array.from(uniqueResults.values());
+    
+    // --- ADDED FILTERING LOGIC ---
+    // If no user context is provided, return the unfiltered results.
+    if (!args.userIdForContext) {
+        return uniqueResultsList
+            .slice(0, 10)
+            .map(doc => ({ ...doc, displayText: doc.fullName }));
+    }
 
-    // Return the full document plus a displayText field for convenience
-    return Array.from(uniqueResults.values())
+    // 1. Get all users *except* the one being edited.
+    const otherUsers = await ctx.db
+        .query("users")
+        .filter(q => q.neq(q.field("_id"), args.userIdForContext!))
+        .collect();
+
+    // 2. Create a Set of all location IDs assigned to those other users for efficient lookup.
+    const assignedToOthers = new Set<Id<"clientLocations">>();
+    for (const user of otherUsers) {
+        user.serviceLocationIds?.forEach(id => assignedToOthers.add(id));
+    }
+
+    // 3. Filter the search results, removing any location that is already assigned to someone else.
+    const availableResults = uniqueResultsList.filter(location => !assignedToOthers.has(location._id));
+
+    return availableResults
       .slice(0, 10)
       .map(doc => ({
-        ...doc, // Spread all fields from the original document
+        ...doc,
         displayText: doc.fullName,
       }));
   },
 });
 
 
-// --- MUTATIONS ---
+// --- MUTATIONS (Unchanged) ---
 
-/**
- * Creates a new client.
- */
 export const createClient = mutation({
   args: {
     name: v.string(),
@@ -118,16 +133,12 @@ export const createClient = mutation({
   },
 });
 
-/**
- * Creates a new client location (branch), preventing duplicates.
- */
 export const createLocation = mutation({
   args: {
     clientId: v.id("clients"),
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    // 1. Validate input
     const trimmedName = args.name.trim();
     if (trimmedName.length === 0) {
       throw new Error("Location name cannot be empty.");
@@ -137,7 +148,6 @@ export const createLocation = mutation({
       throw new Error("Client not found. Cannot create location.");
     }
 
-    // 2. Check for duplicates for this specific client
     const searchName = normalizeName(trimmedName);
     const existingLocation = await ctx.db
       .query("clientLocations")
@@ -151,7 +161,6 @@ export const createLocation = mutation({
       );
     }
 
-    // 3. Create the new location if no duplicate is found
     const fullName = `${client.name} - ${trimmedName}`;
     const searchFullName = normalizeName(fullName);
     const locationId = await ctx.db.insert("clientLocations", {
@@ -165,11 +174,8 @@ export const createLocation = mutation({
   },
 });
 
-// --- QUERIES ---
+// --- QUERIES (Unchanged) ---
 
-/**
- * Gets a list of all clients for populating dropdowns.
- */
 export const listClients = query({
   handler: async (ctx): Promise<Doc<"clients">[]> => {
     const clients = await ctx.db.query("clients").order("asc").collect();
@@ -177,9 +183,6 @@ export const listClients = query({
   },
 });
 
-/**
- * Gets a specific client and all of their associated locations (branches).
- */
 export const getLocationsForClient = query({
   args: {
     clientId: v.id("clients"),
@@ -198,9 +201,6 @@ export const getLocationsForClient = query({
   },
 });
 
-/**
- * Searches for clients by name for the main client list page.
- */
 export const searchClients = query({
   args: {
     searchText: v.string(),
@@ -217,5 +217,17 @@ export const searchClients = query({
       )
       .collect();
     return clients;
+  },
+});
+
+export const getLocationsByIds = query({
+  args: {
+    ids: v.array(v.id("clientLocations")),
+  },
+  handler: async (ctx, args) => {
+    const locations = await Promise.all(
+      args.ids.map((id) => ctx.db.get(id))
+    );
+    return locations.filter((loc): loc is Doc<"clientLocations"> => loc !== null);
   },
 });

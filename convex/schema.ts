@@ -25,8 +25,53 @@ const agreementType = v.union(
 
 export default defineSchema({
   ...authTables,
-  
-  // --- UPDATED callLogs TABLE DEFINITION ---
+
+  // =================================================================
+  // NEW TABLES FOR SERVICE PERIOD MANAGEMENT
+  // =================================================================
+  systemSettings: defineTable({
+    isServicePeriodActive: v.boolean(),
+    currentServicePeriodId: v.optional(v.string()),
+    servicePeriodName: v.optional(v.string()),
+    singleton: v.literal("global"),
+  }).index("by_singleton", ["singleton"]),
+
+  // --- THIS IS THE CORRECTED serviceLogs TABLE DEFINITION ---
+  serviceLogs: defineTable({
+    servicePeriodId: v.string(),
+    engineerId: v.id("users"), // The engineer originally assigned
+    locationId: v.id("clientLocations"),
+    status: v.union(
+      v.literal("Pending"),
+      v.literal("In Progress"),
+      v.literal("Finished")
+    ),
+    completionMethod: v.optional(v.union(
+      v.literal("Planned Service"),
+      v.literal("Call Log")
+    )),
+    completedByUserId: v.optional(v.id("users")), // Who actually did the job
+    completedCallLogId: v.optional(v.id("callLogs")), // Audit trail to the call log
+    
+    // --- THIS IS THE NEW FIELD ---
+    completionNotes: v.optional(v.string()), // To store user-entered comments on completion.
+
+    jobStartTime: v.optional(v.number()), 
+    jobEndTime: v.optional(v.number()),   
+    startLocation: v.optional(v.object({
+      latitude: v.number(),
+      longitude: v.number(),
+    })),
+    endLocation: v.optional(v.object({
+      latitude: v.number(),
+      longitude: v.number(),
+    })),
+  })
+  .index("by_engineer_and_period", ["engineerId", "servicePeriodId"])
+  .index("by_location_and_period", ["locationId", "servicePeriodId"]),
+  // =================================================================
+
+
   callLogs: defineTable({
     locationId: v.id("clientLocations"), 
     issue: v.string(),
@@ -52,10 +97,7 @@ export default defineSchema({
       latitude: v.number(),
       longitude: v.number(),
     })),
-
-    // ---- THIS IS THE CRITICAL FIELD FOR THE FIX ----
     engineersAtEscalation: v.optional(v.number()),
-
   })
   .index("by_location", ["locationId"])
   .index("by_status", ["status"])
@@ -84,6 +126,7 @@ export default defineSchema({
     isAdmin: v.optional(v.boolean()),
     accountActivated: v.optional(v.boolean()),
     searchName: v.optional(v.string()),
+    serviceLocationIds: v.optional(v.array(v.id("clientLocations"))),
   })
     .index('by_email', ['email'])
     .index("by_search_name", ["searchName"])

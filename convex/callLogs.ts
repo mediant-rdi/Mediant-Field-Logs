@@ -26,7 +26,6 @@ const enrichLog = async (ctx: QueryCtx, log: Doc<"callLogs">) => {
     };
 };
 
-// --- CORRECTED MUTATION TO REQUEST AN ESCALATION ---
 export const requestEscalation = mutation({
   args: { callLogId: v.id("callLogs") },
   handler: async (ctx, args) => {
@@ -39,17 +38,24 @@ export const requestEscalation = mutation({
     if (callLog.isEscalated) throw new Error("This job has already been escalated.");
     if (!callLog.engineerIds.includes(userId)) throw new Error("You are not assigned to this call log.");
 
-    // Change status and record the number of engineers at this exact moment.
+    // THE FIX:
+    // When a job is escalated, all currently assigned engineers are treated as part of the escalated state.
+    // We update `acceptedBy` to include all current engineers, ensuring their UI state is synchronized.
+    // This prevents the issue where one engineer escalates, and another sees an "Accept Job" button.
+    const currentAccepted = callLog.acceptedBy ?? [];
+    const allCurrentEngineers = callLog.engineerIds;
+    const newAcceptedBy = [...new Set([...currentAccepted, ...allCurrentEngineers])];
+
     await ctx.db.patch(args.callLogId, {
       status: "Escalated",
       statusTimestamp: Date.now(),
       isEscalated: true,
-      engineersAtEscalation: callLog.engineerIds.length, // <-- THIS IS THE KEY CHANGE
+      engineersAtEscalation: callLog.engineerIds.length,
+      acceptedBy: newAcceptedBy,
     });
   },
 });
 
-// Create mutation
 export const create = mutation({
   args: {
     locationId: v.id("clientLocations"),
@@ -79,7 +85,6 @@ export const create = mutation({
   },
 });
 
-// acceptJob mutation
 export const acceptJob = mutation({
   args: {
     callLogId: v.id("callLogs"),
@@ -117,7 +122,6 @@ export const acceptJob = mutation({
   },
 });
 
-// assignEscalatedEngineer mutation
 export const assignEscalatedEngineer = mutation({
   args: {
     callLogId: v.id("callLogs"),
@@ -139,16 +143,19 @@ export const assignEscalatedEngineer = mutation({
   },
 });
 
-// finishJob mutation
+// --- THIS IS THE CORRECTED MUTATION ---
 export const finishJob = mutation({
   args: { callLogId: v.id("callLogs"), latitude: v.optional(v.number()), longitude: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("You must be logged in to finish a job.");
+    
     const callLog = await ctx.db.get(args.callLogId);
     if (!callLog) throw new Error("Call log not found.");
     if (!callLog.engineerIds.includes(userId)) throw new Error("You are not assigned to this call log.");
     if (callLog.status !== "In Progress") throw new Error("Job must be 'In Progress' to be marked as resolved.");
+    
+    // 1. Update the Call Log as usual
     const patchData: Partial<Doc<"callLogs">> = {
       status: "Resolved",
       statusTimestamp: Date.now(),
@@ -158,6 +165,31 @@ export const finishJob = mutation({
       patchData.endLocation = { latitude: args.latitude, longitude: args.longitude };
     }
     await ctx.db.patch(args.callLogId, patchData);
+
+    // 2. Check for an active service period and update the corresponding service log
+    const settings = await ctx.db.query("systemSettings").withIndex("by_singleton", q => q.eq("singleton", "global")).first();
+    
+    if (settings && settings.isServicePeriodActive && settings.currentServicePeriodId) {
+      const serviceLog = await ctx.db
+        .query("serviceLogs")
+        .withIndex("by_location_and_period", q => 
+          q.eq("locationId", callLog.locationId)
+           .eq("servicePeriodId", settings.currentServicePeriodId!)
+        )
+        .first();
+
+      if (serviceLog && serviceLog.status !== "Finished") {
+        await ctx.db.patch(serviceLog._id, {
+          status: "Finished",
+          completionMethod: "Call Log",
+          completedByUserId: userId,
+          completedCallLogId: callLog._id,
+          // THE FIX: Changed 'finishTime' to 'jobEndTime' to match the schema
+          jobEndTime: Date.now(), 
+        });
+        console.log(`Service log ${serviceLog._id} for location ${callLog.locationId} completed via call log ${callLog._id}.`);
+      }
+    }
   },
 });
 

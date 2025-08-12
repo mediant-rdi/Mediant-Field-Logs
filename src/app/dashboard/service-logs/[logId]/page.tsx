@@ -1,0 +1,158 @@
+'use client';
+
+import { useQuery } from 'convex/react';
+import { api } from '../../../../../convex/_generated/api';
+import { Id } from '../../../../../convex/_generated/dataModel';
+import { useParams, useRouter } from 'next/navigation';
+import { format } from 'date-fns';
+import { ArrowLeft, Loader2, MapPin, AlertTriangle, User, Calendar, Flag, Clock } from 'lucide-react';
+
+// --- Reusable Helper Components ---
+
+// Helper to create a Google Maps link
+const getGoogleMapsLink = (lat?: number, lon?: number) => {
+  if (lat === undefined || lon === undefined) return null;
+  return `https://www.google.com/maps?q=${lat},${lon}`;
+};
+
+// Reusable component to display a location block
+const LocationBlock = ({ title, mapLink, lat, lon }: { title: string, mapLink: string | null, lat?: number, lon?: number }) => (
+  <div>
+    <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-3">{title}</h3>
+    {mapLink ? (
+      <div className="mt-2">
+        <a 
+          href={mapLink} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+        >
+          <MapPin className="w-5 h-5" />
+          View on Google Maps
+        </a>
+        <p className="text-xs text-gray-500 mt-2">
+          Coordinates Captured: {lat?.toFixed(6)}, {lon?.toFixed(6)}
+        </p>
+      </div>
+    ) : (
+      <div className="mt-2 flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+        <p className="text-sm text-yellow-800">No location was recorded for this event.</p>
+      </div>
+    )}
+  </div>
+);
+
+// Reusable component to display a time block
+const TimeBlock = ({ title, time }: { title: string, time?: number }) => (
+  <div className="flex items-start space-x-3">
+    <div className="flex-shrink-0 mt-1"><Clock className="w-5 h-5 text-gray-400"/></div>
+    <div>
+      <h4 className="font-medium text-gray-600">{title}</h4>
+      {time ? (
+        <p className="text-md text-gray-900">{format(new Date(time), 'dd MMMM yyyy, h:mm a')}</p>
+      ) : (
+        <p className="text-md text-gray-500 italic">Not available</p>
+      )}
+    </div>
+  </div>
+);
+
+
+// --- Main Page Component ---
+
+export default function ServiceLogDetailsPage() {
+  const params = useParams();
+  const router = useRouter();
+  const logId = params.logId as Id<"serviceLogs">;
+
+  // Assumes a query `api.serviceLogs.getById` exists.
+  const serviceLog = useQuery(api.serviceLogs.getById, logId ? { id: logId } : 'skip');
+
+  if (serviceLog === undefined) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <Loader2 className="w-12 h-12 animate-spin text-gray-500" />
+      </div>
+    );
+  }
+
+  if (serviceLog === null) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-50 text-center p-4">
+        <AlertTriangle className="w-16 h-16 text-red-400 mb-4" />
+        <h1 className="text-2xl font-bold text-red-600">Service Log Not Found</h1>
+        <p className="text-gray-500 mt-2 max-w-md">The requested service log does not exist or you may not have permission to view it.</p>
+        <button 
+          onClick={() => router.back()}
+          className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
+  const startMapLink = getGoogleMapsLink(serviceLog.startLocation?.latitude, serviceLog.startLocation?.longitude);
+  const endMapLink = getGoogleMapsLink(serviceLog.endLocation?.latitude, serviceLog.endLocation?.longitude);
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div className="mb-6">
+          <button onClick={() => router.back()} className="flex items-center text-sm font-medium text-gray-600 hover:text-gray-900">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Service Logs
+          </button>
+        </div>
+        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+          <div className="bg-gray-50 px-6 py-5 border-b border-gray-200">
+            <h1 className="text-2xl font-bold text-gray-900">{serviceLog.locationName}</h1>
+            <p className="text-sm text-gray-500 mt-1">Planned Service Log Details</p>
+          </div>
+          <div className="p-6 space-y-8">
+            
+            {/* General Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0 mt-1"><Calendar className="w-5 h-5 text-gray-400"/></div>
+                <div>
+                  <h4 className="font-medium text-gray-600">Date Logged</h4>
+                  <p className="text-md text-gray-900">{format(new Date(serviceLog._creationTime), 'dd MMMM yyyy')}</p>
+                </div>
+              </div>
+               <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0 mt-1"><Flag className="w-5 h-5 text-gray-400"/></div>
+                <div>
+                  <h4 className="font-medium text-gray-600">Status</h4>
+                  <p className="text-md font-semibold text-gray-900">{serviceLog.status}</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3 md:col-span-2">
+                <div className="flex-shrink-0 mt-1"><User className="w-5 h-5 text-gray-400"/></div>
+                <div>
+                  <h4 className="font-medium text-gray-600">Assigned Engineer</h4>
+                  <p className="text-md text-gray-900">{serviceLog.assignedEngineerName}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Timeline & Location Details */}
+            <div className="border-t pt-8 mt-8">
+              <h3 className="text-xl font-bold text-gray-800 mb-6">Job Timeline & Location</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8 mb-8">
+                <TimeBlock title="Job Started At" time={serviceLog.jobStartTime} />
+                <TimeBlock title="Job Finished At" time={serviceLog.jobEndTime} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <LocationBlock title="Job Start Location" mapLink={startMapLink} lat={serviceLog.startLocation?.latitude} lon={serviceLog.startLocation?.longitude} />
+                <LocationBlock title="Job End Location" mapLink={endMapLink} lat={serviceLog.endLocation?.latitude} lon={serviceLog.endLocation?.longitude} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

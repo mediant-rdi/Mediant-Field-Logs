@@ -7,7 +7,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import logoImage from "../../images/logo.jpg";
 
-// --- UPDATED ICONS from lucide-react ---
+// --- ICONS ---
 import {
   LayoutDashboard,
   MessageSquareHeart,
@@ -17,12 +17,12 @@ import {
   ClipboardList,
   Shield,
   BookOpen,
-  PhoneCall, // Added for Call Logs
+  PhoneCall,
+  Wrench,
   ChevronDown
 } from "lucide-react";
 
 
-// All possible menu items with new, semantic icons.
 const baseMenuItems = [
   { id: 'dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
   { id: 'feedback-form', name: 'Feedback', icon: <MessageSquareHeart size={20} />, },
@@ -35,7 +35,8 @@ const baseMenuItems = [
       { id: 'complaint-engineer', name: 'Engineer Complaint' }
     ]
   },
-  { id: 'call-logs', name: 'Call Logs', icon: <PhoneCall size={20} /> }, // Moved to be an independent item
+  { id: 'call-logs', name: 'Call Logs', icon: <PhoneCall size={20} /> },
+  { id: 'service-logs', name: 'Service Logs', icon: <Wrench size={20} /> },
   { id: 'clients-view', name: 'View Clients', icon: <Users size={20} />, },
   { id: 'machines', name: 'View Products', icon: <Server size={20} />, },
   { id: 'manuals-view', name: 'Machine Manuals', icon: <BookOpen size={20} /> },
@@ -50,10 +51,10 @@ const baseMenuItems = [
       { id: 'admin-add-client', name: 'Add Client / Location' },
       { id: 'admin-add-machine', 'name': 'Add Machine' },
       { id: 'admin-add-manual', name: 'Add Manual' },
-      { id: 'admin-add-report', name: 'Add Report' }
+      { id: 'admin-add-report', name: 'Add Report' },
+      { id: 'admin-activate-service', name: 'Activate Service Period' },
     ]
   },
-  
 ];
 
 interface SidebarProps {
@@ -65,22 +66,30 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: SidebarProps) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-
   const { isLoading, isAuthenticated } = useConvexAuth();
   const user = useQuery(api.users.current, isAuthenticated ? {} : "skip");
 
-  // Dynamically generate menuItems based on user role
+  // --- FINAL CORRECTED LOGIC FOR DYNAMIC MENU ---
   const menuItems = useMemo(() => {
-    // Open the dropdown if the active item is one of its children
+    // Auto-open dropdown if active item is a child
     const activeParent = baseMenuItems.find(item => item.subItems?.some(sub => sub.id === activeItem));
     if (activeParent && openDropdown !== activeParent.id) {
         setOpenDropdown(activeParent.id);
     }
     
-    if (isLoading || !user?.isAdmin) {
+    // While loading, just show the base items without the admin panel
+    if (isLoading) {
       return baseMenuItems.filter(item => item.id !== 'admin');
     }
+
+    // Once loaded, only filter out the admin panel for non-admins
+    if (user && !user.isAdmin) {
+      return baseMenuItems.filter(item => item.id !== 'admin');
+    }
+    
+    // If the user is an admin, show all items.
     return baseMenuItems;
+    
   }, [user, isLoading, activeItem, openDropdown]); 
 
 
