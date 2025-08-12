@@ -46,9 +46,7 @@ export const createManual = mutation({
  * Retrieves all machine manuals, enriched with related data.
  * Accessible by any authenticated user.
  * Joins data from `machines` and `users` tables to provide names.
- *
- * OPTIMIZATION: This query no longer fetches file URLs for every manual.
- * URLs are now fetched on-demand from the client.
+ * FIX: This query now fetches file URLs for every manual upfront for better compatibility.
  */
 export const getManuals = query({
   handler: async (ctx) => {
@@ -61,18 +59,21 @@ export const getManuals = query({
     // Fetch all manuals, ordered by creation time (newest first).
     const manuals = await ctx.db.query("manuals").order("desc").collect();
 
-    // Enrich each manual with related data but NOT the file URL.
+    // Enrich each manual with related data AND the file URL.
     const manualsWithDetails = await Promise.all(
       manuals.map(async (manual) => {
         const machine = await ctx.db.get(manual.machineId);
         const uploader = await ctx.db.get(manual.uploadedBy);
+        // Fetch the file URL for each manual record.
+        const fileUrl = await ctx.storage.getUrl(manual.fileStorageId);
 
         return {
           ...manual,
           // Provide fallback names in case related documents are deleted
           machineName: machine?.name ?? "Unknown Machine",
           uploaderName: uploader?.name ?? uploader?.email ?? "Unknown Uploader",
-          // fileUrl is intentionally omitted here for performance.
+          // Include the fileUrl in the main query result.
+          fileUrl: fileUrl,
         };
       })
     );
@@ -81,24 +82,6 @@ export const getManuals = query({
   },
 });
 
-/**
- * NEW QUERY: Generates a URL for a single file on demand.
- * This is called by the client just before viewing or downloading a file.
- * @param storageId - The _storage ID of the file.
- * @returns The file URL, or null if not found.
- */
-export const getManualUrl = query({
-  args: { storageId: v.id("_storage") },
-  handler: async (ctx, args) => {
-    // We can still add an auth check here for security
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      // Or return null if you want to handle this gracefully on the client
-      throw new Error("You must be logged in to get a file URL.");
-    }
-    return await ctx.storage.getUrl(args.storageId);
-  },
-});
 
 /**
  * Deletes a machine manual and its associated file from storage.
