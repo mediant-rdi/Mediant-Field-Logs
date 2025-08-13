@@ -6,7 +6,8 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 import React, { useState, useMemo } from 'react';
 import { Doc, Id } from '../../../../convex/_generated/dataModel';
-import { Loader2, CheckCircle, Wrench, Play, Flag, UserCheck, Eye, MessageSquare } from 'lucide-react';
+// --- MODIFICATION: Added Search icon ---
+import { Loader2, CheckCircle, Wrench, Play, Flag, UserCheck, Eye, MessageSquare, Search } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { useAccurateLocation } from '../../../hooks/useAccurateLocation';
 import { CompletionNotesModal } from '../../../components/modals/CompletionNotesModal';
@@ -139,6 +140,9 @@ export default function ServiceLogsPage() {
   
   const [processingId, setProcessingId] = useState<Id<"serviceLogs"> | null>(null);
   
+  // --- MODIFICATION: State for the search query ---
+  const [searchQuery, setSearchQuery] = useState('');
+  
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     serviceLogId: Id<"serviceLogs"> | null;
@@ -149,6 +153,17 @@ export default function ServiceLogsPage() {
   const isJobInProgress = useMemo(() => {
     return activeServiceLogs?.some(log => log.status === 'In Progress') ?? false;
   }, [activeServiceLogs]);
+
+  // --- MODIFICATION: Memoized filtered locations based on search query ---
+  const filteredLocations = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!assignedLocations) return [];
+    if (!query) return assignedLocations;
+    return assignedLocations.filter(location =>
+      location.fullName.toLowerCase().includes(query)
+    );
+  }, [assignedLocations, searchQuery]);
+
 
   const handleAction = async (id: Id<"serviceLogs">, action: 'start' | 'finish') => {
     if (action === 'finish') {
@@ -220,13 +235,34 @@ export default function ServiceLogsPage() {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="p-6 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg"><Wrench className="w-6 h-6 text-blue-600" /></div>
-                  <div>
-                      <h2 className="text-lg font-bold text-gray-900">Assigned Branches</h2>
-                      <p className="text-sm text-gray-600">Showing {assignedLocations?.length ?? 0} locations.</p>
+          <div className="p-4 md:p-6 border-b border-gray-200 bg-gray-50 space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded-lg"><Wrench className="w-6 h-6 text-blue-600" /></div>
+                      <div>
+                          <h2 className="text-lg font-bold text-gray-900">Assigned Branches</h2>
+                          <p className="text-sm text-gray-600">
+                            {/* --- MODIFICATION: Updated count text --- */}
+                            {searchQuery ? `Showing ${filteredLocations.length} of ${assignedLocations?.length ?? 0} locations.` : `Showing ${assignedLocations?.length ?? 0} locations.`}
+                          </p>
+                      </div>
                   </div>
+              </div>
+              {/* --- MODIFICATION: Added search input field --- */}
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                </div>
+                <input
+                    type="text"
+                    name="search"
+                    id="search"
+                    className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    placeholder="Search assigned locations..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    disabled={isLoading || (assignedLocations ?? []).length === 0}
+                />
               </div>
           </div>
 
@@ -238,9 +274,17 @@ export default function ServiceLogsPage() {
               <h3 className="mt-2 text-sm font-semibold text-gray-900">No Service Assignments</h3>
               <p className="mt-1 text-sm text-gray-500">You have not been assigned any service locations.</p>
             </div>
+          // --- MODIFICATION: Handle no search results ---
+          ) : filteredLocations.length === 0 ? (
+            <div className="text-center py-16 px-6">
+              <Search className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-semibold text-gray-900">No Locations Found</h3>
+              <p className="mt-1 text-sm text-gray-500">Your search for &quot;{searchQuery}&quot; did not match any assigned locations.</p>
+            </div>
           ) : (
+            // --- MODIFICATION: Map over filtered locations ---
             <div className="p-4 sm:p-6 bg-gray-50/50 space-y-4">
-              {(assignedLocations ?? []).map(location => {
+              {filteredLocations.map(location => {
                   const serviceLogForLocation = activeServiceLogsMap.get(location._id) ?? { locationName: location.fullName } as EnrichedServiceLog;
                   return (
                     <ServiceLogCard 
