@@ -1,7 +1,7 @@
 // src/components/layout/sidebar.tsx
 'use client';
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react"; // MODIFICATION: Imported useEffect
 import Image from "next/image";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -19,7 +19,8 @@ import {
   BookOpen,
   PhoneCall,
   Wrench,
-  ChevronDown
+  ChevronDown,
+  Briefcase,
 } from "lucide-react";
 
 
@@ -41,6 +42,15 @@ const baseMenuItems = [
   { id: 'machines', name: 'View Products', icon: <Server size={20} />, },
   { id: 'manuals-view', name: 'Machine Manuals', icon: <BookOpen size={20} /> },
   { id: 'reports-machine-dev', name: 'Machine Reports', icon: <ClipboardList size={20} />, },
+  { 
+    id: 'management', 
+    name: 'Management Dashboard', 
+    icon: <Briefcase size={20} />,
+    subItems: [
+      { id: 'management-service-records', name: 'View Service Records' },
+      { id: 'management-call-records', name: 'View Call Records' }
+    ]
+  },
   { 
     id: 'admin', 
     name: 'Admin Panel', 
@@ -69,14 +79,17 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
   const { isLoading, isAuthenticated } = useConvexAuth();
   const user = useQuery(api.users.current, isAuthenticated ? {} : "skip");
 
-  // --- MODIFICATION: Updated menu logic to handle call log permissions ---
-  const menuItems = useMemo(() => {
-    const activeParent = baseMenuItems.find(item => item.subItems?.some(sub => sub.id === activeItem));
-    if (activeParent && openDropdown !== activeParent.id) {
-        setOpenDropdown(activeParent.id);
+  useEffect(() => {
+    const activeParent = baseMenuItems.find(item => 
+      item.subItems?.some(sub => sub.id === activeItem)
+    );
+    if (activeParent) {
+      setOpenDropdown(activeParent.id);
     }
-    
-    // While loading, hide items that depend on any user permissions to prevent flashing.
+  }, [activeItem]);
+
+  const menuItems = useMemo(() => {
+    // While loading, hide items that depend on user permissions to prevent flashing.
     if (isLoading || !user) {
       return baseMenuItems.filter(item => item.id !== 'admin' && item.id !== 'call-logs');
     }
@@ -93,10 +106,11 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
     if (!user.canAccessCallLogs) {
       filteredItems = filteredItems.filter(item => item.id !== 'call-logs');
     }
-
+    
     return filteredItems;
     
-  }, [user, isLoading, activeItem, openDropdown]); 
+  }, [user, isLoading]); 
+  // --- MODIFICATION END ---
 
 
   const handleItemClick = (itemId: string) => { onItemClick(itemId); onClose(); };

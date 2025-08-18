@@ -296,14 +296,15 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 const SubmissionDetailsModal = dynamic(() => import('@/components/modals/SubmissionDetailsModal'), { ssr: false });
 type DashboardStatsType = { isAdmin: boolean; pendingCount: number; submissionsTodayCount: number };
-const SummaryCard = ({ title, count, icon: Icon, color, trend, onClick }: { title: string; count?: number; icon: React.ComponentType<{ className?: string }>; color: string; trend?: { value: number; label: string }; onClick?: () => void; }) => ( <div onClick={onClick} className={`relative overflow-hidden bg-white rounded-xl border border-gray-200 p-6 transition-all duration-200 ${onClick ? 'cursor-pointer hover:shadow-lg hover:border-gray-300 hover:scale-105' : ''}`}><div className="flex items-center justify-between"><div className="space-y-2"><p className="text-sm font-medium text-gray-600">{title}</p><p className="text-3xl font-bold text-gray-900">{count === undefined ? (<span className="inline-block w-8 h-8 bg-gray-200 rounded animate-pulse"></span>) : (count)}</p>{trend && (<div className="flex items-center gap-1 text-xs text-gray-500"><TrendingUp className="w-3 h-3" /><span>{trend.label}</span></div>)}</div><div className={`p-3 rounded-full ${color.replace('text-', 'bg-').replace('600', '50')}`}><Icon className={`w-6 h-6 ${color}`} /></div></div></div>);
+// --- MODIFICATION: Update SummaryCard to remove highlight effect when disabled ---
+const SummaryCard = ({ title, count, icon: Icon, color, trend, onClick, disableZoom = false }: { title: string; count?: number; icon: React.ComponentType<{ className?: string }>; color: string; trend?: { value: number; label: string }; onClick?: () => void; disableZoom?: boolean; }) => ( <div onClick={onClick} className={`relative overflow-hidden bg-white rounded-xl border border-gray-200 p-6 transition-all duration-200 ${onClick ? 'cursor-pointer' : ''} ${onClick && !disableZoom ? 'hover:shadow-lg hover:border-gray-300 hover:scale-105' : ''}`}><div className="flex items-center justify-between"><div className="space-y-2"><p className="text-sm font-medium text-gray-600">{title}</p><p className="text-3xl font-bold text-gray-900">{count === undefined ? (<span className="inline-block w-8 h-8 bg-gray-200 rounded animate-pulse"></span>) : (count)}</p>{trend && (<div className="flex items-center gap-1 text-xs text-gray-500"><TrendingUp className="w-3 h-3" /><span>{trend.label}</span></div>)}</div><div className={`p-3 rounded-full ${color.replace('text-', 'bg-').replace('600', '50')}`}><Icon className={`w-6 h-6 ${color}`} /></div></div></div>);
 const StatsSkeleton = () => <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">{[...Array(2)].map((_, i) => <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse"><div className="flex items-center justify-between"><div className="space-y-2"><div className="h-4 bg-gray-200 rounded w-24"></div><div className="h-8 bg-gray-200 rounded w-16"></div></div><div className="w-12 h-12 bg-gray-200 rounded-full"></div></div></div>)}</div>;
 const AdminTableSkeleton = () => <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{[...Array(6)].map((_, i) => <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse"><div className="flex items-center justify-between mb-4"><div className="flex items-center gap-3"><div className="w-8 h-8 bg-gray-200 rounded-lg"></div><div className="space-y-2"><div className="h-4 bg-gray-200 rounded w-20"></div><div className="h-3 bg-gray-200 rounded w-16"></div></div></div><div className="h-6 bg-gray-200 rounded-full w-16"></div></div><div className="space-y-2 mb-4"><div className="h-4 bg-gray-200 rounded w-full"></div><div className="h-4 bg-gray-200 rounded w-3/4"></div></div><div className="h-8 bg-gray-200 rounded w-24"></div></div>)}</div>;
 export type TabType = 'complaints' | 'feedback' | 'serviceReports' | 'needsReview' | null;
 const DashboardStats = React.memo(function DashboardStats({ stats, onReviewClick }: { stats: DashboardStatsType | undefined; onReviewClick: () => void; }) {
   if (stats === undefined) return <StatsSkeleton />;
   if (!stats.isAdmin) return null;
-  const cards = [{title: "Pending Reviews",count: stats.pendingCount,icon: AlertCircle,color: "text-amber-600",onClick: onReviewClick},{title: "Today's Submissions",count: stats.submissionsTodayCount,icon: Activity,color: "text-blue-600"}];
+  const cards = [{title: "Pending Reviews",count: stats.pendingCount,icon: AlertCircle,color: "text-amber-600",onClick: onReviewClick, disableZoom: true},{title: "Today's Submissions",count: stats.submissionsTodayCount,icon: Activity,color: "text-blue-600"}];
   return (<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">{cards.map((card, index) => (<SummaryCard key={index} {...card} />))}</div>);
 });
 type DropdownOption = { key: TabType; label: string; icon: React.ComponentType<{className?: string}> };
@@ -387,36 +388,38 @@ export default function DashboardPage() {
         
         {isAdmin && <DashboardStats stats={statsData} onReviewClick={handleReviewClick} />}
 
-        <section className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8">
-          <div className="p-4 sm:p-6 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center justify-between gap-4">
-              <div className='flex items-center gap-3'>
-                <div className="p-2 bg-indigo-100 rounded-lg">
-                  <ListChecks className="w-6 h-6 text-indigo-600" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">My Assigned Jobs</h2>
-                  <p className="text-sm text-gray-600">Showing the {latestAssignedJobs?.length ?? 0} most recent jobs assigned to you.</p>
+        {/* --- MODIFICATION: Conditionally render this entire section --- */}
+        {assignedJobs && assignedJobs.length > 0 && (
+          <section className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8">
+            <div className="p-4 sm:p-6 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between gap-4">
+                <div className='flex items-center gap-3'>
+                  <div className="p-2 bg-indigo-100 rounded-lg">
+                    <ListChecks className="w-6 h-6 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">My Assigned Jobs</h2>
+                    <p className="text-sm text-gray-600">Showing the {latestAssignedJobs?.length ?? 0} most recent jobs assigned to you.</p>
+                  </div>
                 </div>
               </div>
-              {/* --- MODIFICATION: Removed the "Add New Log" button from here --- */}
             </div>
-          </div>
-          <div className="p-4 sm:p-6">
-            <CallLogsDataTable callLogs={latestAssignedJobs} currentUser={currentUser} />
-          </div>
-          
-          {assignedJobs && assignedJobs.length > 3 && visibleJobsCount === 3 && (
-            <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 text-center">
-              <button
-                onClick={() => setVisibleJobsCount(6)}
-                className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
-              >
-                View More...
-              </button>
+            <div className="p-4 sm:p-6">
+              <CallLogsDataTable callLogs={latestAssignedJobs} currentUser={currentUser} />
             </div>
-          )}
-        </section>
+            
+            {assignedJobs && assignedJobs.length > 3 && visibleJobsCount === 3 && (
+              <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 text-center">
+                <button
+                  onClick={() => setVisibleJobsCount(6)}
+                  className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  View More...
+                </button>
+              </div>
+            )}
+          </section>
+        )}
 
         <main className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="border-b border-gray-200 bg-gray-50 p-4">

@@ -238,3 +238,21 @@ export const searchCallLogs = query({
     return asyncMap(logs, (log) => enrichLog(ctx, log));
   },
 });
+
+// --- NEW QUERY FOR THE CHART ---
+export const getRecentLogsForChart = query({
+  handler: async (ctx) => {
+    // Calculate the date for 30 days ago
+    const thirtyDaysAgoTimestamp = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    // Query logs created in the last 30 days
+    const recentLogs = await ctx.db
+      .query("callLogs")
+      .filter((q) => q.gt(q.field("_creationTime"), thirtyDaysAgoTimestamp))
+      .order("desc")
+      .collect();
+
+    // Enrich the logs with client names
+    return asyncMap(recentLogs, (log) => enrichLog(ctx, log));
+  },
+});

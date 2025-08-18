@@ -1,3 +1,4 @@
+// src/app/dashboard/service-logs/[logId]/page.tsx
 'use client';
 
 import { useQuery } from 'convex/react';
@@ -5,16 +6,14 @@ import { api } from '../../../../../convex/_generated/api';
 import { Id } from '../../../../../convex/_generated/dataModel';
 import { useParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { ArrowLeft, Loader2, MapPin, AlertTriangle, User, Calendar, Flag, Clock, UserCheck } from 'lucide-react';
+import { ArrowLeft, Loader2, MapPin, AlertTriangle, User, Calendar, Flag, Clock, UserCheck, MessageSquare } from 'lucide-react';
 
-// --- MODIFICATION: New helper to create a Google Maps link with a label ---
 const getGoogleMapsLink = (lat?: number, lon?: number, label?: string) => {
   if (lat === undefined || lon === undefined) return null;
   const encodedLabel = label ? `(${encodeURIComponent(label)})` : '';
   return `https://www.google.com/maps?q=${lat},${lon}${encodedLabel}`;
 };
 
-// --- MODIFICATION: Define type for enriched location data for component props ---
 type EnrichedLocation = {
   latitude: number;
   longitude: number;
@@ -23,7 +22,6 @@ type EnrichedLocation = {
   capturedByName: string;
 };
 
-// --- MODIFICATION: New reusable component to display an enhanced location block ---
 const LocationBlock = ({ title, locationData }: { title: string, locationData?: EnrichedLocation }) => {
   const mapLink = getGoogleMapsLink(locationData?.latitude, locationData?.longitude, locationData?.capturedByName);
 
@@ -61,7 +59,6 @@ const LocationBlock = ({ title, locationData }: { title: string, locationData?: 
   );
 };
 
-// Reusable component to display a time block
 const TimeBlock = ({ title, time }: { title: string, time?: number }) => (
   <div className="flex items-start space-x-3">
     <div className="flex-shrink-0 mt-1"><Clock className="w-5 h-5 text-gray-400"/></div>
@@ -75,9 +72,6 @@ const TimeBlock = ({ title, time }: { title: string, time?: number }) => (
     </div>
   </div>
 );
-
-
-// --- Main Page Component ---
 
 export default function ServiceLogDetailsPage() {
   const params = useParams();
@@ -164,6 +158,37 @@ export default function ServiceLogDetailsPage() {
                 <LocationBlock title="Job End Location" locationData={serviceLog.endLocation} />
               </div>
             </div>
+            
+            {/* --- MODIFICATION: New section for Completion Details --- */}
+            {(serviceLog.completionMethod || serviceLog.completionNotes) && (
+              <div className="border-t pt-8 mt-8">
+                <h3 className="text-xl font-bold text-gray-800 mb-6">Completion Details</h3>
+                <div className="space-y-6">
+                  {serviceLog.completionMethod && (
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0 mt-1"><UserCheck className="w-5 h-5 text-gray-400"/></div>
+                      <div>
+                        <h4 className="font-medium text-gray-600">Completion Method</h4>
+                        <p className="text-md text-gray-900">{serviceLog.completionMethod}</p>
+                        {serviceLog.completedByName && <p className="text-sm text-gray-500">by {serviceLog.completedByName}</p>}
+                      </div>
+                    </div>
+                  )}
+                  {serviceLog.completionNotes && (
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0 mt-1"><MessageSquare className="w-5 h-5 text-gray-400"/></div>
+                      <div>
+                        <h4 className="font-medium text-gray-600">Engineer&apos;s Notes</h4>
+                        <p className="text-md text-gray-700 italic bg-gray-50 p-3 rounded-md border w-full">
+                          {serviceLog.completionNotes}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </div>

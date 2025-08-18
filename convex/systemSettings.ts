@@ -3,27 +3,24 @@
 import { v } from "convex/values";
 import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { Id } from "./_generated/dataModel";
 
-// Helper to get the single settings document, now correctly typed.
+// Helper to get the single settings document.
 const getSettings = (ctx: QueryCtx | MutationCtx) => {
     return ctx.db.query("systemSettings").withIndex("by_singleton", q => q.eq("singleton", "global")).first();
 };
 
 /**
  * Gets the current status of the service period.
- * This is a public query that any authenticated user can call.
- * It will return null if the settings have not been initialized yet.
  */
 export const getServicePeriodStatus = query({
   handler: async (ctx) => {
-    const settings = await getSettings(ctx);
-    return settings;
+    return await getSettings(ctx);
   },
 });
 
 /**
  * (ADMIN ONLY) Activates a new service period.
- * This mutation is now responsible for initializing the settings document if it doesn't exist.
  */
 export const activateServicePeriod = mutation({
   args: { name: v.string() },
@@ -36,50 +33,66 @@ export const activateServicePeriod = mutation({
     if (args.name.trim().length === 0) throw new Error("Service period name cannot be empty.");
 
     const settings = await getSettings(ctx);
-    const servicePeriodId = `sp_${Date.now()}`;
+    if (settings?.isServicePeriodActive) {
+      throw new Error("A service period is already active. Please deactivate it first.");
+    }
     
-    // Generate new service logs from user assignments
     const usersWithAssignments = await ctx.db.query("users")
       .filter(q => q.neq(q.field("serviceLocationIds"), undefined))
+      .filter(q => q.neq(q.field("serviceLocationIds"), []))
       .collect();
 
-    let logsCreated = 0;
+    if (usersWithAssignments.length === 0) {
+      throw new Error("Cannot activate a period with no engineers assigned to locations.");
+    }
+
+    let logsToCreate: { engineerId: Id<"users">; locationId: Id<"clientLocations">; status: "Pending" }[] = [];
     for (const user of usersWithAssignments) {
-        if (user.serviceLocationIds && user.serviceLocationIds.length > 0) {
+        if (user.serviceLocationIds) {
             for (const locationId of user.serviceLocationIds) {
-                await ctx.db.insert("serviceLogs", {
-                    servicePeriodId,
+                logsToCreate.push({
                     engineerId: user._id,
                     locationId,
                     status: "Pending",
                 });
-                logsCreated++;
             }
         }
     }
 
-    // Now, either insert a new settings doc or patch the existing one
+    // 1. Create the new ServicePeriod document for historical tracking
+    const newPeriodId = await ctx.db.insert("servicePeriods", {
+        name: args.name,
+        startDate: Date.now(),
+        isActive: true,
+        createdBy: userId,
+        logsCreated: logsToCreate.length,
+    });
+
+    // 2. Create the associated ServiceLog documents with the new period ID
+    for (const log of logsToCreate) {
+        await ctx.db.insert("serviceLogs", {
+            ...log,
+            servicePeriodId: newPeriodId,
+        });
+    }
+    
+    // 3. Update the global settings to point to the new active period
     if (settings) {
-        // Document exists, so patch it.
-        if (settings.isServicePeriodActive) {
-            throw new Error("A service period is already active.");
-        }
         await ctx.db.patch(settings._id, {
             isServicePeriodActive: true,
-            currentServicePeriodId: servicePeriodId,
+            currentServicePeriodId: newPeriodId,
             servicePeriodName: args.name,
         });
     } else {
-        // Document does not exist, so create it for the first time.
         await ctx.db.insert("systemSettings", {
             isServicePeriodActive: true,
-            currentServicePeriodId: servicePeriodId,
+            currentServicePeriodId: newPeriodId,
             servicePeriodName: args.name,
             singleton: "global",
         });
     }
     
-    return { logsCreated };
+    return { logsCreated: logsToCreate.length };
   },
 });
 
@@ -99,12 +112,10 @@ export const deactivateServicePeriod = mutation({
         return { message: "No active service period to deactivate." };
     }
 
-    // Safety check for in-progress jobs
+    // Safety check for in-progress jobs (using the correct, performant index)
     const inProgressJobs = await ctx.db
       .query("serviceLogs")
-      // An index on just the first field of a compound index can be used for filtering.
-      .withIndex("by_location_and_period") 
-      .filter(q => q.eq(q.field("servicePeriodId"), settings.currentServicePeriodId!))
+      .withIndex("by_period", q => q.eq("servicePeriodId", settings.currentServicePeriodId!))
       .filter(q => q.eq(q.field("status"), "In Progress"))
       .collect();
 
@@ -115,6 +126,13 @@ export const deactivateServicePeriod = mutation({
         };
     }
 
+    // 1. Update the historical ServicePeriod document
+    await ctx.db.patch(settings.currentServicePeriodId, {
+        isActive: false,
+        endDate: Date.now(),
+    });
+
+    // 2. Update the global settings
     await ctx.db.patch(settings._id, {
         isServicePeriodActive: false,
     });

@@ -30,6 +30,7 @@ import type * as notifications from "../notifications.js";
 import type * as passwordResets from "../passwordResets.js";
 import type * as reports from "../reports.js";
 import type * as serviceLogs from "../serviceLogs.js";
+import type * as servicePeriods from "../servicePeriods.js";
 import type * as serviceReports from "../serviceReports.js";
 import type * as setup from "../setup.js";
 import type * as shared from "../shared.js";
@@ -62,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   passwordResets: typeof passwordResets;
   reports: typeof reports;
   serviceLogs: typeof serviceLogs;
+  servicePeriods: typeof servicePeriods;
   serviceReports: typeof serviceReports;
   setup: typeof setup;
   shared: typeof shared;

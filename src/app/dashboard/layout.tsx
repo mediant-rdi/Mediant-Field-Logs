@@ -24,13 +24,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   // Logic for setting active item and page title
   useEffect(() => {
-    // Check for the admin page first
-    if (pathname.startsWith('/dashboard/service-logs/admin')) {
+    // --- MODIFICATION: Added rules for new management pages ---
+    if (pathname.startsWith('/dashboard/service-logs/management')) {
+        setActiveItem('management-service-records');
+        setPageTitle('Service Period Records');
+    } else if (pathname.startsWith('/dashboard/call-logs/management')) {
+        setActiveItem('management-call-records');
+        setPageTitle('Call Log Records');
+    } else if (pathname.startsWith('/dashboard/service-logs/admin')) {
         setActiveItem('admin-activate-service');
         setPageTitle('Activate Service Period');
-    // --- MODIFIED: Simplified rule for the main service logs page ---
     } else if (pathname.startsWith('/dashboard/service-logs')) {
-        setActiveItem('service-logs'); // Matches the parent ID now
+        setActiveItem('service-logs');
         setPageTitle('My Service Logs');
     } else if (pathname.startsWith('/dashboard/reports/add')) {
         setActiveItem('admin-add-report');
@@ -92,8 +97,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       case 'complaint-customer': router.push('/dashboard/complaint/customer'); break;
       case 'complaint-engineer': router.push('/dashboard/complaint/engineer'); break;
       case 'call-logs': router.push('/dashboard/call-logs'); break;
-      // --- MODIFIED: Simplified navigation case ---
       case 'service-logs': router.push('/dashboard/service-logs'); break;
+      // --- MODIFICATION: Added navigation for new management pages ---
+      case 'management-service-records': router.push('/dashboard/service-logs/management'); break;
+      case 'management-call-records': router.push('/dashboard/call-logs/management'); break;
+      // --- Admin Links ---
       case 'admin-activate-service': router.push('/dashboard/service-logs/admin'); break;
       case 'admin-view-users': router.push('/dashboard/users'); break;
       case 'admin-add-user': router.push('/dashboard/users/add'); break;

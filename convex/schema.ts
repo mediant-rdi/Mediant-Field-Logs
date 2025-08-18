@@ -23,7 +23,6 @@ const agreementType = v.union(
   v.literal('CONTRACT')
 );
 
-// --- NEW: Reusable enhanced location object definition ---
 const locationWithUser = v.object({
   latitude: v.number(),
   longitude: v.number(),
@@ -35,18 +34,31 @@ export default defineSchema({
   ...authTables,
 
   // =================================================================
-  // NEW TABLES FOR SERVICE PERIOD MANAGEMENT
+  // NEW & MODIFIED TABLES FOR SERVICE PERIOD MANAGEMENT
   // =================================================================
+
+  // --- NEW: Table for historical tracking of service periods ---
+  servicePeriods: defineTable({
+    name: v.string(),
+    startDate: v.number(),
+    endDate: v.optional(v.number()),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+    logsCreated: v.number(),
+  })
+  .index("by_isActive", ["isActive"]),
+
   systemSettings: defineTable({
     isServicePeriodActive: v.boolean(),
-    currentServicePeriodId: v.optional(v.string()),
+    // MODIFICATION: Now references the new servicePeriods table
+    currentServicePeriodId: v.optional(v.id("servicePeriods")),
     servicePeriodName: v.optional(v.string()),
     singleton: v.literal("global"),
   }).index("by_singleton", ["singleton"]),
 
-  // --- THIS IS THE CORRECTED serviceLogs TABLE DEFINITION ---
   serviceLogs: defineTable({
-    servicePeriodId: v.string(),
+    // MODIFICATION: Now references the new servicePeriods table
+    servicePeriodId: v.id("servicePeriods"),
     engineerId: v.id("users"), // The engineer originally assigned
     locationId: v.id("clientLocations"),
     status: v.union(
@@ -65,12 +77,13 @@ export default defineSchema({
 
     jobStartTime: v.optional(v.number()), 
     jobEndTime: v.optional(v.number()),   
-    // --- MODIFICATION: Using the enhanced location object ---
     startLocation: v.optional(locationWithUser),
     endLocation: v.optional(locationWithUser),
   })
   .index("by_engineer_and_period", ["engineerId", "servicePeriodId"])
-  .index("by_location_and_period", ["locationId", "servicePeriodId"]),
+  .index("by_location_and_period", ["locationId", "servicePeriodId"])
+  // MODIFICATION: Added new index for history page and performance fix
+  .index("by_period", ["servicePeriodId"]),
   // =================================================================
 
 
@@ -83,15 +96,12 @@ export default defineSchema({
     searchField: v.optional(v.string()),
     acceptedBy: v.optional(v.array(v.id("users"))),
     viewedByEngineers: v.optional(v.array(v.id("users"))),
-    // --- MODIFICATION: Using the enhanced location object ---
     startLocation: v.optional(locationWithUser),
     jobStartTime: v.optional(v.number()),
-    // --- MODIFICATION: Using the enhanced location object ---
     endLocation: v.optional(locationWithUser),
     jobEndTime: v.optional(v.number()),
     isEscalated: v.optional(v.boolean()),
     escalatedJobStartTime: v.optional(v.number()),
-    // --- MODIFICATION: Using the enhanced location object ---
     escalatedStartLocation: v.optional(locationWithUser),
     engineersAtEscalation: v.optional(v.number()),
   })

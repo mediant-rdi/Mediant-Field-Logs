@@ -130,6 +130,11 @@ export function EngineerAssignmentsDashboard() {
     );
   }
 
+  // --- MODIFICATION: If user has no jobs, render nothing ---
+  if (allAssignedJobs.length === 0) {
+    return null;
+  }
+
   return (
     <div className="mb-8">
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
