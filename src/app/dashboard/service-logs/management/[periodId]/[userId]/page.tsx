@@ -1,3 +1,4 @@
+// src/app/dashboard/service-logs/management/[periodId]/[userId]/page.tsx
 'use client';
 
 import { useQuery } from "convex/react";
@@ -8,6 +9,7 @@ import { format } from "date-fns";
 import React, { Suspense, use } from "react";
 import { Id } from "../../../../../../../convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
+import ManagementDashboardProtection from "@/components/ManagementDashboardProtection"; // MODIFICATION: Import protection component
 
 // --- Type Definitions ---
 type UserPeriodData = FunctionReturnType<typeof api.servicePeriods.getUserPeriodDetails>;
@@ -90,10 +92,12 @@ export default function UserPeriodDetailsPage({ params }: { params: Promise<{ pe
     const { periodId, userId } = use(params);
 
     return (
-        <Suspense fallback={<div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>}>
-            <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
-                <UserPeriodDetailsContent periodId={periodId} userId={userId} />
-            </div>
-        </Suspense>
+        <ManagementDashboardProtection>
+            <Suspense fallback={<div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>}>
+                <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+                    <UserPeriodDetailsContent periodId={periodId} userId={userId} />
+                </div>
+            </Suspense>
+        </ManagementDashboardProtection>
     );
 }

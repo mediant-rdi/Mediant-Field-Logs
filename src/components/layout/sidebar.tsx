@@ -1,7 +1,7 @@
 // src/components/layout/sidebar.tsx
 'use client';
 
-import { useState, useMemo, useEffect } from "react"; // MODIFICATION: Imported useEffect
+import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -91,7 +91,11 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
   const menuItems = useMemo(() => {
     // While loading, hide items that depend on user permissions to prevent flashing.
     if (isLoading || !user) {
-      return baseMenuItems.filter(item => item.id !== 'admin' && item.id !== 'call-logs');
+      return baseMenuItems.filter(item => 
+        item.id !== 'admin' && 
+        item.id !== 'call-logs' &&
+        item.id !== 'management' // MODIFICATION: Hide during load
+      );
     }
 
     // Start with all items and filter down based on permissions.
@@ -107,10 +111,15 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
       filteredItems = filteredItems.filter(item => item.id !== 'call-logs');
     }
     
+    // --- MODIFICATION: Filter Management Dashboard ---
+    // 3. Filter Management Dashboard if the user does not have specific permission.
+    if (!user.canAccessManagementDashboard) {
+      filteredItems = filteredItems.filter(item => item.id !== 'management');
+    }
+    
     return filteredItems;
     
   }, [user, isLoading]); 
-  // --- MODIFICATION END ---
 
 
   const handleItemClick = (itemId: string) => { onItemClick(itemId); onClose(); };

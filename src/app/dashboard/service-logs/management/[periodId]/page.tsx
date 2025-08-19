@@ -1,7 +1,5 @@
-// ----------------------------------------------------------------
-// 1. CLIENT COMPONENT
-//    Contains all hooks and interactivity. Marked with 'use client'.
-// ----------------------------------------------------------------
+// src/app/dashboard/service-logs/management/[periodId]/page.tsx
+
 'use client';
 
 import { useQuery } from "convex/react";
@@ -12,6 +10,7 @@ import { format } from "date-fns";
 import React, { useMemo, Suspense, use } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { Id } from "../../../../../../convex/_generated/dataModel";
+import ManagementDashboardProtection from "@/components/ManagementDashboardProtection"; // MODIFICATION: Import protection component
 
 // --- Type Definitions ---
 type PeriodDetailsData = FunctionReturnType<typeof api.servicePeriods.getByIdWithLogs>;
@@ -115,11 +114,13 @@ export default function PeriodDetailsPage({ params }: { params: Promise<{ period
     const { periodId } = use(params);
 
     return (
-        <Suspense fallback={<div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>}>
-            <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
-                {/* We render the Client Component here and pass the resolved periodId as a simple prop. */}
-                <PeriodDetailsContent periodId={periodId} />
-            </div>
-        </Suspense>
+        <ManagementDashboardProtection>
+            <Suspense fallback={<div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>}>
+                <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+                    {/* We render the Client Component here and pass the resolved periodId as a simple prop. */}
+                    <PeriodDetailsContent periodId={periodId} />
+                </div>
+            </Suspense>
+        </ManagementDashboardProtection>
     );
 }

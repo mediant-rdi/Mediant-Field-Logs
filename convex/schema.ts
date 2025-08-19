@@ -131,6 +131,8 @@ export default defineSchema({
     isAnonymous: v.optional(v.boolean()),
     isAdmin: v.optional(v.boolean()),
     canAccessCallLogs: v.optional(v.boolean()),
+    // --- NEW FIELD ---
+    canAccessManagementDashboard: v.optional(v.boolean()),
     accountActivated: v.optional(v.boolean()),
     searchName: v.optional(v.string()),
     serviceLocationIds: v.optional(v.array(v.id("clientLocations"))),

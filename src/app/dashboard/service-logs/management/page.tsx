@@ -1,3 +1,4 @@
+// src/app/dashboard/service-logs/management/page.tsx
 'use client';
 
 import { useQuery } from "convex/react";
@@ -6,6 +7,7 @@ import { Loader2, History, CheckCircle, XCircle, ChevronRight, ServerCrash } fro
 import Link from "next/link";
 import { format } from "date-fns";
 import { Suspense } from "react";
+import ManagementDashboardProtection from "@/components/ManagementDashboardProtection"; // MODIFICATION: Import protection component
 
 const StatusBadge = ({ isActive }: { isActive: boolean }) => {
     if (isActive) {
@@ -85,19 +87,21 @@ const PeriodsListPage = () => {
 
 export default function ServiceRecordsManagementPage() {
     return (
-        <Suspense fallback={<div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>}>
-            <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
-                <div className="mb-6">
-                    <div className="flex items-center gap-3">
-                        <History className="w-8 h-8 text-gray-700" />
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Service Period Records</h1>
-                            <p className="mt-1 text-sm text-gray-600">Review performance from all past and present service periods.</p>
+        <ManagementDashboardProtection>
+            <Suspense fallback={<div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>}>
+                <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+                    <div className="mb-6">
+                        <div className="flex items-center gap-3">
+                            <History className="w-8 h-8 text-gray-700" />
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900">Service Period Records</h1>
+                                <p className="mt-1 text-sm text-gray-600">Review performance from all past and present service periods.</p>
+                            </div>
                         </div>
                     </div>
+                    <PeriodsListPage />
                 </div>
-                <PeriodsListPage />
-            </div>
-        </Suspense>
+            </Suspense>
+        </ManagementDashboardProtection>
     );
 }
