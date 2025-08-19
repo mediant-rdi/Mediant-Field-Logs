@@ -43,7 +43,8 @@ const getStatusBadge = (status: string) => {
 
 // --- NEW: Chart Component and its skeleton ---
 const ChartSkeleton = () => (
-    <div className="animate-pulse bg-gray-200 rounded-lg h-80 w-full"></div>
+    // MODIFICATION: Reduced height to match the chart's new size
+    <div className="animate-pulse bg-gray-200 rounded-lg h-64 w-full"></div>
 );
 
 const CallLogChart = () => {
@@ -61,8 +62,8 @@ const CallLogChart = () => {
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count);
 
-        // Return top 10 most frequent clients
-        return sortedData.slice(0, 10).reverse();
+        // Return top 5 most frequent clients
+        return sortedData.slice(0, 5).reverse();
     }, [recentLogs]);
 
     if (recentLogs === undefined) {
@@ -81,7 +82,8 @@ const CallLogChart = () => {
     return (
         <div className="bg-white p-4 rounded-lg border">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 pl-12">Most Frequent Clients (Last 30 Days)</h3>
-            <div className="h-80">
+            {/* MODIFICATION: Reduced height from h-80 to h-64 */}
+            <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                         data={chartData}
