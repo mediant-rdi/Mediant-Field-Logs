@@ -6,7 +6,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 import React, { useState, useMemo } from 'react';
 import { Doc, Id } from '../../../../convex/_generated/dataModel';
-import { Loader2, CheckCircle, Wrench, Play, Flag, UserCheck, Eye, MessageSquare, Search } from 'lucide-react';
+import { Loader2, CheckCircle, Wrench, Play, Flag, UserCheck, MessageSquare, Search } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { useAccurateLocation } from '../../../hooks/useAccurateLocation';
 import { CompletionNotesModal } from '../../../components/modals/CompletionNotesModal';
@@ -27,6 +27,12 @@ interface LogComponentProps {
     isGettingLocation: boolean;
     isAnotherJobActive: boolean;
 }
+
+// Interface for the new props for ActionButtons
+interface ActionButtonsProps extends LogComponentProps {
+  size?: 'small' | 'default';
+}
+
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -53,7 +59,6 @@ const CardSkeleton = () => (
     </div>
 );
 
-// --- NEW: Table skeleton for desktop loading state ---
 const TableSkeleton = () => (
     <div className="overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
@@ -71,10 +76,54 @@ const TableSkeleton = () => (
     </div>
 );
 
+// --- MODIFICATION: Centralized ActionButtons component with updated styling logic ---
+const ActionButtons = ({ serviceLog, onAction, processingId, isGettingLocation, isAnotherJobActive, size = 'default' }: ActionButtonsProps) => {
+    if (!serviceLog) return null;
+    const isProcessing = processingId === serviceLog._id;
+
+    const padding = size === 'small' ? 'px-3 py-1.5' : 'px-4 py-2';
+    const rounding = size === 'small' ? 'rounded-md' : 'rounded-lg';
+    const gap = size === 'small' ? 'gap-1' : 'gap-2';
+    const iconSize = 'w-4 h-4';
+
+    const baseButtonClasses = `inline-flex items-center justify-center text-sm font-semibold text-white shadow-sm disabled:opacity-50 ${padding} ${rounding} ${gap}`;
+
+    if (serviceLog.status === 'Pending') {
+        return (
+            <button 
+                onClick={() => onAction(serviceLog._id, 'start')} 
+                disabled={isProcessing || isGettingLocation || isAnotherJobActive} 
+                className={`${baseButtonClasses} bg-blue-600 hover:bg-blue-700`} 
+                title={isAnotherJobActive ? 'Finish your current job before starting a new one' : 'Start this job'}
+            >
+                {isProcessing ? <Loader2 className={`${iconSize} animate-spin`}/> : <Play className={iconSize} />} Start
+            </button>
+        );
+    }
+    if (serviceLog.status === 'In Progress') {
+        return (
+            <button 
+                onClick={() => onAction(serviceLog._id, 'finish')} 
+                disabled={isProcessing || isGettingLocation} 
+                className={`${baseButtonClasses} bg-green-600 hover:bg-green-700`}
+            >
+                {isProcessing ? <Loader2 className={`${iconSize} animate-spin`}/> : <Flag className={iconSize} />} Finish
+            </button>
+        );
+    }
+    if (serviceLog.status === 'Finished') {
+        return (
+            <Link href={`/dashboard/service-logs/${serviceLog._id}`} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                {size === 'small' ? 'View' : 'View Details →'}
+            </Link>
+        );
+    }
+    return null;
+};
+
 // --- UI COMPONENTS FOR CARD & TABLE ---
 
 const ServiceLogCard = React.memo(({ serviceLog, onAction, processingId, isGettingLocation, isAnotherJobActive }: LogComponentProps) => {
-    // --- FIX: Removed unused 'isProcessing' variable ---
     const status = serviceLog?.status ?? 'Inactive';
 
     return (
@@ -99,7 +148,6 @@ const ServiceLogCard = React.memo(({ serviceLog, onAction, processingId, isGetti
 });
 ServiceLogCard.displayName = 'ServiceLogCard';
 
-// --- NEW: Table row component for desktop view ---
 const ServiceLogTableRow = React.memo(({ serviceLog, onAction, processingId, isGettingLocation, isAnotherJobActive }: LogComponentProps) => {
     const status = serviceLog?.status ?? 'Inactive';
     return (
@@ -124,41 +172,13 @@ const ServiceLogTableRow = React.memo(({ serviceLog, onAction, processingId, isG
                 ) : '-'}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <ActionButtons {...{ serviceLog, onAction, processingId, isGettingLocation, isAnotherJobActive }} />
+                {/* MODIFICATION: Pass size="small" to get compact buttons for the table view */}
+                <ActionButtons {...{ serviceLog, onAction, processingId, isGettingLocation, isAnotherJobActive }} size="small" />
             </td>
         </tr>
     );
 });
 ServiceLogTableRow.displayName = 'ServiceLogTableRow';
-
-// --- NEW: Centralized ActionButtons component to be reused by Card and Table Row ---
-const ActionButtons = ({ serviceLog, onAction, processingId, isGettingLocation, isAnotherJobActive }: LogComponentProps) => {
-    if (!serviceLog) return null;
-    const isProcessing = processingId === serviceLog._id;
-
-    if (serviceLog.status === 'Pending') {
-        return (
-            <button onClick={() => onAction(serviceLog._id, 'start')} disabled={isProcessing || isGettingLocation || isAnotherJobActive} className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50" title={isAnotherJobActive ? 'Finish your current job before starting a new one' : 'Start this job'}>
-                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin"/> : <Play className="w-4 h-4" />} Start
-            </button>
-        );
-    }
-    if (serviceLog.status === 'In Progress') {
-        return (
-            <button onClick={() => onAction(serviceLog._id, 'finish')} disabled={isProcessing || isGettingLocation} className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">
-                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin"/> : <Flag className="w-4 h-4" />} Finish
-            </button>
-        );
-    }
-    if (serviceLog.status === 'Finished') {
-        return (
-            <Link href={`/dashboard/service-logs/${serviceLog._id}`} className="text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1.5 px-4 py-2">
-                <Eye className="w-4 h-4" /> View Details
-            </Link>
-        );
-    }
-    return null;
-};
 
 // --- MAIN PAGE COMPONENT ---
 export default function ServiceLogsPage() {
@@ -237,7 +257,6 @@ export default function ServiceLogsPage() {
               <div className="relative"><div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Search className="h-5 w-5 text-gray-400" aria-hidden="true" /></div><input type="text" name="search" id="search" className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" placeholder="Search assigned locations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} disabled={isLoading || (assignedLocations ?? []).length === 0} /></div>
           </div>
           
-          {/* --- MODIFICATION: Main content area with responsive views --- */}
           <div>
             {isLoading ? (
                 <div className="p-4 sm:p-6">
