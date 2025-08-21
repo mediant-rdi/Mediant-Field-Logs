@@ -1,5 +1,4 @@
 // src/app/dashboard/service-logs/management/[periodId]/page.tsx
-
 'use client';
 
 import { useQuery } from "convex/react";
@@ -10,13 +9,11 @@ import { format } from "date-fns";
 import React, { useMemo, Suspense, use } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { Id } from "../../../../../../convex/_generated/dataModel";
-import ManagementDashboardProtection from "@/components/ManagementDashboardProtection"; // MODIFICATION: Import protection component
+import ManagementDashboardProtection from "@/components/ManagementDashboardProtection";
 
-// --- Type Definitions ---
 type PeriodDetailsData = FunctionReturnType<typeof api.servicePeriods.getByIdWithLogs>;
 type EnrichedServiceLog = Exclude<PeriodDetailsData, null>['serviceLogs'][0];
 
-// --- Bar Graph Component for Active Periods ---
 const StatusBarGraph = ({ logs }: { logs: EnrichedServiceLog[] }) => {
     const stats = useMemo(() => {
         const counts = { 'Finished': 0, 'In Progress': 0, 'Pending': 0 };
@@ -52,8 +49,6 @@ const StatusBarGraph = ({ logs }: { logs: EnrichedServiceLog[] }) => {
     );
 };
 
-// This component now contains all the client-side logic.
-// It receives periodId as a simple string, not from a 'params' object.
 function PeriodDetailsContent({ periodId }: { periodId: Id<"servicePeriods"> }) {
     const data = useQuery(api.servicePeriods.getByIdWithLogs, { periodId });
 
@@ -62,13 +57,19 @@ function PeriodDetailsContent({ periodId }: { periodId: Id<"servicePeriods"> }) 
         const grouped = data.serviceLogs.reduce((acc, log) => {
             const engineerId = log.engineerId;
             if (!acc.has(engineerId)) {
-                acc.set(engineerId, { engineerName: log.assignedEngineerName, logs: [], completedCount: 0 });
+                acc.set(engineerId, { 
+                    engineerName: log.assignedEngineerName, 
+                    logs: [], 
+                    completedCount: 0, 
+                    isInProgress: false 
+                });
             }
             const engineerData = acc.get(engineerId)!;
             engineerData.logs.push(log);
             if (log.status === 'Finished') engineerData.completedCount += 1;
+            if (log.status === 'In Progress') engineerData.isInProgress = true;
             return acc;
-        }, new Map<Id<"users">, { engineerName: string; logs: EnrichedServiceLog[]; completedCount: number }>());
+        }, new Map<Id<"users">, { engineerName: string; logs: EnrichedServiceLog[]; completedCount: number; isInProgress: boolean }>());
         return new Map([...grouped.entries()].sort((a, b) => a[1].engineerName.localeCompare(b[1].engineerName)));
     }, [data?.serviceLogs]);
 
@@ -89,10 +90,18 @@ function PeriodDetailsContent({ periodId }: { periodId: Id<"servicePeriods"> }) 
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
                     <div className="p-4 border-b"><h2 className="text-lg font-semibold text-gray-800">Participating Engineers ({logsByEngineer.size})</h2></div>
                     <ul className="divide-y divide-gray-200">
-                        {Array.from(logsByEngineer.entries()).map(([engineerId, { engineerName, logs, completedCount }]) => (
+                        {Array.from(logsByEngineer.entries()).map(([engineerId, { engineerName, logs, completedCount, isInProgress }]) => (
                             <li key={engineerId}>
                                 <Link href={`/dashboard/service-logs/management/${periodId}/${engineerId}`} className="w-full flex justify-between items-center p-4 text-left hover:bg-gray-50 focus:outline-none transition-colors">
-                                    <div className="flex items-center gap-3"><User className="w-5 h-5 text-gray-500" /><span className="font-medium text-gray-800">{engineerName}</span></div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative">
+                                            <User className="w-5 h-5 text-gray-500" />
+                                            {isInProgress && (
+                                                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-blue-500 rounded-full border border-white" title="Actively at work"></div>
+                                            )}
+                                        </div>
+                                        <span className="font-medium text-gray-800">{engineerName}</span>
+                                    </div>
                                     <div className="flex items-center gap-4">
                                         <span className="text-sm text-gray-600">{completedCount} / {logs.length} Completed</span>
                                         <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -108,16 +117,13 @@ function PeriodDetailsContent({ periodId }: { periodId: Id<"servicePeriods"> }) 
     );
 };
 
-
 export default function PeriodDetailsPage({ params }: { params: Promise<{ periodId: Id<"servicePeriods"> }> }) {
-    // FIX: Use React.use() to unwrap the params Promise
     const { periodId } = use(params);
 
     return (
         <ManagementDashboardProtection>
             <Suspense fallback={<div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>}>
                 <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
-                    {/* We render the Client Component here and pass the resolved periodId as a simple prop. */}
                     <PeriodDetailsContent periodId={periodId} />
                 </div>
             </Suspense>

@@ -4,14 +4,13 @@
 import Link from 'next/link';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Doc, Id } from '../../../../convex/_generated/dataModel';
 import { Loader2, CheckCircle, Wrench, Play, Flag, UserCheck, MessageSquare, Search } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { useAccurateLocation } from '../../../hooks/useAccurateLocation';
 import { CompletionNotesModal } from '../../../components/modals/CompletionNotesModal';
 
-// --- TYPE DEFINITIONS ---
 type EnrichedServiceLog = Doc<"serviceLogs"> & {
   locationName: string;
   assignedEngineerName: string;
@@ -28,13 +27,9 @@ interface LogComponentProps {
     isAnotherJobActive: boolean;
 }
 
-// Interface for the new props for ActionButtons
 interface ActionButtonsProps extends LogComponentProps {
   size?: 'small' | 'default';
 }
-
-
-// --- HELPER FUNCTIONS & COMPONENTS ---
 
 const getStatusBadge = (status: string) => {
   const styles: { [key: string]: string } = {
@@ -45,8 +40,6 @@ const getStatusBadge = (status: string) => {
   };
   return `inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ring-1 ring-inset whitespace-nowrap ${styles[status] || styles['Inactive']}`;
 };
-
-// --- SKELETON COMPONENTS ---
 
 const CardSkeleton = () => (
     <div className="space-y-4">
@@ -76,16 +69,13 @@ const TableSkeleton = () => (
     </div>
 );
 
-// --- MODIFICATION: Centralized ActionButtons component with updated styling logic ---
 const ActionButtons = ({ serviceLog, onAction, processingId, isGettingLocation, isAnotherJobActive, size = 'default' }: ActionButtonsProps) => {
     if (!serviceLog) return null;
     const isProcessing = processingId === serviceLog._id;
-
     const padding = size === 'small' ? 'px-3 py-1.5' : 'px-4 py-2';
     const rounding = size === 'small' ? 'rounded-md' : 'rounded-lg';
     const gap = size === 'small' ? 'gap-1' : 'gap-2';
     const iconSize = 'w-4 h-4';
-
     const baseButtonClasses = `inline-flex items-center justify-center text-sm font-semibold text-white shadow-sm disabled:opacity-50 ${padding} ${rounding} ${gap}`;
 
     if (serviceLog.status === 'Pending') {
@@ -121,11 +111,8 @@ const ActionButtons = ({ serviceLog, onAction, processingId, isGettingLocation, 
     return null;
 };
 
-// --- UI COMPONENTS FOR CARD & TABLE ---
-
 const ServiceLogCard = React.memo(({ serviceLog, onAction, processingId, isGettingLocation, isAnotherJobActive }: LogComponentProps) => {
     const status = serviceLog?.status ?? 'Inactive';
-
     return (
         <div className={`rounded-lg border shadow-sm transition-all ${status === 'Finished' ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-200'}`}>
             <div className="p-4">
@@ -157,22 +144,13 @@ const ServiceLogTableRow = React.memo(({ serviceLog, onAction, processingId, isG
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {status === 'Finished' ? (
                     <div className="flex items-center gap-2">
-                        {serviceLog?.completionMethod === 'Call Log' && (
-                          <span title={`Completed via Call Log by ${serviceLog.completedByName || 'engineer'}`}>
-                            <UserCheck className="w-4 h-4 text-sky-600 flex-shrink-0" />
-                          </span>
-                        )}
-                        {serviceLog?.completionNotes && (
-                          <span title={serviceLog.completionNotes}>
-                            <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          </span>
-                        )}
+                        {serviceLog?.completionMethod === 'Call Log' && (<span title={`Completed via Call Log by ${serviceLog.completedByName || 'engineer'}`}><UserCheck className="w-4 h-4 text-sky-600 flex-shrink-0" /></span>)}
+                        {serviceLog?.completionNotes && (<span title={serviceLog.completionNotes}><MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0" /></span>)}
                         <span className="truncate">{serviceLog?.completionMethod === 'Call Log' ? `By ${serviceLog.completedByName || 'engineer'}` : serviceLog?.completionMethod}</span>
                     </div>
                 ) : '-'}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                {/* MODIFICATION: Pass size="small" to get compact buttons for the table view */}
                 <ActionButtons {...{ serviceLog, onAction, processingId, isGettingLocation, isAnotherJobActive }} size="small" />
             </td>
         </tr>
@@ -180,7 +158,6 @@ const ServiceLogTableRow = React.memo(({ serviceLog, onAction, processingId, isG
 });
 ServiceLogTableRow.displayName = 'ServiceLogTableRow';
 
-// --- MAIN PAGE COMPONENT ---
 export default function ServiceLogsPage() {
   const settings = useQuery(api.systemSettings.getServicePeriodStatus);
   const assignedLocations = useQuery(api.users.getMyAssignedLocations);
@@ -204,7 +181,7 @@ export default function ServiceLogsPage() {
     return assignedLocations.filter(location => location.fullName.toLowerCase().includes(query));
   }, [assignedLocations, searchQuery]);
 
-  const handleAction: ActionHandler = async (id, action) => {
+  const handleAction: ActionHandler = useCallback(async (id, action) => {
     if (action === 'finish') {
         setModalState({ isOpen: true, serviceLogId: id });
         return;
@@ -220,9 +197,9 @@ export default function ServiceLogsPage() {
     } finally {
         setProcessingId(null);
     }
-  };
+  }, [getLocation, startService]);
   
-  const handleConfirmFinish = async (notes: string) => {
+  const handleConfirmFinish = useCallback(async (notes: string) => {
     if (!modalState.serviceLogId) return;
     setProcessingId(modalState.serviceLogId);
     const toastId = toast.loading("Getting an accurate location... Please wait.");
@@ -237,7 +214,7 @@ export default function ServiceLogsPage() {
       setProcessingId(null);
       setModalState({ isOpen: false, serviceLogId: null });
     }
-  };
+  }, [finishService, getLocation, modalState.serviceLogId]);
 
   const isLoading = settings === undefined || assignedLocations === undefined || activeServiceLogs === undefined;
   const isPeriodActive = settings?.isServicePeriodActive === true;
@@ -269,14 +246,12 @@ export default function ServiceLogsPage() {
                 <div className="text-center py-16 px-6"><Search className="mx-auto h-12 w-12 text-gray-400" /><h3 className="mt-2 text-sm font-semibold text-gray-900">No Locations Found</h3><p className="mt-1 text-sm text-gray-500">Your search for &quot;{searchQuery}&quot; did not match any assigned locations.</p></div>
             ) : (
                 <>
-                    {/* Mobile/Tablet Card View */}
                     <div className="p-4 sm:p-6 bg-gray-50/50 space-y-4 lg:hidden">
                         {filteredLocations.map(location => {
                             const serviceLogForLocation = activeServiceLogsMap.get(location._id) ?? { locationName: location.fullName } as EnrichedServiceLog;
                             return <ServiceLogCard key={location._id} serviceLog={serviceLogForLocation} onAction={handleAction} processingId={processingId} isGettingLocation={isGettingLocation} isAnotherJobActive={isJobInProgress} />;
                         })}
                     </div>
-                    {/* Desktop Table View */}
                     <div className="hidden lg:block">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">

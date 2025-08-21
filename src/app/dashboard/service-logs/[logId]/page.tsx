@@ -121,7 +121,6 @@ export default function ServiceLogDetailsPage() {
           </div>
           <div className="p-6 space-y-8">
             
-            {/* General Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
               <div className="flex items-start space-x-3">
                 <div className="flex-shrink-0 mt-1"><Calendar className="w-5 h-5 text-gray-400"/></div>
@@ -146,7 +145,6 @@ export default function ServiceLogDetailsPage() {
               </div>
             </div>
 
-            {/* Timeline & Location Details */}
             <div className="border-t pt-8 mt-8">
               <h3 className="text-xl font-bold text-gray-800 mb-6">Job Timeline & Location</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8 mb-8">
@@ -159,7 +157,6 @@ export default function ServiceLogDetailsPage() {
               </div>
             </div>
             
-            {/* --- MODIFICATION: New section for Completion Details --- */}
             {(serviceLog.completionMethod || serviceLog.completionNotes) && (
               <div className="border-t pt-8 mt-8">
                 <h3 className="text-xl font-bold text-gray-800 mb-6">Completion Details</h3>

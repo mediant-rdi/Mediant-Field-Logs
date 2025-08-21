@@ -7,7 +7,7 @@ import { Loader2, History, CheckCircle, XCircle, ChevronRight, ServerCrash } fro
 import Link from "next/link";
 import { format } from "date-fns";
 import { Suspense } from "react";
-import ManagementDashboardProtection from "@/components/ManagementDashboardProtection"; // MODIFICATION: Import protection component
+import ManagementDashboardProtection from "@/components/ManagementDashboardProtection";
 
 const StatusBadge = ({ isActive }: { isActive: boolean }) => {
     if (isActive) {
@@ -65,6 +65,9 @@ const PeriodsListPage = () => {
                                     <div className="truncate">
                                         <p className="text-sm font-medium text-indigo-600 truncate">{period.name}</p>
                                         <p className="mt-2 flex items-center text-sm text-gray-500">Started: {format(new Date(period.startDate), 'dd MMMM yyyy')}</p>
+                                        <div className="mt-2 sm:hidden">
+                                            <StatusBadge isActive={period.isActive} />
+                                        </div>
                                     </div>
                                     <div className="mt-4 flex-shrink-0 sm:mt-0 sm:ml-5">
                                         <div className="flex items-center gap-x-4">

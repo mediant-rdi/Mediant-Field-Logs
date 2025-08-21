@@ -33,11 +33,6 @@ const locationWithUser = v.object({
 export default defineSchema({
   ...authTables,
 
-  // =================================================================
-  // NEW & MODIFIED TABLES FOR SERVICE PERIOD MANAGEMENT
-  // =================================================================
-
-  // --- NEW: Table for historical tracking of service periods ---
   servicePeriods: defineTable({
     name: v.string(),
     startDate: v.number(),
@@ -50,16 +45,14 @@ export default defineSchema({
 
   systemSettings: defineTable({
     isServicePeriodActive: v.boolean(),
-    // MODIFICATION: Now references the new servicePeriods table
     currentServicePeriodId: v.optional(v.id("servicePeriods")),
     servicePeriodName: v.optional(v.string()),
     singleton: v.literal("global"),
   }).index("by_singleton", ["singleton"]),
 
   serviceLogs: defineTable({
-    // MODIFICATION: Now references the new servicePeriods table
     servicePeriodId: v.id("servicePeriods"),
-    engineerId: v.id("users"), // The engineer originally assigned
+    engineerId: v.id("users"), 
     locationId: v.id("clientLocations"),
     status: v.union(
       v.literal("Pending"),
@@ -70,11 +63,9 @@ export default defineSchema({
       v.literal("Planned Service"),
       v.literal("Call Log")
     )),
-    completedByUserId: v.optional(v.id("users")), // Who actually did the job
-    completedCallLogId: v.optional(v.id("callLogs")), // Audit trail to the call log
-    
-    completionNotes: v.optional(v.string()), // To store user-entered comments on completion.
-
+    completedByUserId: v.optional(v.id("users")),
+    completedCallLogId: v.optional(v.id("callLogs")),
+    completionNotes: v.optional(v.string()),
     jobStartTime: v.optional(v.number()), 
     jobEndTime: v.optional(v.number()),   
     startLocation: v.optional(locationWithUser),
@@ -82,16 +73,13 @@ export default defineSchema({
   })
   .index("by_engineer_and_period", ["engineerId", "servicePeriodId"])
   .index("by_location_and_period", ["locationId", "servicePeriodId"])
-  // MODIFICATION: Added new index for history page and performance fix
   .index("by_period", ["servicePeriodId"]),
-  // =================================================================
-
 
   callLogs: defineTable({
     locationId: v.id("clientLocations"), 
     issue: v.string(),
     engineerIds: v.array(v.id("users")), 
-    status: v.string(), // e.g., "Pending", "In Progress", "Escalated", "Resolved"
+    status: v.string(), 
     statusTimestamp: v.number(),
     searchField: v.optional(v.string()),
     acceptedBy: v.optional(v.array(v.id("users"))),
@@ -131,7 +119,6 @@ export default defineSchema({
     isAnonymous: v.optional(v.boolean()),
     isAdmin: v.optional(v.boolean()),
     canAccessCallLogs: v.optional(v.boolean()),
-    // --- NEW FIELD ---
     canAccessManagementDashboard: v.optional(v.boolean()),
     accountActivated: v.optional(v.boolean()),
     searchName: v.optional(v.string()),

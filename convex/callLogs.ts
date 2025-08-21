@@ -5,6 +5,7 @@ import { mutation, query, QueryCtx } from "./_generated/server";
 import { asyncMap } from "convex-helpers";
 import { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { paginationOptsValidator } from "convex/server";
 
 // Helper function
 const enrichLog = async (ctx: QueryCtx, log: Doc<"callLogs">) => {
@@ -223,6 +224,8 @@ export const getMyAssignedJobs = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
+    // This query remains inefficient for large datasets but is kept for now.
+    // A more performant solution would require schema changes or a dedicated search index.
     const allLogs = await ctx.db.query("callLogs").order("desc").collect();
     const assignedLogs = allLogs.filter(log => log.engineerIds.includes(userId));
     return asyncMap(assignedLogs, (log) => enrichLog(ctx, log));
@@ -230,12 +233,28 @@ export const getMyAssignedJobs = query({
 });
 
 export const searchCallLogs = query({
-  args: { searchText: v.string() },
+  args: {
+    searchText: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
   handler: async (ctx, args) => {
-    const logs = args.searchText === ""
-      ? await ctx.db.query("callLogs").order("desc").collect()
-      : await ctx.db.query("callLogs").withSearchIndex("by_search", (q) => q.search("searchField", args.searchText)).collect();
-    return asyncMap(logs, (log) => enrichLog(ctx, log));
+    const query =
+      args.searchText === ""
+        ? ctx.db.query("callLogs").order("desc")
+        : await ctx.db
+            .query("callLogs")
+            .withSearchIndex("by_search", (q) =>
+              q.search("searchField", args.searchText)
+            );
+            
+    const results = await query.paginate(args.paginationOpts);
+
+    const page = await asyncMap(results.page, (log) => enrichLog(ctx, log));
+    
+    return {
+        ...results,
+        page,
+    };
   },
 });
 

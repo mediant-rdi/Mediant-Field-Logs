@@ -6,8 +6,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { asyncMap } from "convex-helpers";
 
 // Helper to enrich a service log with names for UI display
-const enrichServiceLog = async (ctx: QueryCtx, log: Doc<"serviceLogs">) => {
-    // --- MODIFICATION: Fetch location capturer names along with other details ---
+export const enrichServiceLog = async (ctx: QueryCtx, log: Doc<"serviceLogs">) => {
     const [location, assignedEngineer, completedBy, startUser, endUser] = await Promise.all([
         ctx.db.get(log.locationId),
         ctx.db.get(log.engineerId),
@@ -21,7 +20,6 @@ const enrichServiceLog = async (ctx: QueryCtx, log: Doc<"serviceLogs">) => {
         locationName: location?.fullName ?? "Unknown Location",
         assignedEngineerName: assignedEngineer?.name ?? "Unknown Engineer",
         completedByName: completedBy?.name,
-        // --- MODIFICATION: Add enriched location data with capturer names ---
         startLocation: log.startLocation ? { ...log.startLocation, capturedByName: startUser?.name ?? "Unknown" } : undefined,
         endLocation: log.endLocation ? { ...log.endLocation, capturedByName: endUser?.name ?? "Unknown" } : undefined,
     };
@@ -29,7 +27,6 @@ const enrichServiceLog = async (ctx: QueryCtx, log: Doc<"serviceLogs">) => {
 
 /**
  * Get a single service log by its ID, fully enriched.
- * This is for the detail view page.
  */
 export const getById = query({
     args: { id: v.id("serviceLogs") },
@@ -39,11 +36,6 @@ export const getById = query({
 
         const log = await ctx.db.get(args.id);
         if (!log) return null;
-
-        // An engineer should only see their own logs unless they are an admin.
-        // For simplicity here, we assume if you have the ID, you can see it.
-        // A production app might add an admin check here.
-        // if (log.engineerId !== userId && !user.isAdmin) return null;
 
         return await enrichServiceLog(ctx, log);
     }
@@ -77,7 +69,6 @@ export const getMyServiceLogs = query({
 
 /**
  * Allows an engineer to start a planned service job, capturing their location.
- * Prevents starting a new job if another is already in progress for the current service period.
  */
 export const startPlannedService = mutation({
   args: { 
@@ -113,7 +104,6 @@ export const startPlannedService = mutation({
     await ctx.db.patch(log._id, {
         status: "In Progress",
         jobStartTime: Date.now(),
-        // --- MODIFICATION: Save the enhanced location object ---
         startLocation: {
             latitude: args.latitude,
             longitude: args.longitude,
@@ -125,7 +115,7 @@ export const startPlannedService = mutation({
 });
 
 /**
- * Allows an engineer to finish a planned service job they started, capturing their location and an optional comment.
+ * Allows an engineer to finish a planned service job they started.
  */
 export const finishPlannedService = mutation({
   args: { 
@@ -148,7 +138,6 @@ export const finishPlannedService = mutation({
         completionMethod: "Planned Service",
         completedByUserId: userId,
         jobEndTime: Date.now(),
-        // --- MODIFICATION: Save the enhanced location object ---
         endLocation: {
             latitude: args.latitude,
             longitude: args.longitude,

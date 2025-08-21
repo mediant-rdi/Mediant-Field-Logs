@@ -2,19 +2,27 @@
 'use client';
 
 import Link from 'next/link';
-import { useQuery } from 'convex/react';
+import { usePaginatedQuery } from 'convex/react';
 import { api } from '../../../../../convex/_generated/api';
 import { Doc } from '../../../../../convex/_generated/dataModel';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Phone, Search, ServerCrash, Inbox } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import ManagementDashboardProtection from '@/components/ManagementDashboardProtection'; // MODIFICATION: Import protection component
+import { Phone, Search, Inbox, Loader2 } from 'lucide-react';
+import ManagementDashboardProtection from '@/components/ManagementDashboardProtection';
+import dynamic from 'next/dynamic';
+// MODIFICATION: Changed path to use a root-level alias for robustness
+import { getStatusBadge, ChartSkeleton } from '@/app/dashboard/call-logs/_components/shared';
 
 type EnrichedCallLog = Doc<"callLogs"> & {
   clientName: string;
   engineers: string[];
 };
+
+// MODIFICATION: Dynamically import the chart using the corrected path
+const DynamicCallLogChart = dynamic(() => import('@/app/dashboard/call-logs/_components/shared').then(mod => mod.CallLogChart), {
+  loading: () => <ChartSkeleton />,
+  ssr: false,
+});
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -28,85 +36,6 @@ function useDebounce<T>(value: T, delay: number): T {
   }, [value, delay]);
   return debouncedValue;
 }
-
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case 'Resolved': return 'bg-green-100 text-green-800';
-    case 'Pending': return 'bg-yellow-100 text-yellow-800';
-    case 'In Progress': return 'bg-blue-100 text-blue-800';
-    case 'Escalated': return 'bg-red-100 text-red-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
-};
-
-// --- Chart Component and its skeleton ---
-const ChartSkeleton = () => (
-    <div className="animate-pulse bg-gray-200 rounded-lg h-64 w-full"></div>
-);
-
-const CallLogChart = () => {
-    const recentLogs = useQuery(api.callLogs.getRecentLogsForChart);
-
-    const chartData = useMemo(() => {
-        if (!recentLogs) return undefined;
-
-        const counts = new Map<string, number>();
-        for (const log of recentLogs) {
-            counts.set(log.clientName, (counts.get(log.clientName) ?? 0) + 1);
-        }
-
-        const sortedData = Array.from(counts.entries())
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count);
-
-        // Return top 5 most frequent clients
-        return sortedData.slice(0, 5).reverse();
-    }, [recentLogs]);
-
-    if (recentLogs === undefined) {
-        return <ChartSkeleton />;
-    }
-
-    if (!chartData || chartData.length === 0) {
-        return (
-            <div className="bg-gray-50 p-6 rounded-lg text-center border">
-                <h3 className="text-lg font-medium text-gray-900">Call Log Activity</h3>
-                <p className="mt-1 text-sm text-gray-500">No call log data available for the past 30 days to display a chart.</p>
-            </div>
-        );
-    }
-    
-    return (
-        <div className="bg-white p-4 rounded-lg border">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 pl-12">Most Frequent Clients (Last 30 Days)</h3>
-            <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                        data={chartData}
-                        margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-                        layout="vertical"
-                    >
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                        <XAxis type="number" allowDecimals={false} stroke="#9ca3af" fontSize={12} />
-                        <YAxis 
-                            dataKey="name" 
-                            type="category" 
-                            width={150} 
-                            tick={{ fontSize: 12 }} 
-                            stroke="#9ca3af"
-                        />
-                        <Tooltip
-                            cursor={{ fill: 'rgba(239, 246, 255, 0.7)' }}
-                            contentStyle={{ backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '0.5rem' }}
-                            labelStyle={{ fontWeight: 'bold' }}
-                        />
-                        <Bar dataKey="count" name="Call Logs" fill="#4f46e5" barSize={20} radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
-        </div>
-    );
-};
 
 const TableSkeleton = () => (
   <div className="animate-pulse">
@@ -173,19 +102,19 @@ const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCall
   );
 });
 
-function CallLogsDataTable({ callLogs, searchText }: { callLogs: EnrichedCallLog[] | undefined | null; searchText: string; }) {
-  if (callLogs === undefined) {
+function CallLogsDataTable({
+  callLogs,
+  searchText,
+  status,
+  loadMore,
+}: {
+  callLogs: EnrichedCallLog[];
+  searchText: string;
+  status: 'LoadingFirstPage' | 'CanLoadMore' | 'LoadingMore' | 'Exhausted';
+  loadMore: () => void;
+}) {
+  if (status === 'LoadingFirstPage') {
     return <TableSkeleton />;
-  }
-
-  if (callLogs === null) {
-    return (
-        <div className="text-center py-16 px-6">
-            <ServerCrash className="mx-auto h-12 w-12 text-red-400" />
-            <h3 className="mt-2 text-sm font-semibold text-gray-900">Could Not Load Call Logs</h3>
-            <p className="mt-1 text-sm text-gray-500">There was an error fetching the records. You may not have permission to view them.</p>
-        </div>
-    );
   }
 
   if (callLogs.length === 0) {
@@ -216,6 +145,24 @@ function CallLogsDataTable({ callLogs, searchText }: { callLogs: EnrichedCallLog
           <tbody className="divide-y divide-gray-100">{callLogs.map((log) => <CallLogRow key={log._id} log={log} />)}</tbody>
         </table>
       </div>
+      {status === 'CanLoadMore' && (
+        <div className="mt-6 flex justify-center">
+          <button
+            onClick={loadMore}
+            className="bg-gray-100 text-gray-800 py-2 px-4 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+          >
+            Load More
+          </button>
+        </div>
+      )}
+      {status === 'LoadingMore' && (
+        <div className="mt-6 flex justify-center">
+          <div className="flex items-center gap-2 text-gray-500">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">Loading...</span>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -223,12 +170,16 @@ function CallLogsDataTable({ callLogs, searchText }: { callLogs: EnrichedCallLog
 export default function CallLogManagementPage() {
   const [searchText, setSearchText] = useState('');
   const debouncedSearchText = useDebounce(searchText, 300);
-  const callLogs = useQuery(api.callLogs.searchCallLogs, { searchText: debouncedSearchText });
+  const { results: callLogs, status, loadMore } = usePaginatedQuery(
+    api.callLogs.searchCallLogs,
+    { searchText: debouncedSearchText },
+    { initialNumItems: 10 }
+  );
 
   return (
     <ManagementDashboardProtection>
       <div className="space-y-8 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        <CallLogChart />
+        <DynamicCallLogChart />
 
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -254,7 +205,12 @@ export default function CallLogManagementPage() {
           </div>
           
           <div>
-            <CallLogsDataTable callLogs={callLogs} searchText={searchText} />
+            <CallLogsDataTable
+              callLogs={callLogs}
+              searchText={searchText}
+              status={status}
+              loadMore={() => loadMore(10)}
+            />
           </div>
         </div>
       </div>

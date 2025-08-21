@@ -3,20 +3,28 @@
 
 import CallLogProtection from '@/components/CallLogAccessProtection';
 import Link from 'next/link';
-import { useQuery, useMutation } from 'convex/react';
+import { usePaginatedQuery, useMutation, useQuery } from 'convex/react'; // MODIFICATION: Added useQuery
 import { api } from '../../../../convex/_generated/api';
 import { Doc, Id } from '../../../../convex/_generated/dataModel';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Loader2, UserPlus } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import dynamic from 'next/dynamic';
+import { getStatusBadge, ChartSkeleton } from './_components/shared';
 
 
 type EnrichedCallLog = Doc<"callLogs"> & {
   clientName: string;
   engineers: string[];
 };
+
+// MODIFICATION: Dynamically import the chart to reduce initial bundle size
+const DynamicCallLogChart = dynamic(() => import('./_components/shared').then(mod => mod.CallLogChart), {
+  loading: () => <ChartSkeleton />,
+  ssr: false,
+});
+
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -30,88 +38,6 @@ function useDebounce<T>(value: T, delay: number): T {
   }, [value, delay]);
   return debouncedValue;
 }
-
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case 'Resolved': return 'bg-green-100 text-green-800';
-    case 'Pending': return 'bg-yellow-100 text-yellow-800';
-    case 'In Progress': return 'bg-blue-100 text-blue-800';
-    case 'Escalated': return 'bg-red-100 text-red-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
-};
-
-// --- NEW: Chart Component and its skeleton ---
-const ChartSkeleton = () => (
-    // MODIFICATION: Reduced height to match the chart's new size
-    <div className="animate-pulse bg-gray-200 rounded-lg h-64 w-full"></div>
-);
-
-const CallLogChart = () => {
-    const recentLogs = useQuery(api.callLogs.getRecentLogsForChart);
-
-    const chartData = useMemo(() => {
-        if (!recentLogs) return undefined;
-
-        const counts = new Map<string, number>();
-        for (const log of recentLogs) {
-            counts.set(log.clientName, (counts.get(log.clientName) ?? 0) + 1);
-        }
-
-        const sortedData = Array.from(counts.entries())
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count);
-
-        // Return top 5 most frequent clients
-        return sortedData.slice(0, 5).reverse();
-    }, [recentLogs]);
-
-    if (recentLogs === undefined) {
-        return <ChartSkeleton />;
-    }
-
-    if (!chartData || chartData.length === 0) {
-        return (
-            <div className="bg-gray-50 p-6 rounded-lg text-center border">
-                <h3 className="text-lg font-medium text-gray-900">Call Log Activity</h3>
-                <p className="mt-1 text-sm text-gray-500">No call log data available for the past 30 days to display a chart.</p>
-            </div>
-        );
-    }
-    
-    return (
-        <div className="bg-white p-4 rounded-lg border">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 pl-12">Most Frequent Clients (Last 30 Days)</h3>
-            {/* MODIFICATION: Reduced height from h-80 to h-64 */}
-            <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                        data={chartData}
-                        margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-                        layout="vertical"
-                    >
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                        <XAxis type="number" allowDecimals={false} stroke="#9ca3af" fontSize={12} />
-                        <YAxis 
-                            dataKey="name" 
-                            type="category" 
-                            width={150} 
-                            tick={{ fontSize: 12 }} 
-                            stroke="#9ca3af"
-                        />
-                        <Tooltip
-                            cursor={{ fill: 'rgba(239, 246, 255, 0.7)' }}
-                            contentStyle={{ backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '0.5rem' }}
-                            labelStyle={{ fontWeight: 'bold' }}
-                        />
-                        <Bar dataKey="count" name="Call Logs" fill="#4f46e5" barSize={20} radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
-        </div>
-    );
-};
-
 
 const TableSkeleton = () => (
   <div className="animate-pulse">
@@ -131,7 +57,8 @@ const TableSkeleton = () => (
 const AssignEngineerControl = ({ job, onAssign, onCancel, isProcessing }: { job: EnrichedCallLog; onAssign: (newEngineerId: Id<"users">) => void; onCancel: () => void; isProcessing: boolean; }) => {
     const [search, setSearch] = useState('');
     const results = useQuery(api.users.searchEngineers, search ? { searchText: search } : 'skip');
-    const availableEngineers = results?.filter(eng => !job.engineerIds.includes(eng._id));
+    // MODIFICATION: Added explicit type Doc<"users"> to 'eng'
+    const availableEngineers = results?.filter((eng: Doc<"users">) => !job.engineerIds.includes(eng._id));
   
     return (
       <div className="w-full p-4 bg-red-50 border-t border-red-200">
@@ -148,7 +75,8 @@ const AssignEngineerControl = ({ job, onAssign, onCancel, isProcessing }: { job:
           {isProcessing && <Loader2 className="absolute right-2 top-2.5 w-5 h-5 animate-spin text-gray-400" />}
           {availableEngineers && availableEngineers.length > 0 && (
             <ul className="absolute z-10 w-full bg-white border mt-1 rounded-md shadow-lg max-h-40 overflow-auto">
-              {availableEngineers.map(eng => (
+              {/* MODIFICATION: Added explicit type Doc<"users"> to 'eng' */}
+              {availableEngineers.map((eng: Doc<"users">) => (
                 <li key={eng._id}
                     onClick={() => onAssign(eng._id)}
                     className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
@@ -294,8 +222,18 @@ const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCall
   );
 });
 
-function CallLogsDataTable({ callLogs, searchText, }: { callLogs: EnrichedCallLog[] | undefined; searchText: string; }) {
-  if (callLogs === undefined) {
+function CallLogsDataTable({
+  callLogs,
+  searchText,
+  status,
+  loadMore,
+}: {
+  callLogs: EnrichedCallLog[];
+  searchText: string;
+  status: 'LoadingFirstPage' | 'CanLoadMore' | 'LoadingMore' | 'Exhausted';
+  loadMore: () => void;
+}) {
+  if (status === 'LoadingFirstPage') {
     return <TableSkeleton />;
   }
   if (callLogs.length === 0) {
@@ -331,6 +269,24 @@ function CallLogsDataTable({ callLogs, searchText, }: { callLogs: EnrichedCallLo
           <tbody className="divide-y divide-gray-100">{callLogs.map((log) => <CallLogRow key={log._id} log={log} />)}</tbody>
         </table>
       </div>
+      {status === 'CanLoadMore' && (
+        <div className="mt-6 flex justify-center">
+          <button
+            onClick={loadMore}
+            className="bg-gray-100 text-gray-800 py-2 px-4 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+          >
+            Load More
+          </button>
+        </div>
+      )}
+      {status === 'LoadingMore' && (
+        <div className="mt-6 flex justify-center">
+          <div className="flex items-center gap-2 text-gray-500">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">Loading...</span>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -349,12 +305,15 @@ export default function ViewCallLogsPage() {
 function PageContent() {
   const [searchText, setSearchText] = useState('');
   const debouncedSearchText = useDebounce(searchText, 300);
-  const callLogs = useQuery(api.callLogs.searchCallLogs, { searchText: debouncedSearchText });
+  const { results: callLogs, status, loadMore } = usePaginatedQuery(
+    api.callLogs.searchCallLogs,
+    { searchText: debouncedSearchText },
+    { initialNumItems: 10 }
+  );
 
   return (
     <div className="space-y-8">
-      {/* --- MODIFICATION: Added the chart component here --- */}
-      <CallLogChart />
+      <DynamicCallLogChart />
 
       <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
@@ -378,7 +337,12 @@ function PageContent() {
           />
         </div>
         <div>
-          <CallLogsDataTable callLogs={callLogs} searchText={searchText} />
+          <CallLogsDataTable
+            callLogs={callLogs}
+            searchText={searchText}
+            status={status}
+            loadMore={() => loadMore(10)}
+          />
         </div>
       </div>
     </div>

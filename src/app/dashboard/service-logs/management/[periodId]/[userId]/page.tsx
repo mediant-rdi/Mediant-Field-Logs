@@ -9,13 +9,11 @@ import { format } from "date-fns";
 import React, { Suspense, use } from "react";
 import { Id } from "../../../../../../../convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
-import ManagementDashboardProtection from "@/components/ManagementDashboardProtection"; // MODIFICATION: Import protection component
+import ManagementDashboardProtection from "@/components/ManagementDashboardProtection";
 
-// --- Type Definitions ---
 type UserPeriodData = FunctionReturnType<typeof api.servicePeriods.getUserPeriodDetails>;
 type EnrichedServiceLog = Exclude<UserPeriodData, null>['logs'][0];
 
-// --- Helper Components ---
 const getStatusBadgeDetails = (status: string) => {
     switch (status) {
         case 'Finished': return <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700"><CheckCircle className="h-3 w-3" />Finished</span>;
@@ -64,7 +62,6 @@ const UserPeriodDetailsContent = ({ periodId, userId }: { periodId: Id<"serviceP
 
     return (
         <div>
-            {/* Breadcrumb Navigation */}
             <nav className="flex items-center text-sm font-medium text-gray-500 mb-4">
                 <Link href="/dashboard/service-logs/management" className="hover:text-gray-700">All Periods</Link>
                 <span className="mx-2">/</span>
@@ -88,7 +85,6 @@ const UserPeriodDetailsContent = ({ periodId, userId }: { periodId: Id<"serviceP
 };
 
 export default function UserPeriodDetailsPage({ params }: { params: Promise<{ periodId: Id<"servicePeriods">, userId: Id<"users"> }> }) {
-    // FIX: Use React.use() to unwrap the params Promise before destructuring
     const { periodId, userId } = use(params);
 
     return (

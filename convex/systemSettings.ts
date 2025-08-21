@@ -5,7 +5,6 @@ import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 
-// Helper to get the single settings document.
 const getSettings = (ctx: QueryCtx | MutationCtx) => {
     return ctx.db.query("systemSettings").withIndex("by_singleton", q => q.eq("singleton", "global")).first();
 };
@@ -59,7 +58,6 @@ export const activateServicePeriod = mutation({
         }
     }
 
-    // 1. Create the new ServicePeriod document for historical tracking
     const newPeriodId = await ctx.db.insert("servicePeriods", {
         name: args.name,
         startDate: Date.now(),
@@ -68,7 +66,6 @@ export const activateServicePeriod = mutation({
         logsCreated: logsToCreate.length,
     });
 
-    // 2. Create the associated ServiceLog documents with the new period ID
     for (const log of logsToCreate) {
         await ctx.db.insert("serviceLogs", {
             ...log,
@@ -76,7 +73,6 @@ export const activateServicePeriod = mutation({
         });
     }
     
-    // 3. Update the global settings to point to the new active period
     if (settings) {
         await ctx.db.patch(settings._id, {
             isServicePeriodActive: true,
@@ -112,7 +108,6 @@ export const deactivateServicePeriod = mutation({
         return { message: "No active service period to deactivate." };
     }
 
-    // Safety check for in-progress jobs (using the correct, performant index)
     const inProgressJobs = await ctx.db
       .query("serviceLogs")
       .withIndex("by_period", q => q.eq("servicePeriodId", settings.currentServicePeriodId!))
@@ -126,13 +121,11 @@ export const deactivateServicePeriod = mutation({
         };
     }
 
-    // 1. Update the historical ServicePeriod document
     await ctx.db.patch(settings.currentServicePeriodId, {
         isActive: false,
         endDate: Date.now(),
     });
 
-    // 2. Update the global settings
     await ctx.db.patch(settings._id, {
         isServicePeriodActive: false,
     });

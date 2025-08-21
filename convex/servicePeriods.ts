@@ -4,27 +4,7 @@ import { query, QueryCtx } from "./_generated/server";
 import { asyncMap } from "convex-helpers";
 import { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
-
-
-// Helper to enrich a service log with names for UI display
-const enrichServiceLog = async (ctx: QueryCtx, log: Doc<"serviceLogs">) => {
-    const [location, assignedEngineer, completedBy, startUser, endUser] = await Promise.all([
-        ctx.db.get(log.locationId),
-        ctx.db.get(log.engineerId),
-        log.completedByUserId ? ctx.db.get(log.completedByUserId) : null,
-        log.startLocation ? ctx.db.get(log.startLocation.capturedBy) : null,
-        log.endLocation ? ctx.db.get(log.endLocation.capturedBy) : null,
-    ]);
-
-    return {
-        ...log,
-        locationName: location?.fullName ?? "Unknown Location",
-        assignedEngineerName: assignedEngineer?.name ?? "Unknown Engineer",
-        completedByName: completedBy?.name,
-        startLocation: log.startLocation ? { ...log.startLocation, capturedByName: startUser?.name ?? "Unknown" } : undefined,
-        endLocation: log.endLocation ? { ...log.endLocation, capturedByName: endUser?.name ?? "Unknown" } : undefined,
-    };
-};
+import { enrichServiceLog } from "./serviceLogs"; // OPTIMIZATION: Import shared helper
 
 /**
  * Lists all service periods for management view.
@@ -37,7 +17,7 @@ export const listAll = query({
     }
     
     return await ctx.db.query("servicePeriods")
-        .order("desc") // Shows most recent first
+        .order("desc")
         .collect();
   }
 });
@@ -69,10 +49,8 @@ export const getByIdWithLogs = query({
   }
 });
 
-// --- NEW QUERY ---
 /**
- * Gets details for a specific user within a specific service period,
- * including the period info, user info, and all their logs.
+ * Gets details for a specific user within a specific service period.
  */
 export const getUserPeriodDetails = query({
     args: {

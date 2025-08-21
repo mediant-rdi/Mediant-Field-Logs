@@ -6,7 +6,6 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../../../convex/_generated/api';
 import AdminProtection from '@/components/AdminProtection';
 import { Toaster, toast } from 'sonner';
-// MODIFICATION: Removed 'History' icon from imports
 import { Power, PowerOff, Loader2, Server, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -157,8 +156,6 @@ export default function AdminServiceLogsPage() {
             )}
           </div>
         </div>
-
-        {/* --- MODIFICATION: The card linking to historical records has been removed. --- */}
         
          <div className="mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded-r-lg">
             <div className="flex">
