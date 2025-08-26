@@ -70,6 +70,8 @@ export default defineSchema({
     jobEndTime: v.optional(v.number()),   
     startLocation: v.optional(locationWithUser),
     endLocation: v.optional(locationWithUser),
+    // MODIFICATION: Added field to track which user started the job.
+    startedByUserId: v.optional(v.id("users")),
   })
   .index("by_engineer_and_period", ["engineerId", "servicePeriodId"])
   .index("by_location_and_period", ["locationId", "servicePeriodId"])
@@ -123,6 +125,7 @@ export default defineSchema({
     accountActivated: v.optional(v.boolean()),
     searchName: v.optional(v.string()),
     serviceLocationIds: v.optional(v.array(v.id("clientLocations"))),
+    taggedTeamMemberIds: v.optional(v.array(v.id("users"))),
   })
     .index('by_email', ['email'])
     .index("by_search_name", ["searchName"])
