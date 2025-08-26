@@ -128,7 +128,6 @@ export default function ClientBranchesPage({
                 <tr>
                   <th className="px-4 py-3 font-medium">Branch Name</th>
                   <th className="px-4 py-3 font-medium">Full Name</th>
-                  <th className="px-4 py-3 font-medium">Date Added</th>
                   {/* --- 3. UI RENDERING LOGIC (UNCHANGED) --- */}
                   {/* This logic correctly uses the `isAdmin` boolean we defined above. */}
                   {isAdmin && <th className="px-4 py-3 font-medium text-right">Actions</th>}
@@ -139,9 +138,6 @@ export default function ClientBranchesPage({
                   <tr key={loc._id}>
                     <td className="px-4 py-3 font-medium text-gray-900">{loc.name}</td>
                     <td className="px-4 py-3 text-gray-600">{loc.fullName}</td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {new Date(loc._creationTime).toLocaleDateString()}
-                    </td>
                     {/* This conditional rendering also correctly uses the `isAdmin` boolean */}
                     {isAdmin && (
                       <td className="px-4 py-3 text-right">
