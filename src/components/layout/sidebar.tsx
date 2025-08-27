@@ -33,10 +33,18 @@ const baseMenuItems = [
     icon: <FileWarning size={20} />,
     subItems: [
       { id: 'complaint-customer', name: 'Customer Complaint' },
-      { id: 'complaint-engineer', name: 'Engineer Complaint' }
+      { id: 'complaint-engineer', name: 'MDT staff Complaint' }
     ]
   },
-  { id: 'call-logs', name: 'Call Logs', icon: <PhoneCall size={20} /> },
+  {
+    id: 'call-coordination',
+    name: 'Call Co-ordinators',
+    icon: <PhoneCall size={20} />,
+    subItems: [
+      { id: 'call-coordination-logs', name: 'View Call Logs' },
+      { id: 'call-coordination-service-logs', name: 'View Service Logs' }
+    ]
+  },
   { id: 'service-logs', name: 'Service Logs', icon: <Wrench size={20} /> },
   { id: 'clients-view', name: 'View Clients', icon: <Users size={20} />, },
   { id: 'machines', name: 'View Products', icon: <Server size={20} />, },
@@ -89,30 +97,25 @@ export default function Sidebar({ isOpen, onClose, onItemClick, activeItem }: Si
   }, [activeItem]);
 
   const menuItems = useMemo(() => {
-    // While loading, hide items that depend on user permissions to prevent flashing.
     if (isLoading || !user) {
       return baseMenuItems.filter(item => 
         item.id !== 'admin' && 
-        item.id !== 'call-logs' &&
-        item.id !== 'management' // MODIFICATION: Hide during load
+        item.id !== 'call-coordination' &&
+        item.id !== 'management'
       );
     }
 
-    // Start with all items and filter down based on permissions.
     let filteredItems = [...baseMenuItems];
 
-    // 1. Filter Admin Panel if the user is not an admin.
     if (!user.isAdmin) {
       filteredItems = filteredItems.filter(item => item.id !== 'admin');
     }
     
-    // 2. Filter Call Logs if the user does not have specific permission.
+    // This correctly filters the entire dropdown for users without permission
     if (!user.canAccessCallLogs) {
-      filteredItems = filteredItems.filter(item => item.id !== 'call-logs');
+      filteredItems = filteredItems.filter(item => item.id !== 'call-coordination');
     }
     
-    // --- MODIFICATION: Filter Management Dashboard ---
-    // 3. Filter Management Dashboard if the user does not have specific permission.
     if (!user.canAccessManagementDashboard) {
       filteredItems = filteredItems.filter(item => item.id !== 'management');
     }

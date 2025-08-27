@@ -61,7 +61,8 @@ export default defineSchema({
     ),
     completionMethod: v.optional(v.union(
       v.literal("Planned Service"),
-      v.literal("Call Log")
+      v.literal("Call Log"),
+      v.literal("Coordinator Override") // MODIFICATION: Added new completion method
     )),
     completedByUserId: v.optional(v.id("users")),
     completedCallLogId: v.optional(v.id("callLogs")),
@@ -70,7 +71,6 @@ export default defineSchema({
     jobEndTime: v.optional(v.number()),   
     startLocation: v.optional(locationWithUser),
     endLocation: v.optional(locationWithUser),
-    // MODIFICATION: Added field to track which user started the job.
     startedByUserId: v.optional(v.id("users")),
   })
   .index("by_engineer_and_period", ["engineerId", "servicePeriodId"])

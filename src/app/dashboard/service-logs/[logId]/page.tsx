@@ -59,13 +59,16 @@ const LocationBlock = ({ title, locationData }: { title: string, locationData?: 
   );
 };
 
-const TimeBlock = ({ title, time }: { title: string, time?: number }) => (
+const TimeBlock = ({ title, time, byUser }: { title: string, time?: number, byUser?: string | null }) => (
   <div className="flex items-start space-x-3">
     <div className="flex-shrink-0 mt-1"><Clock className="w-5 h-5 text-gray-400"/></div>
     <div>
       <h4 className="font-medium text-gray-600">{title}</h4>
       {time ? (
-        <p className="text-md text-gray-900">{format(new Date(time), 'dd MMMM yyyy, h:mm a')}</p>
+        <>
+            <p className="text-md text-gray-900">{format(new Date(time), 'dd MMMM yyyy, h:mm a')}</p>
+            {byUser && <p className="text-sm text-gray-500">by {byUser}</p>}
+        </>
       ) : (
         <p className="text-md text-gray-500 italic">Not available</p>
       )}
@@ -148,7 +151,8 @@ export default function ServiceLogDetailsPage() {
             <div className="border-t pt-8 mt-8">
               <h3 className="text-xl font-bold text-gray-800 mb-6">Job Timeline & Location</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8 mb-8">
-                <TimeBlock title="Job Started At" time={serviceLog.jobStartTime} />
+                {/* MODIFICATION: Show who started the job */}
+                <TimeBlock title="Job Started At" time={serviceLog.jobStartTime} byUser={serviceLog.startedByName} />
                 <TimeBlock title="Job Finished At" time={serviceLog.jobEndTime} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -157,6 +161,7 @@ export default function ServiceLogDetailsPage() {
               </div>
             </div>
             
+            {/* --- MODIFICATION START: Updated Completion Details section --- */}
             {(serviceLog.completionMethod || serviceLog.completionNotes) && (
               <div className="border-t pt-8 mt-8">
                 <h3 className="text-xl font-bold text-gray-800 mb-6">Completion Details</h3>
@@ -167,7 +172,11 @@ export default function ServiceLogDetailsPage() {
                       <div>
                         <h4 className="font-medium text-gray-600">Completion Method</h4>
                         <p className="text-md text-gray-900">{serviceLog.completionMethod}</p>
-                        {serviceLog.completedByName && <p className="text-sm text-gray-500">by {serviceLog.completedByName}</p>}
+                        {serviceLog.completedByName && (
+                          <p className="text-sm text-gray-500">
+                            by {serviceLog.completionMethod === 'Coordinator Override' ? 'Coordinator: ' : ''}{serviceLog.completedByName}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -175,8 +184,10 @@ export default function ServiceLogDetailsPage() {
                     <div className="flex items-start space-x-3">
                       <div className="flex-shrink-0 mt-1"><MessageSquare className="w-5 h-5 text-gray-400"/></div>
                       <div>
-                        <h4 className="font-medium text-gray-600">Engineer&apos;s Notes</h4>
-                        <p className="text-md text-gray-700 italic bg-gray-50 p-3 rounded-md border w-full">
+                        <h4 className="font-medium text-gray-600">
+                          {serviceLog.completionMethod === 'Coordinator Override' ? "Coordinator's Reason" : "Engineer's Notes"}
+                        </h4>
+                        <p className="text-md text-gray-700 italic bg-gray-50 p-3 rounded-md border w-full whitespace-pre-wrap">
                           {serviceLog.completionNotes}
                         </p>
                       </div>
@@ -185,6 +196,7 @@ export default function ServiceLogDetailsPage() {
                 </div>
               </div>
             )}
+            {/* --- MODIFICATION END --- */}
 
           </div>
         </div>

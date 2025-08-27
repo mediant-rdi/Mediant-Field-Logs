@@ -13,7 +13,6 @@ export const enrichServiceLog = async (ctx: QueryCtx, log: Doc<"serviceLogs">) =
         log.completedByUserId ? ctx.db.get(log.completedByUserId) : null,
         log.startLocation ? ctx.db.get(log.startLocation.capturedBy) : null,
         log.endLocation ? ctx.db.get(log.endLocation.capturedBy) : null,
-        // MODIFICATION: Fetch the user who started the job
         log.startedByUserId ? ctx.db.get(log.startedByUserId) : null,
     ]);
 
@@ -24,7 +23,6 @@ export const enrichServiceLog = async (ctx: QueryCtx, log: Doc<"serviceLogs">) =
         completedByName: completedBy?.name,
         startLocation: log.startLocation ? { ...log.startLocation, capturedByName: startUser?.name ?? "Unknown" } : undefined,
         endLocation: log.endLocation ? { ...log.endLocation, capturedByName: endUser?.name ?? "Unknown" } : undefined,
-        // MODIFICATION: Add the starter's name to the enriched object
         startedByName: startedByUser?.name,
     };
 };
@@ -135,11 +133,10 @@ export const startPlannedService = mutation({
         }
     }
 
-    // MODIFICATION: Patch the log with the ID of the user who started it
     await ctx.db.patch(log._id, {
         status: "In Progress",
         jobStartTime: Date.now(),
-        startedByUserId: userId, // <-- Record who started the job
+        startedByUserId: userId,
         startLocation: {
             latitude: args.latitude,
             longitude: args.longitude,
@@ -168,7 +165,6 @@ export const finishPlannedService = mutation({
     if (!log) throw new Error("Service log not found.");
     if (log.status !== "In Progress") throw new Error("This service must be 'In Progress' to be finished.");
     
-    // MODIFICATION: Only the user who started the job can finish it.
     if (!log.startedByUserId) throw new Error("Cannot finish a job that hasn't been started properly.");
     if (log.startedByUserId !== userId) throw new Error("Only the engineer who started this job can finish it.");
     
@@ -187,3 +183,45 @@ export const finishPlannedService = mutation({
     });
   },
 });
+
+/**
+ * --- MODIFICATION START ---
+ * Allows a call coordinator to manually finish a pending service job.
+ */
+export const finishPendingServiceByCoordinator = mutation({
+    args: {
+        serviceLogId: v.id("serviceLogs"),
+        completionNotes: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated.");
+
+        const user = await ctx.db.get(userId);
+        if (!user?.canAccessCallLogs) {
+            throw new Error("You do not have permission to perform this action.");
+        }
+
+        if (args.completionNotes.trim().length === 0) {
+            throw new Error("A reason for finishing the job is required.");
+        }
+
+        const log = await ctx.db.get(args.serviceLogId);
+        if (!log) throw new Error("Service log not found.");
+
+        if (log.status !== "Pending") {
+            throw new Error("This action can only be performed on 'Pending' service logs.");
+        }
+
+        await ctx.db.patch(log._id, {
+            status: "Finished",
+            completionMethod: "Coordinator Override",
+            completedByUserId: userId,
+            jobEndTime: Date.now(),
+            completionNotes: args.completionNotes,
+        });
+
+        return { success: true };
+    },
+});
+// --- MODIFICATION END ---

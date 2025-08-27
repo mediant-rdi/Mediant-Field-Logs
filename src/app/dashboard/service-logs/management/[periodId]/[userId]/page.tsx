@@ -23,6 +23,9 @@ const getStatusBadgeDetails = (status: string) => {
     }
 };
 
+// --- MODIFICATION START: New responsive components ---
+
+// Desktop-only Table View
 const LogDetailsTable = ({ logs }: { logs: EnrichedServiceLog[] }) => (
     <div className="overflow-x-auto bg-white rounded-lg border border-gray-200 shadow-sm">
         <table className="min-w-full divide-y divide-gray-200">
@@ -52,6 +55,51 @@ const LogDetailsTable = ({ logs }: { logs: EnrichedServiceLog[] }) => (
     </div>
 );
 
+// Mobile-only Card View
+const LogCard = ({ log }: { log: EnrichedServiceLog }) => (
+    <div className="bg-white p-4 rounded-lg border shadow-sm space-y-4">
+        <div className="flex justify-between items-start gap-2">
+            <h3 className="font-bold text-gray-800 break-words">{log.locationName}</h3>
+            {getStatusBadgeDetails(log.status)}
+        </div>
+        <div className="text-sm text-gray-600 space-y-2 border-t pt-3">
+             <div>
+                <span className="font-semibold">Start Time: </span>
+                {log.jobStartTime ? format(new Date(log.jobStartTime), 'p, dd/MM/yy') : 'N/A'}
+            </div>
+            <div>
+                <span className="font-semibold">Finish Time: </span>
+                {log.jobEndTime ? format(new Date(log.jobEndTime), 'p, dd/MM/yy') : 'N/A'}
+            </div>
+        </div>
+        <div className="flex justify-end items-center border-t pt-3">
+            <Link href={`/dashboard/service-logs/${log._id}`} className="text-indigo-600 hover:text-indigo-900 text-sm font-semibold">
+                View Details
+            </Link>
+        </div>
+    </div>
+);
+
+// Component that switches between Table and Cards
+const ResponsiveLogList = ({ logs }: { logs: EnrichedServiceLog[] }) => {
+    return (
+        <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block">
+                <LogDetailsTable logs={logs} />
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+                {logs.map(log => (
+                    <LogCard key={log._id} log={log} />
+                ))}
+            </div>
+        </>
+    );
+};
+// --- MODIFICATION END ---
+
 const UserPeriodDetailsContent = ({ periodId, userId }: { periodId: Id<"servicePeriods">, userId: Id<"users"> }) => {
     const data = useQuery(api.servicePeriods.getUserPeriodDetails, { periodId, userId });
 
@@ -62,24 +110,24 @@ const UserPeriodDetailsContent = ({ periodId, userId }: { periodId: Id<"serviceP
 
     return (
         <div>
-            <nav className="flex items-center text-sm font-medium text-gray-500 mb-4">
+            <nav className="flex items-center text-sm font-medium text-gray-500 mb-4 flex-wrap">
                 <Link href="/dashboard/service-logs/management" className="hover:text-gray-700">All Periods</Link>
                 <span className="mx-2">/</span>
-                <Link href={`/dashboard/service-logs/management/${period._id}`} className="hover:text-gray-700 truncate max-w-[200px]">{period.name}</Link>
+                <Link href={`/dashboard/service-logs/management/${period._id}`} className="hover:text-gray-700 truncate max-w-[150px] sm:max-w-[200px]">{period.name}</Link>
                 <span className="mx-2">/</span>
-                <span className="text-gray-800 truncate max-w-[200px]">{user.name}</span>
+                <span className="text-gray-800 truncate max-w-[150px] sm:max-w-[200px]">{user.name}</span>
             </nav>
             
             <div className="border-b border-gray-200 pb-5 mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 leading-tight">Service Logs for {user.name}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Service Logs for {user.name}</h1>
                 <p className="mt-2 text-sm text-gray-500">
                     Showing {logs.length} assigned sites for the <span className="font-medium text-gray-700">{period.name}</span> service period.
                 </p>
             </div>
             
-            <LogDetailsTable logs={logs} />
+            <ResponsiveLogList logs={logs} />
 
-            {logs.length === 0 && <p className="p-4 text-sm text-gray-500 bg-white rounded-lg border">This engineer had no logs assigned for this period.</p>}
+            {logs.length === 0 && <p className="p-4 mt-4 text-sm text-gray-500 bg-white rounded-lg border">This engineer had no logs assigned for this period.</p>}
         </div>
     );
 };
