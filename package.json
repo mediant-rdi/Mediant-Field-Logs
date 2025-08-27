@@ -12,6 +12,8 @@
     "@auth/core": "^0.37.0",
     "@convex-dev/auth": "^0.0.87",
     "@types/jsonwebtoken": "^9.0.9",
+    "@vercel/analytics": "^1.5.0",
+    "@vercel/speed-insights": "^1.2.0",
     "bcryptjs": "^3.0.2",
     "convex": "^1.24.8",
     "convex-helpers": "^0.1.101",

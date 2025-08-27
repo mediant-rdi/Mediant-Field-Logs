@@ -6,18 +6,21 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "./ConvexClientProvider";
+// Import Vercel components
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 // Your local font configuration remains the same
 const geistSans = localFont({
-  src: './fonts/Geist-Variable.woff2',
+  src: "./fonts/Geist-Variable.woff2",
   variable: "--font-geist-sans",
-  display: 'swap',
+  display: "swap",
 });
 
 const geistMono = localFont({
-  src: './fonts/GeistMono-Variable.woff2',
+  src: "./fonts/GeistMono-Variable.woff2",
   variable: "--font-geist-mono",
-  display: 'swap',
+  display: "swap",
 });
 
 // 2. Updated Metadata to link the PWA manifest
@@ -46,6 +49,9 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
           <ConvexClientProvider>{children}</ConvexClientProvider>
+          {/* Add the Vercel components here */}
+          <Analytics />
+          <SpeedInsights />
         </body>
       </html>
     </ConvexAuthNextjsServerProvider>
