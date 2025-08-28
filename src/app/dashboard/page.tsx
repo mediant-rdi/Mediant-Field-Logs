@@ -25,7 +25,6 @@ import { Doc } from '../../../convex/_generated/dataModel';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { useAccurateLocation } from '@/hooks/useAccurateLocation';
-// --- MODIFICATION: Import Toaster and toast ---
 import { Toaster, toast } from 'sonner';
 
 // --- HELPER COMPONENTS & TYPES FOR THE CALL LOG TABLE ---
@@ -285,7 +284,7 @@ function CallLogsDataTable({
   );
 }
 
-// --- STANDARD DASHBOARD HELPER COMPONENTS (UNCHANGED) ---
+// --- STANDARD DASHBOARD HELPER COMPONENTS ---
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -296,7 +295,6 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 const SubmissionDetailsModal = dynamic(() => import('@/components/modals/SubmissionDetailsModal'), { ssr: false });
 type DashboardStatsType = { isAdmin: boolean; pendingCount: number; submissionsTodayCount: number };
-// --- MODIFICATION: Update SummaryCard to remove highlight effect when disabled ---
 const SummaryCard = ({ title, count, icon: Icon, color, trend, onClick, disableZoom = false }: { title: string; count?: number; icon: React.ComponentType<{ className?: string }>; color: string; trend?: { value: number; label: string }; onClick?: () => void; disableZoom?: boolean; }) => ( <div onClick={onClick} className={`relative overflow-hidden bg-white rounded-xl border border-gray-200 p-6 transition-all duration-200 ${onClick ? 'cursor-pointer' : ''} ${onClick && !disableZoom ? 'hover:shadow-lg hover:border-gray-300 hover:scale-105' : ''}`}><div className="flex items-center justify-between"><div className="space-y-2"><p className="text-sm font-medium text-gray-600">{title}</p><p className="text-3xl font-bold text-gray-900">{count === undefined ? (<span className="inline-block w-8 h-8 bg-gray-200 rounded animate-pulse"></span>) : (count)}</p>{trend && (<div className="flex items-center gap-1 text-xs text-gray-500"><TrendingUp className="w-3 h-3" /><span>{trend.label}</span></div>)}</div><div className={`p-3 rounded-full ${color.replace('text-', 'bg-').replace('600', '50')}`}><Icon className={`w-6 h-6 ${color}`} /></div></div></div>);
 const StatsSkeleton = () => <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">{[...Array(2)].map((_, i) => <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse"><div className="flex items-center justify-between"><div className="space-y-2"><div className="h-4 bg-gray-200 rounded w-24"></div><div className="h-8 bg-gray-200 rounded w-16"></div></div><div className="w-12 h-12 bg-gray-200 rounded-full"></div></div></div>)}</div>;
 const AdminTableSkeleton = () => <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{[...Array(6)].map((_, i) => <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse"><div className="flex items-center justify-between mb-4"><div className="flex items-center gap-3"><div className="w-8 h-8 bg-gray-200 rounded-lg"></div><div className="space-y-2"><div className="h-4 bg-gray-200 rounded w-20"></div><div className="h-3 bg-gray-200 rounded w-16"></div></div></div><div className="h-6 bg-gray-200 rounded-full w-16"></div></div><div className="space-y-2 mb-4"><div className="h-4 bg-gray-200 rounded w-full"></div><div className="h-4 bg-gray-200 rounded w-3/4"></div></div><div className="h-8 bg-gray-200 rounded w-24"></div></div>)}</div>;

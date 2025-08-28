@@ -17,11 +17,10 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAccurateLocation } from '@/hooks/useAccurateLocation';
-// --- MODIFICATION: Import toast for notifications ---
 import { toast } from 'sonner';
 
 
-// --- Helper functions for styling (unchanged) ---
+
 const getStatusBadge = (status: string) => {
   const badgeStyles: { [key: string]: string } = {
     'Pending': 'bg-amber-100 text-amber-800 ring-amber-200',
@@ -41,7 +40,7 @@ const getStatusIcon = (status: string) => {
         default: return <Settings className="w-3 h-3 text-gray-600" />;
     }
 }
-// --- End of helpers ---
+
 
 type EnrichedCallLog = Doc<"callLogs"> & {
   clientName: string;
@@ -78,7 +77,7 @@ export function EngineerAssignmentsDashboard() {
       });
       toast.success("Job accepted successfully!");
     } catch (error) {
-      // --- MODIFICATION: Use toast for errors ---
+      
       toast.error(error instanceof Error ? error.message : 'An unknown error occurred while accepting the job.');
     } finally {
       setProcessingId(null);
@@ -96,7 +95,7 @@ export function EngineerAssignmentsDashboard() {
       });
       toast.success("Job marked as finished!");
     } catch (error) {
-      // --- MODIFICATION: Use toast for errors ---
+      
       toast.error(error instanceof Error ? error.message : 'An unknown error occurred while finishing the job.');
     } finally {
       setProcessingId(null);
@@ -111,7 +110,7 @@ export function EngineerAssignmentsDashboard() {
         toast.success("Job has been escalated. An admin will review it.");
       }
     } catch (error) {
-        // --- MODIFICATION: Use toast for errors ---
+        
         toast.error(error instanceof Error ? error.message : 'An unknown error occurred during escalation.');
     } finally {
         setProcessingId(null);

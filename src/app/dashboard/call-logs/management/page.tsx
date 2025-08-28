@@ -10,7 +10,6 @@ import { format } from 'date-fns';
 import { Phone, Search, Inbox, Loader2 } from 'lucide-react';
 import ManagementDashboardProtection from '@/components/ManagementDashboardProtection';
 import dynamic from 'next/dynamic';
-// MODIFICATION: Changed path to use a root-level alias for robustness
 import { getStatusBadge, ChartSkeleton } from '@/app/dashboard/call-logs/_components/shared';
 
 type EnrichedCallLog = Doc<"callLogs"> & {
@@ -18,7 +17,6 @@ type EnrichedCallLog = Doc<"callLogs"> & {
   engineers: string[];
 };
 
-// MODIFICATION: Dynamically import the chart using the corrected path
 const DynamicCallLogChart = dynamic(() => import('@/app/dashboard/call-logs/_components/shared').then(mod => mod.CallLogChart), {
   loading: () => <ChartSkeleton />,
   ssr: false,
@@ -52,7 +50,6 @@ const TableSkeleton = () => (
   </div>
 );
 
-// Simplified Row Component for Management View (No Assign Functionality)
 const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLog }) {
   return (
     <tr>
@@ -74,7 +71,6 @@ const CallLogRow = React.memo(function CallLogRow({ log }: { log: EnrichedCallLo
   );
 });
 
-// Simplified Card Component for Management View (No Assign Functionality)
 const CallLogCard = React.memo(function CallLogCard({ log }: { log: EnrichedCallLog }) {
   return (
     <div className="border rounded-lg shadow-sm bg-gray-50">

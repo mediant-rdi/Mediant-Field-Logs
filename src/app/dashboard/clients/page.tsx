@@ -37,9 +37,7 @@ const TableSkeleton = () => (
   </div>
 );
 
-// OPTIMIZATION: Created a memoized component for the mobile card view.
-// UPDATED: Now accepts `isAdmin` prop to conditionally show the "Add Branch" link.
-// REMOVED: "Agreement Type" display.
+
 const ClientCard = React.memo(function ClientCard({
   client,
   isAdmin,
@@ -73,9 +71,7 @@ const ClientCard = React.memo(function ClientCard({
   );
 });
 
-// OPTIMIZATION: Created a memoized component for the desktop table row.
-// UPDATED: Now accepts `isAdmin` prop to conditionally show the "Add Branch" link.
-// REMOVED: "Agreement Type" column.
+
 const ClientRow = React.memo(function ClientRow({
   client,
   isAdmin,
@@ -109,10 +105,7 @@ const ClientRow = React.memo(function ClientRow({
   );
 });
 
-/**
- * A responsive component to display the client data.
- * It shows a list of cards on mobile and a table on desktop.
- */
+
 function ClientsDataTable({
   clients,
   isAdmin,

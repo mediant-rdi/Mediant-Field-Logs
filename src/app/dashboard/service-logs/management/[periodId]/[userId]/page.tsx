@@ -6,13 +6,14 @@ import { api } from "../../../../../../../convex/_generated/api";
 import { Loader2, CheckCircle, XCircle, Flag, Clock } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
-import React, { Suspense, use } from "react";
+import React, { Suspense, use, useMemo } from "react";
 import { Id } from "../../../../../../../convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
 import ManagementDashboardProtection from "@/components/ManagementDashboardProtection";
 
-type UserPeriodData = FunctionReturnType<typeof api.servicePeriods.getUserPeriodDetails>;
-type EnrichedServiceLog = Exclude<UserPeriodData, null>['logs'][0];
+// MODIFICATION: Update type definitions for team view
+type PeriodData = FunctionReturnType<typeof api.servicePeriods.getByIdWithLogs>;
+type EnrichedServiceLog = Exclude<PeriodData, null>['serviceLogs'][0];
 
 const getStatusBadgeDetails = (status: string) => {
     switch (status) {
@@ -22,8 +23,6 @@ const getStatusBadgeDetails = (status: string) => {
         default: return <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"><XCircle className="h-3 w-3" />Unknown</span>;
     }
 };
-
-// --- MODIFICATION START: New responsive components ---
 
 // Desktop-only Table View
 const LogDetailsTable = ({ logs }: { logs: EnrichedServiceLog[] }) => (
@@ -98,15 +97,42 @@ const ResponsiveLogList = ({ logs }: { logs: EnrichedServiceLog[] }) => {
         </>
     );
 };
-// --- MODIFICATION END ---
 
+// --- MODIFICATION START: Rework component to show team data ---
 const UserPeriodDetailsContent = ({ periodId, userId }: { periodId: Id<"servicePeriods">, userId: Id<"users"> }) => {
-    const data = useQuery(api.servicePeriods.getUserPeriodDetails, { periodId, userId });
+    const periodWithAllLogs = useQuery(api.servicePeriods.getByIdWithLogs, { periodId });
+    const allUsers = useQuery(api.users.listAll);
 
-    if (data === undefined) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>;
-    if (data === null) return <div className="text-center p-8">Details not found. The user or period may not exist, or you may not have permission.</div>;
+    const teamData = useMemo(() => {
+        if (periodWithAllLogs === undefined || allUsers === undefined) return undefined;
+        if (periodWithAllLogs === null || allUsers === null) return null;
 
-    const { period, user, logs } = data;
+        const leader = allUsers.find(u => u._id === userId);
+        if (!leader) return null;
+
+        const teamMemberIds = new Set([leader._id, ...(leader.taggedTeamMemberIds ?? [])]);
+        
+        const teamMembers = allUsers
+            .filter(u => teamMemberIds.has(u._id))
+            .sort((a,b) => (a.name ?? "").localeCompare(b.name ?? ""));
+
+        const teamLogs = periodWithAllLogs.serviceLogs
+            .filter(log => teamMemberIds.has(log.engineerId))
+            .sort((a, b) => a.locationName.localeCompare(b.locationName));
+
+        return {
+            period: periodWithAllLogs,
+            leader,
+            teamMembers,
+            logs: teamLogs
+        };
+    }, [periodWithAllLogs, allUsers, userId]);
+
+    if (teamData === undefined) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>;
+    if (teamData === null) return <div className="text-center p-8">Details not found. The team leader or period may not exist, or you may not have permission.</div>;
+
+    const { period, leader, teamMembers, logs } = teamData;
+    const teamMemberNames = teamMembers.map(m => m.name).join(', ');
 
     return (
         <div>
@@ -115,22 +141,23 @@ const UserPeriodDetailsContent = ({ periodId, userId }: { periodId: Id<"serviceP
                 <span className="mx-2">/</span>
                 <Link href={`/dashboard/service-logs/management/${period._id}`} className="hover:text-gray-700 truncate max-w-[150px] sm:max-w-[200px]">{period.name}</Link>
                 <span className="mx-2">/</span>
-                <span className="text-gray-800 truncate max-w-[150px] sm:max-w-[200px]">{user.name}</span>
+                <span className="text-gray-800 truncate max-w-[150px] sm:max-w-[200px]">{leader.name}'s Team</span>
             </nav>
             
             <div className="border-b border-gray-200 pb-5 mb-6">
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Service Logs for {user.name}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Service Logs for {teamMemberNames}</h1>
                 <p className="mt-2 text-sm text-gray-500">
-                    Showing {logs.length} assigned sites for the <span className="font-medium text-gray-700">{period.name}</span> service period.
+                    Showing {logs.length} total assigned sites for the team during the <span className="font-medium text-gray-700">{period.name}</span> service period.
                 </p>
             </div>
             
             <ResponsiveLogList logs={logs} />
 
-            {logs.length === 0 && <p className="p-4 mt-4 text-sm text-gray-500 bg-white rounded-lg border">This engineer had no logs assigned for this period.</p>}
+            {logs.length === 0 && <p className="p-4 mt-4 text-sm text-gray-500 bg-white rounded-lg border">This team had no logs assigned for this period.</p>}
         </div>
     );
 };
+// --- MODIFICATION END ---
 
 export default function UserPeriodDetailsPage({ params }: { params: Promise<{ periodId: Id<"servicePeriods">, userId: Id<"users"> }> }) {
     const { periodId, userId } = use(params);

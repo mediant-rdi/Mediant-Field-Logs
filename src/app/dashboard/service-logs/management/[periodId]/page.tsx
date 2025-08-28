@@ -51,29 +51,57 @@ const StatusBarGraph = ({ logs }: { logs: EnrichedServiceLog[] }) => {
 
 function PeriodDetailsContent({ periodId }: { periodId: Id<"servicePeriods"> }) {
     const data = useQuery(api.servicePeriods.getByIdWithLogs, { periodId });
+    // --- MODIFICATION START: Fetch all users to determine team structure ---
+    const allUsers = useQuery(api.users.listAll);
 
-    const logsByEngineer = useMemo(() => {
-        if (!data?.serviceLogs) return new Map();
+    const logsByTeamLeader = useMemo(() => {
+        if (!data?.serviceLogs || !allUsers) return new Map();
+
+        const findLeader = (engineerId: Id<"users">) => {
+            const leader = allUsers.find(u => u.taggedTeamMemberIds?.includes(engineerId));
+            return leader || allUsers.find(u => u._id === engineerId);
+        };
+
+        type TeamData = {
+            leaderName: string;
+            logs: EnrichedServiceLog[];
+            completedCount: number;
+            isInProgress: boolean;
+            teamMemberNames: string[];
+        };
+        
         const grouped = data.serviceLogs.reduce((acc, log) => {
-            const engineerId = log.engineerId;
-            if (!acc.has(engineerId)) {
-                acc.set(engineerId, { 
-                    engineerName: log.assignedEngineerName, 
+            const leader = findLeader(log.engineerId);
+            if (!leader) return acc;
+
+            const leaderId = leader._id;
+            if (!acc.has(leaderId)) {
+                const teamMemberIds = leader.taggedTeamMemberIds ?? [];
+                const teamMembers = allUsers.filter(u => teamMemberIds.includes(u._id));
+                const teamMemberNames = teamMembers.map(m => m.name ?? 'Unnamed').sort();
+                
+                acc.set(leaderId, { 
+                    leaderName: leader.name ?? "Unknown Leader", 
                     logs: [], 
                     completedCount: 0, 
-                    isInProgress: false 
+                    isInProgress: false,
+                    teamMemberNames,
                 });
             }
-            const engineerData = acc.get(engineerId)!;
-            engineerData.logs.push(log);
-            if (log.status === 'Finished') engineerData.completedCount += 1;
-            if (log.status === 'In Progress') engineerData.isInProgress = true;
-            return acc;
-        }, new Map<Id<"users">, { engineerName: string; logs: EnrichedServiceLog[]; completedCount: number; isInProgress: boolean }>());
-        return new Map([...grouped.entries()].sort((a, b) => a[1].engineerName.localeCompare(b[1].engineerName)));
-    }, [data?.serviceLogs]);
 
-    if (data === undefined) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>;
+            const leaderData = acc.get(leaderId)!;
+            leaderData.logs.push(log);
+            if (log.status === 'Finished') leaderData.completedCount += 1;
+            if (log.status === 'In Progress') leaderData.isInProgress = true;
+            
+            return acc;
+        }, new Map<Id<"users">, TeamData>());
+
+        return new Map([...grouped.entries()].sort((a, b) => a[1].leaderName.localeCompare(b[1].leaderName)));
+    }, [data?.serviceLogs, allUsers]);
+
+    if (data === undefined || allUsers === undefined) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>;
+    // --- MODIFICATION END ---
     if (data === null) return <div className="text-center p-8">Service Period not found or you do not have permission to view it.</div>;
 
     return (
@@ -88,19 +116,27 @@ function PeriodDetailsContent({ periodId }: { periodId: Id<"servicePeriods"> }) 
                 {data.isActive && <StatusBarGraph logs={data.serviceLogs} />}
 
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <div className="p-4 border-b"><h2 className="text-lg font-semibold text-gray-800">Participating Engineers ({logsByEngineer.size})</h2></div>
+                    {/* --- MODIFICATION START: Update UI to show teams --- */}
+                    <div className="p-4 border-b"><h2 className="text-lg font-semibold text-gray-800">Participating Teams & Engineers ({logsByTeamLeader.size})</h2></div>
                     <ul className="divide-y divide-gray-200">
-                        {Array.from(logsByEngineer.entries()).map(([engineerId, { engineerName, logs, completedCount, isInProgress }]) => (
-                            <li key={engineerId}>
-                                <Link href={`/dashboard/service-logs/management/${periodId}/${engineerId}`} className="w-full flex justify-between items-center p-4 text-left hover:bg-gray-50 focus:outline-none transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative">
+                        {Array.from(logsByTeamLeader.entries()).map(([leaderId, { leaderName, logs, completedCount, isInProgress, teamMemberNames }]) => (
+                            <li key={leaderId}>
+                                <Link href={`/dashboard/service-logs/management/${periodId}/${leaderId}`} className="w-full flex justify-between items-center p-4 text-left hover:bg-gray-50 focus:outline-none transition-colors">
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        <div className="relative flex-shrink-0">
                                             <User className="w-5 h-5 text-gray-500" />
                                             {isInProgress && (
-                                                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-blue-500 rounded-full border border-white" title="Actively at work"></div>
+                                                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-blue-500 rounded-full border border-white" title="Team actively at work"></div>
                                             )}
                                         </div>
-                                        <span className="font-medium text-gray-800">{engineerName}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-gray-800 truncate">{leaderName}</p>
+                                            {teamMemberNames.length > 0 && (
+                                                <p className="text-xs text-gray-500 mt-0.5 truncate">
+                                                    Team: {teamMemberNames.join(', ')}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <span className="text-sm text-gray-600">{completedCount} / {logs.length} Completed</span>
@@ -109,8 +145,9 @@ function PeriodDetailsContent({ periodId }: { periodId: Id<"servicePeriods"> }) 
                                 </Link>
                             </li>
                         ))}
-                        {logsByEngineer.size === 0 && <p className="p-4 text-sm text-gray-500">No engineers were assigned logs for this period.</p>}
+                        {logsByTeamLeader.size === 0 && <p className="p-4 text-sm text-gray-500">No engineers were assigned logs for this period.</p>}
                     </ul>
+                    {/* --- MODIFICATION END --- */}
                 </div>
             </div>
         </div>

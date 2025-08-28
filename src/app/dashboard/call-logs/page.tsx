@@ -57,7 +57,6 @@ const TableSkeleton = () => (
 const AssignEngineerControl = ({ job, onAssign, onCancel, isProcessing }: { job: EnrichedCallLog; onAssign: (newEngineerId: Id<"users">) => void; onCancel: () => void; isProcessing: boolean; }) => {
     const [search, setSearch] = useState('');
     const results = useQuery(api.users.searchEngineers, search ? { searchText: search } : 'skip');
-    // MODIFICATION: Added explicit type Doc<"users"> to 'eng'
     const availableEngineers = results?.filter((eng: Doc<"users">) => !job.engineerIds.includes(eng._id));
   
     return (
@@ -301,7 +300,7 @@ export default function ViewCallLogsPage() {
   );
 }
 
-// Extracted the original page content into its own component
+
 function PageContent() {
   const [searchText, setSearchText] = useState('');
   const debouncedSearchText = useDebounce(searchText, 300);

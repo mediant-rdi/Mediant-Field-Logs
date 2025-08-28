@@ -5,13 +5,14 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../../../../convex/_generated/api";
 import { Loader2, CheckCircle, XCircle, Flag, Clock } from "lucide-react";
 import Link from "next/link";
-import React, { Suspense, use, useState } from "react";
+import React, { Suspense, use, useState, useMemo } from "react";
 import { Id } from "../../../../../../../convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
 import CallLogAccessProtection from "@/components/CallLogAccessProtection";
 
-type UserPeriodData = FunctionReturnType<typeof api.servicePeriods.getUserPeriodDetails>;
-type EnrichedServiceLog = Exclude<UserPeriodData, null>['logs'][0];
+// MODIFICATION: Update type definitions for team view
+type PeriodData = FunctionReturnType<typeof api.servicePeriods.getByIdWithLogs>;
+type EnrichedServiceLog = Exclude<PeriodData, null>['serviceLogs'][0];
 
 const getStatusBadgeDetails = (status: string) => {
     switch (status) {
@@ -22,7 +23,7 @@ const getStatusBadgeDetails = (status: string) => {
     }
 };
 
-// --- MODIFICATION START: New responsive components ---
+// --- MODIFICATION START: Reverted components to original state (no "Assigned To") ---
 
 // Desktop-only Table View
 const LogDetailsTable = ({ logs, onFinishClick }: { logs: EnrichedServiceLog[], onFinishClick: (log: EnrichedServiceLog) => void }) => (
@@ -155,7 +156,37 @@ const FinishJobModal = ({ log, onClose, onSubmit, isSubmitting }: { log: Enriche
 
 
 const UserPeriodDetailsContent = ({ periodId, userId }: { periodId: Id<"servicePeriods">, userId: Id<"users"> }) => {
-    const data = useQuery(api.servicePeriods.getUserPeriodDetails, { periodId, userId });
+    // Fetch all data for the period, and all users, to compute team details on the client.
+    const periodWithAllLogs = useQuery(api.servicePeriods.getByIdWithLogs, { periodId });
+    const allUsers = useQuery(api.users.listAll);
+
+    // useMemo to efficiently calculate team data and prevent re-renders
+    const teamData = useMemo(() => {
+        // Wait for all data to load
+        if (periodWithAllLogs === undefined || allUsers === undefined) return undefined;
+        if (periodWithAllLogs === null || allUsers === null) return null;
+
+        const leader = allUsers.find(u => u._id === userId);
+        if (!leader) return null; // Leader specified in URL not found
+
+        const teamMemberIds = new Set([leader._id, ...(leader.taggedTeamMemberIds ?? [])]);
+        
+        const teamMembers = allUsers
+            .filter(u => teamMemberIds.has(u._id))
+            .sort((a,b) => (a.name ?? "").localeCompare(b.name ?? ""));
+
+        const teamLogs = periodWithAllLogs.serviceLogs
+            .filter(log => teamMemberIds.has(log.engineerId))
+            .sort((a, b) => a.locationName.localeCompare(b.locationName));
+
+        return {
+            period: periodWithAllLogs,
+            leader,
+            teamMembers,
+            logs: teamLogs
+        };
+    }, [periodWithAllLogs, allUsers, userId]);
+
     const finishJobMutation = useMutation(api.serviceLogs.finishPendingServiceByCoordinator);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [modalState, setModalState] = useState<{ isOpen: boolean; log: EnrichedServiceLog | null }>({
@@ -188,10 +219,11 @@ const UserPeriodDetailsContent = ({ periodId, userId }: { periodId: Id<"serviceP
         }
     };
 
-    if (data === undefined) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>;
-    if (data === null) return <div className="text-center p-8">Details not found. The user or period may not exist, or you may not have permission.</div>;
+    if (teamData === undefined) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-gray-500" /></div>;
+    if (teamData === null) return <div className="text-center p-8">Details not found. The team leader or period may not exist, or you may not have permission.</div>;
 
-    const { period, user, logs } = data;
+    const { period, leader, teamMembers, logs } = teamData;
+    const teamMemberNames = teamMembers.map(m => m.name).join(', ');
 
     return (
         <div>
@@ -200,19 +232,19 @@ const UserPeriodDetailsContent = ({ periodId, userId }: { periodId: Id<"serviceP
                 <span className="mx-2">/</span>
                 <Link href={`/dashboard/service-logs/call-coordinators/${period._id}`} className="hover:text-gray-700 truncate max-w-[150px] sm:max-w-[200px]">{period.name}</Link>
                 <span className="mx-2">/</span>
-                <span className="text-gray-800 truncate max-w-[150px] sm:max-w-[200px]">{user.name}</span>
+                <span className="text-gray-800 truncate max-w-[150px] sm:max-w-[200px]">{leader.name}'s Team</span>
             </nav>
             
             <div className="border-b border-gray-200 pb-5 mb-6">
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Service Logs for {user.name}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Service Logs for {teamMemberNames}</h1>
                 <p className="mt-2 text-sm text-gray-500">
-                    Showing {logs.length} assigned sites for the <span className="font-medium text-gray-700">{period.name}</span> service period.
+                    Showing {logs.length} total assigned sites for the team during the <span className="font-medium text-gray-700">{period.name}</span> service period.
                 </p>
             </div>
             
             <ResponsiveLogList logs={logs} onFinishClick={handleOpenModal} />
 
-            {logs.length === 0 && <p className="p-4 mt-4 text-sm text-gray-500 bg-white rounded-lg border">This engineer had no logs assigned for this period.</p>}
+            {logs.length === 0 && <p className="p-4 mt-4 text-sm text-gray-500 bg-white rounded-lg border">This team had no logs assigned for this period.</p>}
             
             {modalState.isOpen && modalState.log && (
                 <FinishJobModal
