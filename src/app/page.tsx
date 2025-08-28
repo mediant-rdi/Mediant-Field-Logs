@@ -32,19 +32,22 @@ function RedirectToDashboard() {
       justifyContent: 'center',
       alignItems: 'center',
       height: '100vh',
+      minHeight: '100vh',
       fontFamily: 'system-ui, sans-serif'
     }}>
-      <div>
+      <div style={{ textAlign: 'center', minHeight: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{
           width: '32px',
           height: '32px',
+          minWidth: '32px',
+          minHeight: '32px',
           border: '3px solid #f3f3f3',
           borderTop: '3px solid #10b981',
           borderRadius: '50%',
           animation: 'spin 1s linear infinite',
           margin: '0 auto 16px'
         }}></div>
-        <div>Redirecting to dashboard...</div>
+        <div style={{ minHeight: '24px', fontSize: '14px' }}>Redirecting to dashboard...</div>
       </div>
       <style jsx>{`
         @keyframes spin {
@@ -69,19 +72,22 @@ function RedirectToLogin() {
       justifyContent: 'center',
       alignItems: 'center',
       height: '100vh',
+      minHeight: '100vh',
       fontFamily: 'system-ui, sans-serif'
     }}>
-      <div>
+      <div style={{ textAlign: 'center', minHeight: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{
           width: '32px',
           height: '32px',
+          minWidth: '32px',
+          minHeight: '32px',
           border: '3px solid #f3f3f3',
           borderTop: '3px solid #3b82f6',
           borderRadius: '50%',
           animation: 'spin 1s linear infinite',
           margin: '0 auto 16px'
         }}></div>
-        <div>Redirecting to login...</div>
+        <div style={{ minHeight: '24px', fontSize: '14px' }}>Redirecting to login...</div>
       </div>
       <style jsx>{`
         @keyframes spin {

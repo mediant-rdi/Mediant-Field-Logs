@@ -11,14 +11,23 @@ export function LoadingScreen() {
           IMPORTANT: Make sure your logo is placed in the public folder.
           For example: /public/images/logo.png 
         */}
-        <Image
-          src="/images/logo.jpg" // Use the path to your logo from the `public` folder
-          alt="Mediant Logo"
-          width={150} // Adjust width as needed
-          height={150} // Adjust height as needed
-          priority // Tells Next.js to load this image first
-          className="animate-pulse" // Adds a subtle pulsing effect
-        />
+        {/* Reserve exact space to prevent layout shift */}
+        <div className="w-[150px] h-[150px] flex items-center justify-center">
+          <Image
+            src="/images/logo.jpg" // Use the path to your logo from the `public` folder
+            alt="Mediant Logo"
+            width={150} // The intrinsic (original) width of the image file
+            height={150} // The intrinsic (original) height of the image file
+            priority // Tells Next.js to load this image first
+            className="animate-pulse" // Adds a subtle pulsing effect
+            // Fixed dimensions to prevent any layout shift
+            style={{ 
+              width: '150px', 
+              height: '150px',
+              objectFit: 'contain'
+            }}
+          />
+        </div>
       </div>
     </div>
   );
