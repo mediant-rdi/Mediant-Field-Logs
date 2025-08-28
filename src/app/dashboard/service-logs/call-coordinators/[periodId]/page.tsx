@@ -10,7 +10,7 @@ import React, { useMemo, Suspense, use } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { Id } from "../../../../../../convex/_generated/dataModel";
 import CallLogAccessProtection from "@/components/CallLogAccessProtection";
-import { Doc } from "../../../../../../convex/_generated/dataModel"; // MODIFICATION: Import Doc type
+//import { Doc } from "../../../../../../convex/_generated/dataModel"; // MODIFICATION: Import Doc type
 
 type PeriodDetailsData = FunctionReturnType<typeof api.servicePeriods.getByIdWithLogs>;
 type EnrichedServiceLog = Exclude<PeriodDetailsData, null>['serviceLogs'][0];

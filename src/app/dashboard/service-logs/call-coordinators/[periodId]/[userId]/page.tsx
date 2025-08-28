@@ -232,7 +232,7 @@ const UserPeriodDetailsContent = ({ periodId, userId }: { periodId: Id<"serviceP
                 <span className="mx-2">/</span>
                 <Link href={`/dashboard/service-logs/call-coordinators/${period._id}`} className="hover:text-gray-700 truncate max-w-[150px] sm:max-w-[200px]">{period.name}</Link>
                 <span className="mx-2">/</span>
-                <span className="text-gray-800 truncate max-w-[150px] sm:max-w-[200px]">{leader.name}'s Team</span>
+                <span className="text-gray-800 truncate max-w-[150px] sm:max-w-[200px]">{leader.name}&apos;s Team</span>
             </nav>
             
             <div className="border-b border-gray-200 pb-5 mb-6">
